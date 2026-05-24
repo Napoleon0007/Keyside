@@ -50,6 +50,29 @@ body {
 
 /* ── Hero ────────────────────────────────── */
 .hero {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+
+.hero-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.72) 100%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
   padding: 64px 36px 52px;
 }
 
