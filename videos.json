@@ -1,0 +1,21 @@
+{
+  "Bird glide.mp4":      { "title": "Bird Glide",                    "style": "atmospheric" },
+  "Chair pillow.mp4":    { "title": "Chair Pillow",                  "style": "surrealism"  },
+  "Clouds around a building 2.mp4": { "title": "Clouds Around a Building", "style": "atmospheric" },
+  "Clouds.mp4":          { "title": "Clouds",                        "style": "atmospheric" },
+  "Cotton ball fire.mp4":{ "title": "Cotton Ball Fire",              "style": "surrealism"  },
+  "Dark church.mp4":     { "title": "Dark Church",                   "style": "gothic"      },
+  "Ghandi.mp4":          { "title": "Gandhi",                        "style": "historical"  },
+  "Hovering men.mp4":    { "title": "Hovering Men",                  "style": "surrealism"  },
+  "Mercury acid trip.mp4":{ "title": "Mercury Acid Trip",            "style": "psychedelic" },
+  "Pattern acid.mp4":    { "title": "Pattern Acid",                  "style": "psychedelic" },
+  "Picasso.mp4":         { "title": "Picasso",                       "style": "cubism"      },
+  "_imagine-public_share-videos_00a5bab5-5ee6-4210-92d7-d4fe9d59ef25.MP4": { "title": "Vision I",    "style": "abstract" },
+  "_imagine-public_share-videos_2c5ffc00-253a-4cd8-8645-3bd217da6d19.MP4": { "title": "Vision II",   "style": "abstract" },
+  "_imagine-public_share-videos_aa0effc1-815f-40b6-a669-435399debb88.MP4": { "title": "Vision III",  "style": "abstract" },
+  "_users_d81a33a7-fcfb-4ab7-96af-34fbf46aaf36_generated_4c2fba2e-7cdc-4478-9ec7-0903bac56a2b_generated_video.MP4": { "title": "Fragment", "style": "abstract" },
+  "grok-video-1668daef-7ba4-4978-9ec0-f88b2a32acdc.mp4": { "title": "Signal I",    "style": "abstract" },
+  "grok-video-9344f2b1-08d7-426d-a3ec-bf59820020f2.mp4": { "title": "Signal II",   "style": "abstract" },
+  "grok-video-f6c357e1-846b-4327-89e5-0081b1529327 (1).mp4": { "title": "Signal III",  "style": "abstract" },
+  "nark twain.mp4":      { "title": "Mark Twain",                    "style": "historical"  }
+}

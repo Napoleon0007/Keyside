@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keyside</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,600;1,300;1,400&family=Space+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="top-bar">
+      <span class="nav-logo">KS</span>
+      <span class="nav-label">Digital Gallery</span>
+    </div>
+    <div class="hero">
+      <h1 class="site-title">KEY<span class="orange">SIDE</span></h1>
+      <div class="title-underline"></div>
+      <p class="site-sub">Forgotten art. Brought back to life.</p>
+    </div>
+  </header>
+
+  <div class="filter-bar" id="filterBar">
+    <div class="filter-scroll">
+      <button class="filter-btn active" data-style="all">All</button>
+      <button class="filter-btn" data-style="surrealism">Surrealism</button>
+      <button class="filter-btn" data-style="psychedelic">Psychedelic</button>
+      <button class="filter-btn" data-style="atmospheric">Atmospheric</button>
+      <button class="filter-btn" data-style="gothic">Gothic</button>
+      <button class="filter-btn" data-style="cubism">Cubism</button>
+      <button class="filter-btn" data-style="historical">Historical</button>
+      <button class="filter-btn" data-style="abstract">Abstract</button>
+    </div>
+    <div class="filter-count">
+      <span id="countNum">—</span>&thinsp;works
+    </div>
+  </div>
+
+  <main class="gallery" id="gallery">
+    <div class="gallery-loading" id="galleryLoading">
+      <span class="loading-dot"></span>
+      <span class="loading-dot"></span>
+      <span class="loading-dot"></span>
+    </div>
+  </main>
+
+  <div class="modal" id="modal" aria-hidden="true" role="dialog">
+    <div class="modal-bg" id="modalBg"></div>
+    <div class="modal-box">
+      <button class="modal-close" id="modalClose" aria-label="Close">&#x2715;</button>
+      <div class="modal-video-wrap">
+        <video class="modal-video" id="modalVideo" controls playsinline></video>
+      </div>
+      <div class="modal-info">
+        <h2 class="modal-title" id="modalTitle"></h2>
+        <span class="modal-style-tag" id="modalStyleTag"></span>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>
