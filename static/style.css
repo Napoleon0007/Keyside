@@ -98,12 +98,11 @@ body {
 }
 
 .site-sub-name {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: clamp(17px, 2vw, 26px);
-  color: var(--off-white);
-  margin-top: 10px;
-  letter-spacing: 0.04em;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(22px, 3.5vw, 48px);
+  color: var(--white);
+  margin-top: 8px;
+  letter-spacing: 0.06em;
 }
 
 .site-sub {
