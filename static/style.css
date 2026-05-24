@@ -74,6 +74,15 @@ body {
   to { width: 100%; }
 }
 
+.site-sub-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: clamp(17px, 2vw, 26px);
+  color: var(--off-white);
+  margin-top: 10px;
+  letter-spacing: 0.04em;
+}
+
 .site-sub {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
