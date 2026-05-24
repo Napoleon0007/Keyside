@@ -2,12 +2,20 @@ from flask import Flask, jsonify, render_template, send_file, abort, request
 from pathlib import Path
 import json
 import mimetypes
+import os
 
 app = Flask(__name__)
 
+# Local path used in development; ignored when GITHUB_VIDEO_REPO is set.
 VIDEO_DIR = Path(__file__).parent.parent / "Art Hub"
 METADATA_FILE = Path(__file__).parent / "videos.json"
 VIDEO_EXTENSIONS = {".mp4", ".MP4", ".webm", ".mov", ".MOV", ".m4v"}
+
+# When deployed, videos are served straight from GitHub raw URLs.
+# Set GITHUB_VIDEO_REPO=Napoleon0007/Art-Hub in Railway env vars.
+GITHUB_REPO = os.environ.get("GITHUB_VIDEO_REPO", "")
+GITHUB_BRANCH = os.environ.get("GITHUB_VIDEO_BRANCH", "main")
+GITHUB_RAW_BASE = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}" if GITHUB_REPO else ""
 
 
 def load_metadata() -> dict:
@@ -34,22 +42,34 @@ def index():
 
 @app.route("/api/videos")
 def get_videos():
-    if not VIDEO_DIR.exists():
-        return jsonify({"error": "Video directory not found", "videos": []})
-
     metadata = load_metadata()
     videos = []
 
-    for path in sorted(VIDEO_DIR.iterdir()):
-        if path.suffix in VIDEO_EXTENSIONS and path.is_file():
-            filename = path.name
-            meta = metadata.get(filename, {})
+    if GITHUB_RAW_BASE:
+        # Production: build list from metadata file; src points to GitHub raw.
+        for filename, meta in metadata.items():
+            encoded = "/".join(p.replace(" ", "%20") for p in filename.split("/"))
             videos.append({
                 "file": filename,
                 "title": meta.get("title", clean_title(filename)),
                 "style": meta.get("style", "abstract"),
-                "src": f"/video/{filename}",
+                "src": f"{GITHUB_RAW_BASE}/{encoded}",
             })
+        videos.sort(key=lambda v: v["file"])
+    else:
+        # Development: scan local Art Hub directory.
+        if not VIDEO_DIR.exists():
+            return jsonify({"error": "Video directory not found", "videos": []})
+        for path in sorted(VIDEO_DIR.iterdir()):
+            if path.suffix in VIDEO_EXTENSIONS and path.is_file():
+                filename = path.name
+                meta = metadata.get(filename, {})
+                videos.append({
+                    "file": filename,
+                    "title": meta.get("title", clean_title(filename)),
+                    "style": meta.get("style", "abstract"),
+                    "src": f"/video/{filename}",
+                })
 
     return jsonify({"videos": videos})
 
