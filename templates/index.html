@@ -13,8 +13,19 @@
 
   <header class="site-header">
     <div class="top-bar">
-      <span class="nav-logo">MS</span>
-      <span class="nav-label">Rex Trueform Arts Hub</span>
+      <div class="nav-left">
+        <video class="nav-logo" autoplay muted loop playsinline>
+          <source src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/Rex%20trueform%20logo.MP4" type="video/mp4">
+        </video>
+        <span class="nav-label">Rex Trueform Arts Hub</span>
+      </div>
+      <div class="nav-right">
+        <img class="nav-skull" src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/orange%20skull.png" alt="">
+        <video class="nav-meside-logo" autoplay muted loop playsinline>
+          <source src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/meside%20logo.mov" type="video/mp4">
+        </video>
+        <div id="navRight"></div>
+      </div>
     </div>
     <div class="hero">
       <video class="hero-bg-video" autoplay muted loop playsinline>
@@ -25,7 +36,7 @@
         <h1 class="site-title">ME<span class="orange">SIDE</span></h1>
         <p class="site-sub-name">Rex <span class="orange">True</span>form <span class="orange">ART</span>s Hub</p>
         <div class="title-underline"></div>
-        <p class="site-sub">fuck that shit.. I just wanna <span class="red">BAN</span>G!!</p>
+        <p class="site-sub">fuck that shit.. I just wanna <span class="orange">BAN</span>G!!</p>
       </div>
     </div>
   </header>
@@ -54,16 +65,63 @@
     </div>
   </main>
 
+  <!-- Video modal -->
   <div class="modal" id="modal" aria-hidden="true" role="dialog">
     <div class="modal-bg" id="modalBg"></div>
     <div class="modal-box">
       <button class="modal-close" id="modalClose" aria-label="Close">&#x2715;</button>
       <div class="modal-video-wrap">
-        <video class="modal-video" id="modalVideo" controls playsinline></video>
+        <video class="modal-video" id="modalVideo" controls muted playsinline></video>
       </div>
       <div class="modal-info">
-        <h2 class="modal-title" id="modalTitle"></h2>
-        <span class="modal-style-tag" id="modalStyleTag"></span>
+        <div class="modal-info-left">
+          <h2 class="modal-title" id="modalTitle"></h2>
+          <span class="modal-style-tag" id="modalStyleTag"></span>
+        </div>
+        <button class="download-btn" id="downloadBtn" style="display:none">&#x2193; Download</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth modal -->
+  <div class="auth-modal" id="authModal" aria-hidden="true">
+    <div class="auth-modal-bg" id="authModalBg"></div>
+    <div class="auth-box">
+      <button class="auth-close" id="authClose">&#x2715;</button>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Login</button>
+        <button class="auth-tab" data-tab="signup">Sign Up</button>
+      </div>
+      <form class="auth-form" id="authForm">
+        <div class="auth-field">
+          <label>Email</label>
+          <input type="email" id="authEmail" autocomplete="email" required placeholder="your@email.com">
+        </div>
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" id="authPassword" autocomplete="current-password" required placeholder="••••••">
+        </div>
+        <p class="auth-error" id="authError"></p>
+        <button type="submit" class="auth-submit" id="authSubmit">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Upload modal -->
+  <div class="auth-modal" id="uploadModal" aria-hidden="true">
+    <div class="auth-modal-bg" id="uploadModalBg"></div>
+    <div class="auth-box">
+      <button class="auth-close" id="uploadClose">&#x2715;</button>
+      <h3 class="auth-heading">Upload Video</h3>
+      <div class="upload-drop" id="uploadDrop">
+        <p>Drop MP4 here or <label class="upload-pick" for="uploadFile">choose file</label></p>
+        <input type="file" id="uploadFile" accept=".mp4,.MP4,.webm,.mov" style="display:none">
+        <p class="upload-name" id="uploadName"></p>
+      </div>
+      <p class="auth-error" id="uploadError"></p>
+      <button class="auth-submit" id="uploadSubmit" disabled>Upload</button>
+      <div class="upload-progress" id="uploadProgress" style="display:none">
+        <div class="upload-bar" id="uploadBar"></div>
       </div>
     </div>
   </div>

@@ -42,22 +42,84 @@ body.modal-open {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 36px;
+  padding: 14px 36px;
   border-bottom: 1px solid var(--border);
 }
 
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
 .nav-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 20px;
-  letter-spacing: 0.2em;
-  color: var(--orange);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
 }
 
 .nav-label {
-  font-size: 9px;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  color: var(--white);
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-btn {
+  background: none;
+  border: 1px solid var(--border);
   color: var(--dim);
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+
+.nav-btn:hover { color: var(--white); border-color: #333; }
+
+.nav-btn-orange {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: var(--black);
+}
+.nav-btn-orange:hover { opacity: 0.85; color: var(--black); }
+
+.nav-skull {
+  height: 36px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.nav-meside-logo {
+  height: 40px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+}
+
+.nav-user-email {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Hero ────────────────────────────────── */
@@ -370,10 +432,37 @@ body.modal-open {
 .modal-info {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   padding: 14px 2px 0;
   border-top: 1px solid var(--border);
   margin-top: 2px;
+}
+
+.modal-info-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.download-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--orange);
+  color: var(--orange);
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+.download-btn:hover {
+  background: var(--orange);
+  color: var(--black);
 }
 
 .modal-title {
@@ -411,7 +500,7 @@ body.modal-open {
 /* Tablet + phone layout */
 @media (max-width: 768px) {
   .top-bar {
-    padding: 14px 20px;
+    padding: 10px 20px;
   }
 
   .hero-content {
@@ -466,4 +555,176 @@ body.modal-open {
   body {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* ── Auth modal ──────────────────────────── */
+.auth-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+}
+.auth-modal.open { display: flex; }
+
+.auth-modal-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.94);
+  cursor: pointer;
+  animation: bgFadeIn 0.25s ease forwards;
+}
+
+.auth-box {
+  position: relative;
+  z-index: 1;
+  width: 360px;
+  background: #050505;
+  border: 1px solid var(--border);
+  padding: 36px 32px;
+  animation: boxIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.auth-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-size: 14px;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+.auth-close:hover { color: var(--white); }
+
+.auth-heading {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.12em;
+  margin-bottom: 24px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.auth-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--dim);
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 10px 0;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.auth-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+.auth-field {
+  margin-bottom: 18px;
+}
+.auth-field label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 6px;
+}
+.auth-field input {
+  width: 100%;
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  color: var(--white);
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.auth-field input:focus { border-color: var(--orange); }
+
+.auth-error {
+  font-size: 10px;
+  color: #ff4444;
+  letter-spacing: 0.1em;
+  min-height: 16px;
+  margin-bottom: 14px;
+}
+
+.auth-submit {
+  width: 100%;
+  background: var(--orange);
+  color: var(--black);
+  border: none;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.12em;
+  padding: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.auth-submit:hover { opacity: 0.85; }
+.auth-submit:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Upload drop zone ────────────────────── */
+.upload-drop {
+  border: 1px dashed var(--border);
+  padding: 32px 24px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  margin-bottom: 18px;
+  transition: border-color 0.2s;
+}
+.upload-drop.dragging { border-color: var(--orange); color: var(--white); }
+
+.upload-pick {
+  color: var(--orange);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.upload-name {
+  margin-top: 10px;
+  font-size: 10px;
+  color: var(--white);
+  letter-spacing: 0.08em;
+  word-break: break-all;
+}
+
+.upload-progress {
+  height: 2px;
+  background: var(--border);
+  margin-top: 14px;
+}
+.upload-bar {
+  height: 100%;
+  background: var(--orange);
+  width: 0;
+  transition: width 0.1s linear;
+}
+
+/* Mobile nav tweaks */
+@media (max-width: 560px) {
+  .top-bar { padding: 12px 16px; }
+  .nav-label { display: none; }
+  .nav-btn { padding: 7px 10px; font-size: 8px; }
+  .auth-box { width: 92vw; padding: 28px 20px; }
 }
