@@ -586,6 +586,17 @@ body.modal-open {
   animation: boxIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+.auth-logo {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
 .auth-close {
   position: absolute;
   top: 14px;
