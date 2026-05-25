@@ -14,7 +14,11 @@
   --border:  #151515;
 }
 
-html { font-size: 16px; scroll-behavior: smooth; }
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
 
 body {
   background: var(--black);
@@ -22,6 +26,12 @@ body {
   font-family: 'Space Mono', monospace;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+body.modal-open {
+  position: fixed;
+  width: 100%;
+  overflow-y: scroll;
 }
 
 .orange { color: var(--orange); }
@@ -150,6 +160,8 @@ body {
   margin-bottom: -1px;
   transition: color 0.2s, border-color 0.2s;
   white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .filter-btn:hover { color: var(--off-white); }
@@ -215,6 +227,8 @@ body {
   background: #080808;
   cursor: pointer;
   transition: opacity 0.35s ease, transform 0.35s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .card.filtered-out {
@@ -374,4 +388,82 @@ body {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--orange);
+}
+
+/* ── Touch / Mobile ──────────────────────── */
+
+/* On touch devices: title + badge always visible, no hover preview */
+@media (hover: none) {
+  .card-overlay {
+    transform: translateY(0);
+    background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 60%);
+  }
+
+  .card-badge {
+    transform: translateY(0);
+  }
+
+  .card-video {
+    transform: scale(1.04);
+  }
+}
+
+/* Tablet + phone layout */
+@media (max-width: 768px) {
+  .top-bar {
+    padding: 14px 20px;
+  }
+
+  .hero-content {
+    padding: 36px 20px 30px;
+  }
+
+  .filter-btn {
+    padding: 12px 14px;
+    min-height: 44px;
+  }
+
+  .filter-count {
+    padding: 0 14px;
+  }
+
+  /* Close button: tucked inside top-right of modal */
+  .modal-close {
+    top: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    border-color: var(--orange);
+    width: 44px;
+    height: 44px;
+  }
+
+  .modal-box {
+    width: 96vw;
+  }
+
+  .modal-video {
+    max-height: 55vh;
+  }
+
+  .modal-title {
+    font-size: 17px;
+  }
+}
+
+/* Gallery: 2 columns on phones */
+@media (max-width: 560px) {
+  .gallery { grid-template-columns: repeat(2, 1fr); }
+  .card-title { font-size: 13px; }
+}
+
+/* Safe area for iPhone notch / home bar */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .filter-bar {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

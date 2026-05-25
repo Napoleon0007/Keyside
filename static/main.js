@@ -10,6 +10,7 @@ const countNum    = document.getElementById('countNum');
 
 let currentFilter = 'all';
 let hideTimers    = [];
+let scrollY       = 0;
 
 // ── Build gallery from API ──────────────────────────────────────────────────
 
@@ -67,12 +68,14 @@ function buildCard({ file, title, style, src }) {
 // ── Modal ───────────────────────────────────────────────────────────────────
 
 function openModal(src, title, style) {
+  scrollY = window.scrollY;
+  document.body.style.top = `-${scrollY}px`;
+  document.body.classList.add('modal-open');
   modalVideo.src = src;
   modalTitle.textContent = title;
   modalTag.textContent = style;
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
-  document.body.style.overflow = 'hidden';
   modalVideo.play().catch(() => {});
 }
 
@@ -81,7 +84,9 @@ function closeModal() {
   modal.setAttribute('aria-hidden', 'true');
   modalVideo.pause();
   modalVideo.src = '';
-  document.body.style.overflow = '';
+  document.body.classList.remove('modal-open');
+  document.body.style.top = '';
+  window.scrollTo(0, scrollY);
 }
 
 modalClose.addEventListener('click', closeModal);
