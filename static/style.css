@@ -586,15 +586,28 @@ body.modal-open {
   animation: boxIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.auth-logo {
+.auth-brand {
   position: absolute;
   top: 12px;
   left: 14px;
-  width: 36px;
-  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.auth-logo {
+  width: 32px;
+  height: 32px;
   object-fit: cover;
   border-radius: 3px;
   pointer-events: none;
+  flex-shrink: 0;
+}
+.auth-brand-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  color: #fff;
+  line-height: 1;
 }
 
 .auth-close {
