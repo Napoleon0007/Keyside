@@ -1,47 +1,178 @@
 {
-  "Ali.mp4":              { "title": "Muhammad Ali",          "style": "historical" },
-  "Bird glide.mp4":       { "title": "Bird Glide",            "style": "atmospheric" },
-  "Carl jung.mp4":        { "title": "Carl Jung",             "style": "historical" },
-  "Chair pillow.mp4":     { "title": "Chair Pillow",          "style": "surrealism"  },
-  "Charlie chaplin.mp4":  { "title": "Charlie Chaplin",       "style": "historical" },
-  "Clouds around a building 2.mp4": { "title": "Clouds Around a Building", "style": "atmospheric" },
-  "Clouds.mp4":           { "title": "Clouds",                "style": "atmospheric" },
-  "Cotton ball fire.mp4": { "title": "Cotton Ball Fire",      "style": "surrealism"  },
-  "Da vinci.mp4":         { "title": "Leonardo da Vinci",     "style": "historical" },
-  "Dark church.mp4":      { "title": "Dark Church",           "style": "gothic"      },
-  "Edison.mp4":           { "title": "Thomas Edison",         "style": "historical" },
-  "Einstein.mp4":         { "title": "Albert Einstein",       "style": "historical" },
-  "Elvis.mp4":            { "title": "Elvis Presley",         "style": "historical" },
-  "George washington.mp4":{ "title": "George Washington",     "style": "historical" },
-  "Ghandi.mp4":           { "title": "Gandhi",                "style": "historical"  },
-  "Hovering men.mp4":     { "title": "Hovering Men",          "style": "surrealism"  },
-  "Jfk.mp4":              { "title": "John F. Kennedy",       "style": "historical" },
-  "Joan of arc.mp4":      { "title": "Joan of Arc",           "style": "historical" },
-  "Martin luther king.mp4": { "title": "Martin Luther King Jr.", "style": "historical" },
-  "Mercury acid trip.mp4":{ "title": "Mercury Acid Trip",     "style": "psychedelic" },
-  "Mozart 2.mp4":         { "title": "Mozart II",             "style": "historical" },
-  "Mozart.mp4":           { "title": "Mozart",                "style": "historical" },
-  "Napoleon.mp4":         { "title": "Napoleon Bonaparte",    "style": "historical" },
-  "Neil armstrong.mp4":   { "title": "Neil Armstrong",        "style": "historical" },
-  "Nelson.mp4":           { "title": "Nelson Mandela",        "style": "historical" },
-  "Newton.mp4":           { "title": "Isaac Newton",          "style": "historical" },
-  "Oscar wilde.mp4":      { "title": "Oscar Wilde",           "style": "historical" },
-  "Pattern acid.mp4":     { "title": "Pattern Acid",          "style": "psychedelic" },
-  "Picasso.mp4":          { "title": "Picasso",               "style": "cubism"      },
-  "Queen eliz 1.mp4":     { "title": "Queen Elizabeth I",     "style": "historical" },
-  "Reagan.mp4":           { "title": "Ronald Reagan",         "style": "historical" },
-  "Sigmund freud.mp4":    { "title": "Sigmund Freud",         "style": "historical" },
-  "Stee jobs.mp4":        { "title": "Steve Jobs",            "style": "historical" },
-  "Tesla.mp4":            { "title": "Nikola Tesla",          "style": "historical" },
-  "Theodore 2.mp4":       { "title": "Theodore Roosevelt II", "style": "historical" },
-  "Theodore.mp4":         { "title": "Theodore Roosevelt",    "style": "historical" },
-  "Vangogh.mp4":          { "title": "Vincent van Gogh",      "style": "historical" },
-  "_imagine-public_share-videos_00a5bab5-5ee6-4210-92d7-d4fe9d59ef25.MP4": { "title": "Vision I",    "style": "abstract" },
-  "_imagine-public_share-videos_2c5ffc00-253a-4cd8-8645-3bd217da6d19.MP4": { "title": "Vision II",   "style": "abstract" },
-  "_imagine-public_share-videos_aa0effc1-815f-40b6-a669-435399debb88.MP4": { "title": "Vision III",  "style": "abstract" },
-  "_users_d81a33a7-fcfb-4ab7-96af-34fbf46aaf36_generated_4c2fba2e-7cdc-4478-9ec7-0903bac56a2b_generated_video.MP4": { "title": "Fragment", "style": "abstract" },
-  "grok-video-1668daef-7ba4-4978-9ec0-f88b2a32acdc.mp4": { "title": "Signal I",    "style": "abstract" },
-  "grok-video-9344f2b1-08d7-426d-a3ec-bf59820020f2.mp4": { "title": "Signal II",   "style": "abstract" },
-  "grok-video-f6c357e1-846b-4327-89e5-0081b1529327 (1).mp4": { "title": "Signal III",  "style": "abstract" },
-  "nark twain.mp4":       { "title": "Mark Twain",            "style": "historical"  }
+  "Ali.mp4": {
+    "title": "Muhammad Ali",
+    "style": "historical"
+  },
+  "Bird glide.mp4": {
+    "title": "Bird Glide",
+    "style": "atmospheric"
+  },
+  "Carl jung.mp4": {
+    "title": "Carl Jung",
+    "style": "historical"
+  },
+  "Chair pillow.mp4": {
+    "title": "Chair Pillow",
+    "style": "surrealism"
+  },
+  "Clouds around a building 2.mp4": {
+    "title": "Clouds Around a Building",
+    "style": "atmospheric"
+  },
+  "Clouds.mp4": {
+    "title": "Clouds",
+    "style": "atmospheric"
+  },
+  "Cotton ball fire.mp4": {
+    "title": "Cotton Ball Fire",
+    "style": "surrealism"
+  },
+  "Da vinci.mp4": {
+    "title": "Leonardo da Vinci",
+    "style": "historical"
+  },
+  "Dark church.mp4": {
+    "title": "Dark Church",
+    "style": "gothic"
+  },
+  "Edison.mp4": {
+    "title": "Thomas Edison",
+    "style": "historical"
+  },
+  "Einstein.mp4": {
+    "title": "Albert Einstein",
+    "style": "historical"
+  },
+  "Elvis.mp4": {
+    "title": "Elvis Presley",
+    "style": "historical"
+  },
+  "George washington.mp4": {
+    "title": "George Washington",
+    "style": "historical"
+  },
+  "Ghandi.mp4": {
+    "title": "Gandhi",
+    "style": "historical"
+  },
+  "Hovering men.mp4": {
+    "title": "Hovering Men",
+    "style": "surrealism"
+  },
+  "Jfk.mp4": {
+    "title": "John F. Kennedy",
+    "style": "historical"
+  },
+  "Joan of arc.mp4": {
+    "title": "Joan of Arc",
+    "style": "historical"
+  },
+  "Martin luther king.mp4": {
+    "title": "Martin Luther King Jr.",
+    "style": "historical"
+  },
+  "Mercury acid trip.mp4": {
+    "title": "Mercury Acid Trip",
+    "style": "psychedelic"
+  },
+  "Mozart 2.mp4": {
+    "title": "Mozart II",
+    "style": "historical"
+  },
+  "Mozart.mp4": {
+    "title": "Mozart",
+    "style": "historical"
+  },
+  "Napoleon.mp4": {
+    "title": "Napoleon Bonaparte",
+    "style": "historical"
+  },
+  "Neil armstrong.mp4": {
+    "title": "Neil Armstrong",
+    "style": "historical"
+  },
+  "Nelson.mp4": {
+    "title": "Nelson Mandela",
+    "style": "historical"
+  },
+  "Newton.mp4": {
+    "title": "Isaac Newton",
+    "style": "historical"
+  },
+  "Oscar wilde.mp4": {
+    "title": "Oscar Wilde",
+    "style": "historical"
+  },
+  "Pattern acid.mp4": {
+    "title": "Pattern Acid",
+    "style": "psychedelic"
+  },
+  "Picasso.mp4": {
+    "title": "Picasso",
+    "style": "cubism"
+  },
+  "Queen eliz 1.mp4": {
+    "title": "Queen Elizabeth I",
+    "style": "historical"
+  },
+  "Reagan.mp4": {
+    "title": "Ronald Reagan",
+    "style": "historical"
+  },
+  "Sigmund freud.mp4": {
+    "title": "Sigmund Freud",
+    "style": "historical"
+  },
+  "Stee jobs.mp4": {
+    "title": "Steve Jobs",
+    "style": "historical"
+  },
+  "Tesla.mp4": {
+    "title": "Nikola Tesla",
+    "style": "historical"
+  },
+  "Theodore 2.mp4": {
+    "title": "Theodore Roosevelt II",
+    "style": "historical"
+  },
+  "Theodore.mp4": {
+    "title": "Theodore Roosevelt",
+    "style": "historical"
+  },
+  "Vangogh.mp4": {
+    "title": "Vincent van Gogh",
+    "style": "historical"
+  },
+  "_imagine-public_share-videos_00a5bab5-5ee6-4210-92d7-d4fe9d59ef25.MP4": {
+    "title": "Vision I",
+    "style": "abstract"
+  },
+  "_imagine-public_share-videos_2c5ffc00-253a-4cd8-8645-3bd217da6d19.MP4": {
+    "title": "Vision II",
+    "style": "abstract"
+  },
+  "_imagine-public_share-videos_aa0effc1-815f-40b6-a669-435399debb88.MP4": {
+    "title": "Vision III",
+    "style": "abstract"
+  },
+  "_users_d81a33a7-fcfb-4ab7-96af-34fbf46aaf36_generated_4c2fba2e-7cdc-4478-9ec7-0903bac56a2b_generated_video.MP4": {
+    "title": "Fragment",
+    "style": "abstract"
+  },
+  "grok-video-1668daef-7ba4-4978-9ec0-f88b2a32acdc.mp4": {
+    "title": "Signal I",
+    "style": "abstract"
+  },
+  "grok-video-9344f2b1-08d7-426d-a3ec-bf59820020f2.mp4": {
+    "title": "Signal II",
+    "style": "abstract"
+  },
+  "grok-video-f6c357e1-846b-4327-89e5-0081b1529327 (1).mp4": {
+    "title": "Signal III",
+    "style": "abstract"
+  },
+  "nark twain.mp4": {
+    "title": "Mark Twain",
+    "style": "historical"
+  }
 }
