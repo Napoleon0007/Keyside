@@ -108,12 +108,11 @@ body {
 }
 
 .site-sub {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: clamp(15px, 1.8vw, 21px);
-  color: var(--dim);
-  margin-top: 22px;
-  letter-spacing: 0.04em;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(18px, 2.8vw, 38px);
+  color: var(--white);
+  margin-top: 14px;
+  letter-spacing: 0.06em;
 }
 
 /* ── Filter bar ──────────────────────────── */
