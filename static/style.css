@@ -7,6 +7,7 @@
 :root {
   --black:   #000000;
   --orange:  #ff5500;
+  --red:     #ff1a1a;
   --white:   #ffffff;
   --off-white: #f0ede8;
   --dim:     #3d3d3d;
@@ -24,6 +25,7 @@ body {
 }
 
 .orange { color: var(--orange); }
+.red    { color: var(--red); }
 
 /* ── Top bar ─────────────────────────────── */
 .top-bar {
