@@ -147,7 +147,18 @@ body.modal-open {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.72) 100%);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.55) 100%);
+}
+
+/* Cinematic vignette — frames the hero, darkens the corners (over the moon/video,
+   under the lettering so text stays crisp) */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 42% 42%, transparent 38%, rgba(0,0,0,0.62) 100%);
 }
 
 /* Real-life full moon: hovers behind the lettering, spins slowly on its axis */
@@ -162,6 +173,9 @@ body.modal-open {
   margin: calc(clamp(360px, 70vmin, 900px) / -2) 0 0 calc(clamp(360px, 70vmin, 900px) * -0.42);
   pointer-events: none;
   animation: moonFloat 14s ease-in-out infinite;
+  /* soft real moonlight spilling off the surface */
+  filter: drop-shadow(0 0 80px rgba(255, 248, 235, 0.28))
+          drop-shadow(0 0 160px rgba(255, 240, 220, 0.16));
 }
 
 .hero-moon-img {
@@ -169,6 +183,8 @@ body.modal-open {
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
+  /* brighten so it reads clearly against the dark hero */
+  filter: brightness(1.45) contrast(1.06) saturate(1.05);
   -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 64%, transparent 76%);
           mask-image: radial-gradient(circle at 50% 50%, #000 64%, transparent 76%);
   animation: moonSpin 120s linear infinite;   /* slow, but visibly turning on its axis */
