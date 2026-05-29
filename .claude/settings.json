@@ -7,7 +7,8 @@
       "Bash(npx --no-install playwright --version)",
       "Bash(lsof -ti:5077)",
       "Bash(xargs kill)",
-      "Bash(lsof -i:5050)"
+      "Skill(ship)",
+      "Skill(ship:*)"
     ]
   }
 }
