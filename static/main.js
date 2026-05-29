@@ -274,8 +274,11 @@ async function init() {
 
 function buildCard({ file, title, style, src }) {
   const card = document.createElement('div');
-  card.className = 'card';
+  card.className = 'card reveal';
   card.dataset.style = style;
+
+  const inner = document.createElement('div');
+  inner.className = 'card-inner';
 
   const video = document.createElement('video');
   video.className  = 'card-video';
@@ -296,14 +299,63 @@ function buildCard({ file, title, style, src }) {
   titleEl.className   = 'card-title';
   titleEl.textContent = title;
 
+  const sheen = document.createElement('div');
+  sheen.className = 'card-sheen';
+
   overlay.appendChild(titleEl);
-  card.append(video, badge, overlay);
+  inner.append(video, badge, overlay, sheen);
+  card.appendChild(inner);
 
   card.addEventListener('mouseenter', () => video.play().catch(() => {}));
   card.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
   card.addEventListener('click', () => openModal(src, title, style, file));
 
+  attachTilt(card, inner, sheen);
+  revealObserver.observe(card);
+
   gallery.appendChild(card);
+}
+
+// ── 3D tilt + scroll reveal ───────────────────────────────────────────────
+
+const REDUCED  = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NO_HOVER = window.matchMedia('(hover: none)').matches;
+
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if (!entry.isIntersecting) return;
+    const card = entry.target;
+    card.style.transitionDelay = `${Math.min(i * 60, 260)}ms`;
+    card.classList.add('in');
+    setTimeout(() => { card.style.transitionDelay = ''; }, 760);
+    revealObserver.unobserve(card);
+  });
+}, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+
+function attachTilt(card, inner, sheen) {
+  if (REDUCED || NO_HOVER) return;
+  const MAX = 9; // max tilt, degrees
+  let raf = null;
+
+  card.addEventListener('mouseenter', () => card.classList.add('tilting'));
+  card.addEventListener('mousemove', (e) => {
+    const r  = card.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;   // 0..1
+    const py = (e.clientY - r.top)  / r.height;  // 0..1
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const rx = (0.5 - py) * MAX * 2;
+      const ry = (px - 0.5) * MAX * 2;
+      inner.style.transform = `rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+      sheen.style.setProperty('--sx', `${(px * 100).toFixed(1)}%`);
+      sheen.style.setProperty('--sy', `${(py * 100).toFixed(1)}%`);
+    });
+  });
+  card.addEventListener('mouseleave', () => {
+    card.classList.remove('tilting');
+    if (raf) cancelAnimationFrame(raf);
+    inner.style.transform = '';
+  });
 }
 
 // ── Modal ───────────────────────────────────────────────────────────────────

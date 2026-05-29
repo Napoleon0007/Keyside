@@ -127,6 +127,7 @@ body.modal-open {
   position: relative;
   overflow: hidden;
   padding: 0;
+  min-height: clamp(420px, 62vh, 760px);
 }
 
 .hero-bg-video {
@@ -136,18 +137,22 @@ body.modal-open {
   height: 100%;
   object-fit: cover;
   object-position: center;
+  will-change: transform;
 }
 
 .hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.72) 100%);
+  z-index: 2;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.72) 100%);
 }
 
 .hero-content {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   padding: 64px 36px 52px;
+  will-change: transform, opacity;
+  perspective: 1100px;
 }
 
 .site-title {
@@ -157,6 +162,55 @@ body.modal-open {
   letter-spacing: 0.03em;
   color: var(--white);
   display: block;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* Animatable hero letters (driven by herotext.js) */
+.hero-letter {
+  display: inline-block;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+.hero-letter.side { color: var(--orange); }
+
+.shake {
+  display: inline-block;
+  will-change: transform;
+}
+.shake1 { animation: shake1 0.16s linear infinite; }
+.shake2 { animation: shake2 0.11s linear infinite; }
+.shake3 { animation: shake3 0.19s linear infinite; }
+.shake4 { animation: shake4 0.13s linear infinite; }
+
+@keyframes shake1 {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  25%  { transform: translate(-1px, 1px) rotate(-1deg); }
+  50%  { transform: translate(1px, -1px) rotate(1deg); }
+  75%  { transform: translate(-1px, -1px) rotate(0deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes shake2 {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  25%  { transform: translate(1px, -1px) rotate(1deg); }
+  50%  { transform: translate(-1px, 1px) rotate(-1.5deg); }
+  75%  { transform: translate(1px, 1px) rotate(0.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes shake3 {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  25%  { transform: translate(-1px, -1px) rotate(1deg); }
+  50%  { transform: translate(1px, 1px) rotate(-1deg); }
+  75%  { transform: translate(-1px, 1px) rotate(1.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes shake4 {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  25%  { transform: translate(1px, 1px) rotate(-1deg); }
+  50%  { transform: translate(-1px, -1px) rotate(1deg); }
+  75%  { transform: translate(1px, -1px) rotate(-0.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
 }
 
 .title-underline {
@@ -285,14 +339,19 @@ body.modal-open {
 .card {
   position: relative;
   aspect-ratio: 16 / 9;
-  overflow: hidden;
   background: #080808;
   cursor: pointer;
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  perspective: 900px;
+  transition: opacity 0.55s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Scroll reveal — cards rise + fade in as they enter the viewport */
+.card.reveal      { opacity: 0; transform: translateY(46px); }
+.card.reveal.in   { opacity: 1; transform: translateY(0); }
+
+/* filtered-out is declared AFTER reveal so it wins the transform cascade */
 .card.filtered-out {
   opacity: 0;
   transform: scale(0.97);
@@ -300,6 +359,26 @@ body.modal-open {
 }
 
 .card.hidden { display: none; }
+
+/* The tilting 3D plane — clips the video, holds the depth layers */
+.card-inner {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.4s ease;
+  will-change: transform;
+}
+
+/* While actively tracking the cursor we drop the transform easing for 1:1 follow */
+.card.tilting .card-inner { transition: box-shadow 0.4s ease; }
+
+.card:hover { z-index: 5; }
+
+.card:hover .card-inner {
+  box-shadow: 0 34px 70px -24px rgba(0, 0, 0, 0.85);
+}
 
 .card-video {
   width: 100%;
@@ -311,7 +390,22 @@ body.modal-open {
   will-change: transform;
 }
 
-.card:hover .card-video { transform: scale(1.1); }
+/* On hover the thumbnail lifts off the card surface (parallax float) */
+.card:hover .card-video { transform: scale(1.12) translateZ(38px); }
+
+/* Cursor-tracked sheen — sells the 'physical print' feel */
+.card-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at var(--sx, 50%) var(--sy, 50%),
+              rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0) 45%);
+  mix-blend-mode: overlay;
+  transition: opacity 0.4s ease;
+}
+.card:hover .card-sheen { opacity: 1; }
 
 /* Orange style badge — slides down from top on hover */
 .card-badge {
@@ -751,4 +845,54 @@ body.modal-open {
   .nav-label { display: none; }
   .nav-btn { padding: 7px 10px; font-size: 8px; }
   .auth-box { width: 92vw; padding: 28px 20px; }
+}
+
+/* ── Atmosphere FX (cursor spotlight + film grain + vignette) ───────────── */
+/* These are injected into <body> by effects.js. All pointer-events: none and
+   sit below the modal (z 1000) so they never block interaction. */
+.fx-spotlight {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  background: radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%),
+              rgba(255, 85, 0, 0.10), rgba(255, 85, 0, 0) 62%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.fx-spotlight.on { opacity: 1; }
+
+.fx-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 58;
+  pointer-events: none;
+  background: radial-gradient(125% 95% at 50% 38%,
+              rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+.fx-grain {
+  position: fixed;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  z-index: 59;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grainShift 0.7s steps(3) infinite;
+}
+
+@keyframes grainShift {
+  0%   { transform: translate(0, 0); }
+  33%  { transform: translate(-3%, 2%); }
+  66%  { transform: translate(2%, -3%); }
+  100% { transform: translate(0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shake { animation: none; }
+  .fx-grain { animation: none; }
+  .card-inner { transition: box-shadow 0.4s ease; }
 }

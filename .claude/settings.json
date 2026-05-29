@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp___21st-dev_magic__21st_magic_component_inspiration",
+      "Bash(lsof -ti:5000)",
+      "Read(//Applications/**)",
+      "Bash(npx --no-install playwright --version)",
+      "Bash(lsof -ti:5077)",
+      "Bash(xargs kill)",
+      "Bash(lsof -i:5050)"
+    ]
+  }
+}
