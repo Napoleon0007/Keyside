@@ -1,7 +1,7 @@
-// herotext.js — captivating 3D motion for the MESIDE title.
-// Letters fly in from off-screen, settle, idle-float in 3D, tilt toward the cursor,
-// and periodically the "SIDE" word lifts off, orbits the hero, and returns home.
-// Vanilla, dependency-free. Honors reduced-motion; pauses when the hero is off-screen.
+// herotext.js — the MESIDE title floats gently in place, like it's resting on water.
+// A soft wave rolls across the letters (each one phase-offset), with a little rocking
+// and depth. No flying off-screen. Vanilla, dependency-free. Honors reduced-motion;
+// pauses when the hero scrolls out of view.
 
 (() => {
   const title = document.querySelector('.site-title');
@@ -11,40 +11,36 @@
   if (!letters.length) return;
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) return; // static title — letters stay in place
+  if (reduced) return; // static title — letters stay put
 
   const hero = document.querySelector('.hero') || title;
 
-  // Per-letter motion params: a random fly-in start + unique idle rhythm.
+  // Each letter gets a wave phase based on its position (so the wave travels across
+  // the word) plus a touch of randomness so it never looks mechanical.
   const rand = (a, b) => a + Math.random() * (b - a);
   letters.forEach((el, i) => {
-    const side = el.classList.contains('side');
     el._p = {
-      side,
-      sx: rand(-1, 1) * rand(280, 720),   // fly-in start offset X
-      sy: rand(-1, 1) * rand(220, 460),   // fly-in start offset Y
-      sz: rand(-500, 500),                // fly-in start depth
-      srx: rand(-220, 220),               // fly-in start rotateX
-      sry: rand(-220, 220),               // fly-in start rotateY
-      srz: rand(-120, 120),               // fly-in start rotateZ
-      fy: rand(0.5, 0.9),                 // idle bob speed
-      fz: rand(0.35, 0.7),                // idle depth speed
-      ph: rand(0, Math.PI * 2),           // idle phase
-      jo: i * 0.16,                       // journey stagger
+      phase: i * 0.55 + rand(-0.15, 0.15), // travelling-wave offset per letter
+      bob:   rand(7, 10),                   // vertical bob amplitude (px)
+      depth: rand(10, 16),                  // subtle forward/back drift (px)
+      rock:  rand(1.8, 3.0),                // gentle rotation (deg)
     };
   });
 
-  const easeOutBack = (x) => {
-    const c1 = 1.70158, c3 = c1 + 1;
-    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
-  };
+  // Accent words (True / ART / BAN) — each hovers on its own clock, never in sync.
+  const floaties = [...document.querySelectorAll('.floaty')];
+  floaties.forEach((el) => {
+    el._f = {
+      phase: rand(0, Math.PI * 2),  // random start → all at different times
+      speed: rand(0.55, 1.05),      // different rhythms
+      bob:   rand(5, 9),            // gentle vertical hover (px)
+      drift: rand(0.35, 0.8),       // slow secondary swell
+      rock:  rand(1.2, 2.6),        // slight rotation (deg)
+    };
+  });
 
-  const INTRO_DUR    = 1.5;   // s — fly-in
-  const JOURNEY_EVERY = 11;   // s — how often SIDE goes travelling
-  const JOURNEY_DUR  = 3.4;   // s — length of the trip
-  const JOURNEY_START = 4.5;  // s — first trip after intro settles
-
-  // Smoothed mouse tilt for the whole title.
+  // Very soft tilt of the whole word toward the cursor — adds to the "natural" feel
+  // without moving it anywhere. Skipped on touch.
   let mx = 0, my = 0, tmx = 0, tmy = 0;
   if (!window.matchMedia('(hover: none)').matches) {
     window.addEventListener('pointermove', (e) => {
@@ -64,56 +60,39 @@
     frameId = requestAnimationFrame(frame);
 
     const t = (now - t0) / 1000;
-    const intro = Math.min(t / INTRO_DUR, 1);
-    const e = easeOutBack(intro);          // 1 at home, <1 (overshoot) during fly-in
-    const settle = Math.min(intro, 1);     // 0..1 idle fade-in
+    const intro = Math.min(t / 0.9, 1); // quick, soft fade/rise in
 
-    // Whole-title parallax tilt toward the cursor.
-    mx += (tmx - mx) * 0.06;
-    my += (tmy - my) * 0.06;
-    title.style.transform = `rotateX(${-my * 9}deg) rotateY(${mx * 12}deg)`;
-
-    // Journey progress (0 when resting; a 0->1 sweep while travelling).
-    let journey = -1;
-    if (t > JOURNEY_START) {
-      const phase = (t - JOURNEY_START) % JOURNEY_EVERY;
-      if (phase < JOURNEY_DUR) journey = phase / JOURNEY_DUR;
-    }
+    mx += (tmx - mx) * 0.05;
+    my += (tmy - my) * 0.05;
+    title.style.transform = `rotateX(${-my * 4}deg) rotateY(${mx * 5}deg)`;
 
     for (const el of letters) {
       const p = el._p;
 
-      // Fly-in residual (full at t=0, zero once settled).
-      const k = 1 - e;
-      let tx = k * p.sx, ty = k * p.sy, tz = k * p.sz;
-      let rx = k * p.srx, ry = k * p.sry, rz = k * p.srz;
+      // Two overlapping sine waves = an organic, water-like bob (not a perfect loop).
+      const ty = (Math.sin(t * 1.1 + p.phase) * p.bob
+               + Math.sin(t * 0.47 + p.phase * 0.6) * (p.bob * 0.4))
+               + (1 - intro) * 22;                 // gentle rise as it fades in
+      const tz = Math.sin(t * 0.7 + p.phase) * p.depth;
+      const rz = Math.sin(t * 0.9 + p.phase) * p.rock;
+      const rx = Math.sin(t * 0.6 + p.phase) * (p.rock * 0.7);
 
-      // Idle 3D float (fades in after the intro).
-      ty += Math.sin(t * p.fy + p.ph) * 7 * settle;
-      tz += Math.sin(t * p.fz + p.ph) * 38 * settle;
-      rx += Math.sin(t * p.fy + p.ph) * 5 * settle;
-      ry += Math.cos(t * p.fz + p.ph) * 7 * settle;
-
-      // Journey: SIDE letters lift off, sweep an ellipse around the hero, return.
-      if (journey >= 0 && p.side) {
-        const jp = Math.max(0, Math.min(1, journey + p.jo - 0.24));
-        const bell = Math.sin(Math.PI * jp);          // 0 -> 1 -> 0 (leaves & returns)
-        const ang  = jp * Math.PI * 2;                 // full loop -> ends where it started
-        tx += Math.cos(ang) * 260 * bell;
-        ty += Math.sin(ang) * 150 * bell;
-        tz += Math.sin(ang * 2) * 320 * bell;
-        rz += jp * 360 * bell;                          // spins, unwinds back to 0
-        ry += Math.sin(ang) * 60 * bell;
-      }
-
-      el.style.opacity = String(0.15 + 0.85 * Math.min(intro * 1.3, 1));
+      el.style.opacity = String(intro);
       el.style.transform =
-        `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, ${tz.toFixed(2)}px) ` +
-        `rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg)`;
+        `translate3d(0px, ${ty.toFixed(2)}px, ${tz.toFixed(2)}px) ` +
+        `rotateX(${rx.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg)`;
+    }
+
+    // Accent words hover independently (no shared phase → never together).
+    for (const el of floaties) {
+      const f = el._f;
+      const ty = Math.sin(t * f.speed + f.phase) * f.bob
+               + Math.sin(t * f.drift + f.phase * 1.7) * (f.bob * 0.35);
+      const rz = Math.sin(t * f.speed * 0.8 + f.phase) * f.rock;
+      el.style.transform = `translateY(${ty.toFixed(2)}px) rotate(${rz.toFixed(2)}deg)`;
     }
   }
 
-  // Pause when the hero scrolls out of view.
   const io = new IntersectionObserver((entries) => {
     const visible = entries[0].isIntersecting;
     if (visible && !running) { running = true; frame(performance.now()); }

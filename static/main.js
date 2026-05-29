@@ -1,7 +1,10 @@
-const gallery     = document.getElementById('gallery');
+const content     = document.getElementById('content');
 const galleryLoad = document.getElementById('galleryLoading');
 const modal       = document.getElementById('modal');
 const modalVideo  = document.getElementById('modalVideo');
+const modalImage  = document.getElementById('modalImage');
+const modalAudio  = document.getElementById('modalAudio');
+const modalAudioWrap = document.getElementById('modalAudioWrap');
 const modalTitle  = document.getElementById('modalTitle');
 const modalTag    = document.getElementById('modalStyleTag');
 const modalClose  = document.getElementById('modalClose');
@@ -9,6 +12,15 @@ const modalBg     = document.getElementById('modalBg');
 const countNum    = document.getElementById('countNum');
 const downloadBtn = document.getElementById('downloadBtn');
 const navRight    = document.getElementById('navRight');
+
+// Media sections shown on the one page, in this order.
+const SECTIONS = [
+  { type: 'video', label: 'Video'  },
+  { type: 'image', label: 'Images' },
+  { type: 'music', label: 'Music'  },
+];
+const PREVIEW_COUNT = 6;
+let currentType = 'all';
 
 let currentFilter  = 'all';
 let hideTimers     = [];
@@ -222,8 +234,8 @@ uploadSubmit.addEventListener('click', async () => {
     const data = JSON.parse(xhr.responseText);
     if (data.ok) {
       closeUploadModal();
-      // Reload gallery to show new video
-      gallery.innerHTML = '<div class="gallery-loading" id="galleryLoading"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span></div>';
+      // Reload sections to show the new upload
+      content.innerHTML = '<div class="gallery-loading" id="galleryLoading"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span></div>';
       await init();
     } else {
       uploadError.textContent = data.error || 'Upload failed';
@@ -262,58 +274,129 @@ async function init() {
     ({ videos } = await res.json());
   } catch (err) {
     const loading = document.getElementById('galleryLoading');
-    if (loading) loading.innerHTML = '<span style="color:#ff5500;font-size:11px;letter-spacing:.15em">Could not load videos</span>';
+    if (loading) loading.innerHTML = '<span style="color:#ff5500;font-size:11px;letter-spacing:.15em">Could not load works</span>';
     return;
   }
 
-  const loading = document.getElementById('galleryLoading');
-  if (loading) loading.remove();
-  videos.forEach(buildCard);
+  // Group by media type.
+  const groups = { video: [], image: [], music: [] };
+  videos.forEach(v => { (groups[v.type] || groups.video).push(v); });
+
+  content.innerHTML = '';
+  SECTIONS.forEach(({ type, label }) => buildSection(type, label, groups[type]));
+
   countNum.textContent = videos.length;
+  applyTypeFilter(currentType);
 }
 
-function buildCard({ file, title, style, src }) {
+function buildSection(type, label, items) {
+  const section = document.createElement('section');
+  section.className = 'media-section';
+  section.dataset.type = type;
+  section.id = `section-${type}`;
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const h2 = document.createElement('h2');
+  h2.className = 'section-title';
+  h2.textContent = label;
+  const count = document.createElement('span');
+  count.className = 'section-count';
+  count.textContent = items.length;
+  head.append(h2, count);
+  section.appendChild(head);
+
+  if (!items.length) {
+    const empty = document.createElement('p');
+    empty.className = 'section-empty';
+    empty.textContent = `Nothing here yet`;
+    section.appendChild(empty);
+    content.appendChild(section);
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'card-grid';
+  items.forEach((item, i) => {
+    const card = buildCard(item);
+    if (i >= PREVIEW_COUNT) card.classList.add('beyond-preview');
+    grid.appendChild(card);
+  });
+  section.appendChild(grid);
+
+  if (items.length > PREVIEW_COUNT) {
+    const viewAll = document.createElement('button');
+    viewAll.className = 'view-all';
+    viewAll.textContent = `View all ${items.length}`;
+    viewAll.addEventListener('click', () => {
+      grid.querySelectorAll('.beyond-preview').forEach(c => {
+        c.classList.remove('beyond-preview');
+        revealObserver.observe(c);
+      });
+      viewAll.remove();
+    });
+    section.appendChild(viewAll);
+  }
+
+  content.appendChild(section);
+}
+
+function buildCard(item) {
+  const { title, style, src, type } = item;
   const card = document.createElement('div');
   card.className = 'card reveal';
   card.dataset.style = style;
+  card.dataset.type  = type;
 
   const inner = document.createElement('div');
   inner.className = 'card-inner';
 
-  const video = document.createElement('video');
-  video.className  = 'card-video';
-  video.src        = src;
-  video.muted      = true;
-  video.loop       = true;
-  video.preload    = 'metadata';
-  video.playsInline = true;
+  let media;
+  if (type === 'image') {
+    media = document.createElement('img');
+    media.className = 'card-image';
+    media.src = src;
+    media.alt = title;
+    media.loading = 'lazy';
+  } else if (type === 'music') {
+    media = document.createElement('div');
+    media.className = 'card-audio';
+    media.innerHTML = '<span class="card-audio-note">&#9835;</span>';
+  } else {
+    media = document.createElement('video');
+    media.className   = 'card-video';
+    media.src         = src;
+    media.muted       = true;
+    media.loop        = true;
+    media.preload     = 'metadata';
+    media.playsInline = true;
+    card.addEventListener('mouseenter', () => media.play().catch(() => {}));
+    card.addEventListener('mouseleave', () => { media.pause(); media.currentTime = 0; });
+  }
 
   const badge = document.createElement('div');
   badge.className = 'card-badge';
-  badge.textContent = style;
+  badge.textContent = (type === 'video') ? style : type;
 
   const overlay = document.createElement('div');
   overlay.className = 'card-overlay';
-
   const titleEl = document.createElement('div');
   titleEl.className   = 'card-title';
   titleEl.textContent = title;
+  overlay.appendChild(titleEl);
 
   const sheen = document.createElement('div');
   sheen.className = 'card-sheen';
 
-  overlay.appendChild(titleEl);
-  inner.append(video, badge, overlay, sheen);
+  inner.append(media, badge, overlay, sheen);
   card.appendChild(inner);
 
-  card.addEventListener('mouseenter', () => video.play().catch(() => {}));
-  card.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
-  card.addEventListener('click', () => openModal(src, title, style, file));
+  card.addEventListener('click', () => openModal(item));
 
   attachTilt(card, inner, sheen);
   revealObserver.observe(card);
 
-  gallery.appendChild(card);
+  return card;
 }
 
 // ── 3D tilt + scroll reveal ───────────────────────────────────────────────
@@ -360,26 +443,45 @@ function attachTilt(card, inner, sheen) {
 
 // ── Modal ───────────────────────────────────────────────────────────────────
 
-function openModal(src, title, style, file) {
+function openModal(item) {
+  const { src, title, style, file, type } = item;
   currentFile = file;
   scrollY = window.scrollY;
   document.body.style.top = `-${scrollY}px`;
   document.body.classList.add('modal-open');
-  modalVideo.src = src;
-  modalVideo.muted = true;
+
+  // Reset all media holders.
+  modalVideo.pause(); modalVideo.removeAttribute('src'); modalVideo.style.display = 'none';
+  modalImage.removeAttribute('src'); modalImage.style.display = 'none';
+  modalAudio.pause(); modalAudio.removeAttribute('src'); modalAudioWrap.style.display = 'none';
+
+  if (type === 'image') {
+    modalImage.src = src;
+    modalImage.style.display = 'block';
+  } else if (type === 'music') {
+    modalAudio.src = src;
+    modalAudioWrap.style.display = 'flex';
+    modalAudio.play().catch(() => {});
+  } else {
+    modalVideo.src = src;
+    modalVideo.muted = true;
+    modalVideo.style.display = 'block';
+    modalVideo.play().catch(() => {});
+  }
+
   modalTitle.textContent = title;
-  modalTag.textContent   = style;
+  modalTag.textContent   = (type === 'video') ? style : type;
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
-  modalVideo.play().catch(() => {});
   if (downloadBtn) downloadBtn.style.display = currentUser ? 'flex' : 'none';
 }
 
 function closeModal() {
   modal.classList.remove('open');
   modal.setAttribute('aria-hidden', 'true');
-  modalVideo.pause();
-  modalVideo.src = '';
+  modalVideo.pause(); modalVideo.removeAttribute('src');
+  modalAudio.pause(); modalAudio.removeAttribute('src');
+  modalImage.removeAttribute('src');
   currentFile = null;
   document.body.classList.remove('modal-open');
   document.body.style.top = '';
@@ -392,42 +494,24 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 
 // ── Filter ──────────────────────────────────────────────────────────────────
 
-function applyFilter(style) {
-  currentFilter = style;
-
-  hideTimers.forEach(clearTimeout);
-  hideTimers = [];
-
-  const cards = [...gallery.querySelectorAll('.card')];
-  cards.forEach(card => card.classList.remove('hidden'));
-
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    let visible = 0;
-
-    cards.forEach(card => {
-      const matches = style === 'all' || card.dataset.style === style;
-
-      if (matches) {
-        card.classList.remove('filtered-out');
-        visible++;
-      } else {
-        card.classList.add('filtered-out');
-        const t = setTimeout(() => {
-          if (currentFilter === style) card.classList.add('hidden');
-        }, 370);
-        hideTimers.push(t);
-      }
-    });
-
-    countNum.textContent = visible;
-  }));
+function applyTypeFilter(type) {
+  currentType = type;
+  document.querySelectorAll('.media-section').forEach(section => {
+    const show = type === 'all' || section.dataset.type === type;
+    section.style.display = show ? '' : 'none';
+  });
 }
 
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    applyFilter(btn.dataset.style);
+    const type = btn.dataset.type;
+    applyTypeFilter(type);
+    if (type !== 'all') {
+      const sec = document.getElementById(`section-${type}`);
+      if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   });
 });
 

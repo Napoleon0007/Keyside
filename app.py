@@ -16,6 +16,20 @@ UPLOAD_DIR     = Path(__file__).parent / "uploads"
 METADATA_FILE  = Path(__file__).parent / "videos.json"
 DB_FILE        = Path(__file__).parent / "users.db"
 VIDEO_EXTENSIONS = {".mp4", ".MP4", ".webm", ".mov", ".MOV", ".m4v"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".JPG", ".JPEG", ".png", ".PNG", ".webp", ".WEBP", ".gif", ".GIF", ".avif"}
+AUDIO_EXTENSIONS = {".mp3", ".MP3", ".wav", ".WAV", ".m4a", ".M4A", ".ogg", ".OGG", ".flac", ".aac"}
+MEDIA_EXTENSIONS = VIDEO_EXTENSIONS | IMAGE_EXTENSIONS | AUDIO_EXTENSIONS
+
+
+def media_type_for(filename: str) -> str | None:
+    ext = Path(filename).suffix
+    if ext in VIDEO_EXTENSIONS:
+        return "video"
+    if ext in IMAGE_EXTENSIONS:
+        return "image"
+    if ext in AUDIO_EXTENSIONS:
+        return "music"
+    return None
 
 GITHUB_REPO    = os.environ.get("GITHUB_VIDEO_REPO", "")
 GITHUB_BRANCH  = os.environ.get("GITHUB_VIDEO_BRANCH", "main")
@@ -195,6 +209,7 @@ def get_videos():
                 "file":  filename,
                 "title": meta.get("title", clean_title(filename)),
                 "style": meta.get("style", "abstract"),
+                "type":  meta.get("type") or media_type_for(filename) or "video",
                 "order": meta.get("order", 9999),
                 "src":   src,
             })
@@ -202,7 +217,7 @@ def get_videos():
         seen = set()
         if VIDEO_DIR.exists():
             for path in VIDEO_DIR.iterdir():
-                if path.suffix in VIDEO_EXTENSIONS and path.is_file():
+                if path.suffix in MEDIA_EXTENSIONS and path.is_file():
                     filename = path.name
                     seen.add(filename)
                     meta = metadata.get(filename, {})
@@ -210,17 +225,19 @@ def get_videos():
                         "file":  filename,
                         "title": meta.get("title", clean_title(filename)),
                         "style": meta.get("style", "abstract"),
+                        "type":  meta.get("type") or media_type_for(filename) or "video",
                         "order": meta.get("order", 9999),
                         "src":   f"/video/{filename}",
                     })
         for path in UPLOAD_DIR.iterdir():
-            if path.suffix in VIDEO_EXTENSIONS and path.is_file() and path.name not in seen:
+            if path.suffix in MEDIA_EXTENSIONS and path.is_file() and path.name not in seen:
                 filename = path.name
                 meta = metadata.get(filename, {})
                 videos.append({
                     "file":  filename,
                     "title": meta.get("title", clean_title(filename)),
                     "style": meta.get("style", "abstract"),
+                    "type":  meta.get("type") or media_type_for(filename) or "video",
                     "order": meta.get("order", 9999),
                     "src":   f"/uploads/{filename}",
                 })
@@ -272,7 +289,8 @@ def upload_video():
         return jsonify({"error": "Empty filename"}), 400
 
     filename = secure_filename(f.filename)
-    if Path(filename).suffix not in VIDEO_EXTENSIONS:
+    mtype = media_type_for(filename)
+    if mtype is None:
         return jsonify({"error": "Unsupported file type"}), 400
 
     UPLOAD_DIR.mkdir(exist_ok=True)
@@ -286,12 +304,13 @@ def upload_video():
         metadata[filename] = {
             "title":        clean_title(filename),
             "style":        "abstract",
+            "type":         mtype,
             "order":        max_order + 1,
             "src_override": f"/uploads/{filename}",
         }
         save_metadata(metadata)
 
-    return jsonify({"ok": True, "filename": filename, "title": metadata[filename]["title"]})
+    return jsonify({"ok": True, "filename": filename, "title": metadata[filename]["title"], "type": mtype})
 
 
 @app.route("/api/videos/<path:filename>/download")

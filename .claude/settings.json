@@ -8,7 +8,10 @@
       "Bash(lsof -ti:5077)",
       "Bash(xargs kill)",
       "Skill(ship)",
-      "Skill(ship:*)"
+      "Skill(ship:*)",
+      "mcp__railway__whoami",
+      "Bash(cd \"/Users/lukeviviers/.claude/projects/-Users-lukeviviers-Desktop-Github-projects-Keyside/memory/\")",
+      "Bash(cat MEMORY.md)"
     ]
   }
 }

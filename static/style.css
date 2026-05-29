@@ -65,7 +65,10 @@ body.modal-open {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 15px;
   letter-spacing: 0.12em;
-  color: var(--white);
+  color: var(--black);
+  background: var(--orange);
+  padding: 4px 10px;
+  border-radius: 2px;
 }
 
 .nav-right {
@@ -147,12 +150,54 @@ body.modal-open {
   background: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.72) 100%);
 }
 
+/* Real-life full moon: hovers behind the lettering, spins slowly on its axis */
+.hero-moon {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 2;                 /* above the dark overlay, behind the lettering (text is z-index 3) */
+  width: clamp(360px, 70vmin, 900px);
+  height: clamp(360px, 70vmin, 900px);
+  /* vertically centred; pulled hard to the left so it tucks behind MESIDE */
+  margin: calc(clamp(360px, 70vmin, 900px) / -2) 0 0 calc(clamp(360px, 70vmin, 900px) * -0.42);
+  pointer-events: none;
+  animation: moonFloat 14s ease-in-out infinite;
+}
+
+.hero-moon-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 64%, transparent 76%);
+          mask-image: radial-gradient(circle at 50% 50%, #000 64%, transparent 76%);
+  animation: moonSpin 120s linear infinite;   /* slow, but visibly turning on its axis */
+  will-change: transform;
+}
+
+@keyframes moonSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes moonFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-22px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-moon { animation: none; }
+  .hero-moon-img { animation: none; }
+}
+
 .hero-content {
   position: relative;
   z-index: 3;
   padding: 64px 36px 52px;
   will-change: transform, opacity;
   perspective: 1100px;
+  /* keep lettering legible against the bright moon behind it */
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7), 0 0 40px rgba(0, 0, 0, 0.45);
 }
 
 .site-title {
@@ -174,6 +219,12 @@ body.modal-open {
   will-change: transform, opacity;
 }
 .hero-letter.side { color: var(--orange); }
+
+/* Independently-floating accent words (driven by herotext.js) */
+.floaty {
+  display: inline-block;
+  will-change: transform;
+}
 
 .shake {
   display: inline-block;
@@ -380,7 +431,8 @@ body.modal-open {
   box-shadow: 0 34px 70px -24px rgba(0, 0, 0, 0.85);
 }
 
-.card-video {
+.card-video,
+.card-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -391,7 +443,101 @@ body.modal-open {
 }
 
 /* On hover the thumbnail lifts off the card surface (parallax float) */
-.card:hover .card-video { transform: scale(1.12) translateZ(38px); }
+.card:hover .card-video,
+.card:hover .card-image { transform: scale(1.12) translateZ(38px); }
+
+/* Music tile — no thumbnail, so a branded orange cover */
+.card-audio {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,120,40,0.55), transparent 55%),
+    linear-gradient(135deg, #1a0a02 0%, #3a1402 55%, #ff5500 200%);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card:hover .card-audio { transform: scale(1.06) translateZ(30px); }
+.card-audio-note {
+  font-size: clamp(40px, 6vw, 72px);
+  color: var(--orange);
+  text-shadow: 0 0 26px rgba(255,85,0,0.7);
+}
+
+/* ── Media sections (Video / Images / Music) ─────────────── */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 30px 18px 12px;
+}
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(26px, 4vw, 46px);
+  letter-spacing: 0.06em;
+  color: var(--white);
+}
+.section-count {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--orange);
+}
+.section-empty {
+  padding: 0 18px 26px;
+  color: var(--dim);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 2px;
+}
+@media (max-width: 960px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .card-grid { grid-template-columns: 1fr; } }
+
+.card.beyond-preview { display: none; }
+
+.view-all {
+  display: block;
+  margin: 16px auto 34px;
+  background: none;
+  border: 1px solid var(--orange);
+  color: var(--orange);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 11px 24px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.view-all:hover { background: var(--orange); color: var(--black); }
+
+/* Modal — image + audio variants */
+.modal-image {
+  width: 100%;
+  max-height: 78vh;
+  object-fit: contain;
+  display: block;
+}
+.modal-audio-wrap {
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  padding: 64px 30px;
+}
+.modal-audio-art {
+  font-size: 90px;
+  color: var(--orange);
+  text-shadow: 0 0 40px rgba(255,85,0,0.6);
+}
+.modal-audio { width: 100%; max-width: 520px; }
 
 /* Cursor-tracked sheen — sells the 'physical print' feel */
 .card-sheen {

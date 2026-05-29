@@ -29,32 +29,31 @@
         <source src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/Dark%20church.mp4" type="video/mp4">
       </video>
       <div class="hero-overlay"></div>
+      <div class="hero-moon" aria-hidden="true">
+        <img class="hero-moon-img" src="{{ url_for('static', filename='moon.jpg') }}" alt="">
+      </div>
       <div class="hero-content">
         <h1 class="site-title"><span class="hero-letter">M</span><span class="hero-letter">E</span><span class="hero-letter side">S</span><span class="hero-letter side">I</span><span class="hero-letter side">D</span><span class="hero-letter side">E</span></h1>
-        <p class="site-sub-name">Rex <span class="orange">True</span>form <span class="orange">ART</span>s Hub</p>
+        <p class="site-sub-name">Rex <span class="orange floaty">True</span>form <span class="orange floaty">ART</span>s Hub</p>
         <div class="title-underline"></div>
-        <p class="site-sub">fuck that shit.. I just wanna <span class="orange">BAN</span>G!!</p>
+        <p class="site-sub">fuck that shit.. I just wanna <span class="orange floaty">BAN</span>G!!</p>
       </div>
     </div>
   </header>
 
   <div class="filter-bar" id="filterBar">
     <div class="filter-scroll">
-      <button class="filter-btn active" data-style="all">All</button>
-      <button class="filter-btn" data-style="surrealism">Surrealism</button>
-      <button class="filter-btn" data-style="psychedelic">Psychedelic</button>
-      <button class="filter-btn" data-style="atmospheric">Atmospheric</button>
-      <button class="filter-btn" data-style="gothic">Gothic</button>
-      <button class="filter-btn" data-style="cubism">Cubism</button>
-      <button class="filter-btn" data-style="historical">Historical</button>
-      <button class="filter-btn" data-style="abstract">Abstract</button>
+      <button class="filter-btn active" data-type="all">All</button>
+      <button class="filter-btn" data-type="video">Video</button>
+      <button class="filter-btn" data-type="image">Images</button>
+      <button class="filter-btn" data-type="music">Music</button>
     </div>
     <div class="filter-count">
       <span id="countNum">—</span>&thinsp;works
     </div>
   </div>
 
-  <main class="gallery" id="gallery">
+  <main class="content" id="content">
     <div class="gallery-loading" id="galleryLoading">
       <span class="loading-dot"></span>
       <span class="loading-dot"></span>
@@ -69,6 +68,11 @@
       <button class="modal-close" id="modalClose" aria-label="Close">&#x2715;</button>
       <div class="modal-video-wrap">
         <video class="modal-video" id="modalVideo" controls muted playsinline></video>
+        <img class="modal-image" id="modalImage" alt="" style="display:none">
+        <div class="modal-audio-wrap" id="modalAudioWrap" style="display:none">
+          <div class="modal-audio-art">&#9835;</div>
+          <audio class="modal-audio" id="modalAudio" controls></audio>
+        </div>
       </div>
       <div class="modal-info">
         <div class="modal-info-left">
@@ -115,10 +119,10 @@
     <div class="auth-modal-bg" id="uploadModalBg"></div>
     <div class="auth-box">
       <button class="auth-close" id="uploadClose">&#x2715;</button>
-      <h3 class="auth-heading">Upload Video</h3>
+      <h3 class="auth-heading">Upload</h3>
       <div class="upload-drop" id="uploadDrop">
-        <p>Drop MP4 here or <label class="upload-pick" for="uploadFile">choose file</label></p>
-        <input type="file" id="uploadFile" accept=".mp4,.MP4,.webm,.mov" style="display:none">
+        <p>Drop a video, image or audio file here or <label class="upload-pick" for="uploadFile">choose file</label></p>
+        <input type="file" id="uploadFile" accept="video/*,image/*,audio/*,.mp4,.webm,.mov,.m4v,.jpg,.jpeg,.png,.webp,.gif,.avif,.mp3,.wav,.m4a,.ogg,.flac" style="display:none">
         <p class="upload-name" id="uploadName"></p>
       </div>
       <p class="auth-error" id="uploadError"></p>
