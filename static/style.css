@@ -235,6 +235,7 @@ body.modal-open {
   will-change: transform, opacity;
 }
 .hero-letter.side { color: var(--orange); }
+.hero-space { display: inline-block; width: 0.28em; }
 
 /* Independently-floating accent words (driven by herotext.js) */
 .floaty {
