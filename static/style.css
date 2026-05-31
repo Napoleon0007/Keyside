@@ -201,9 +201,43 @@ body.modal-open {
   50%      { transform: translateY(-22px); }
 }
 
+/* Molten sun: mirrors the moon on the far right — a hot, churning ball that
+   slowly spins on its axis, ringed by flickering solar flares. A touch bigger
+   than the moon, as requested. */
+.hero-sun {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 2;                 /* same plane as the moon: above overlay, behind the lettering */
+  width: clamp(420px, 82vmin, 1040px);
+  height: clamp(420px, 82vmin, 1040px);
+  /* vertically centred; pushed hard to the right to mirror the moon's left tuck */
+  margin: calc(clamp(420px, 82vmin, 1040px) / -2) calc(clamp(420px, 82vmin, 1040px) * -0.42) 0 0;
+  pointer-events: none;
+  border-radius: 50%;
+  animation: sunFloat 16s ease-in-out infinite;
+  /* hot corona spilling off the surface */
+  filter: drop-shadow(0 0 70px rgba(255, 120, 20, 0.55))
+          drop-shadow(0 0 170px rgba(255, 70, 0, 0.35));
+}
+
+/* the molten body is rendered on a canvas (see sun.js): churning photosphere,
+   limb darkening, glowing corona and prominence loops that arch out and retract */
+.hero-sun-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes sunFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-26px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-moon { animation: none; }
   .hero-moon-img { animation: none; }
+  .hero-sun { animation: none; }
 }
 
 .hero-content {
