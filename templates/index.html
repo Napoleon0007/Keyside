@@ -39,9 +39,6 @@
       <div class="hero-moon" aria-hidden="true">
         <img class="hero-moon-img" src="{{ url_for('static', filename='moon.jpg') }}" alt="">
       </div>
-      <div class="hero-sun" aria-hidden="true">
-        <canvas class="hero-sun-canvas"></canvas>
-      </div>
       <div class="hero-content">
         <h1 class="site-title"><span class="hero-letter">M</span><span class="hero-letter">E</span><span class="hero-letter side">D</span><span class="hero-letter side">I</span><span class="hero-letter side">C</span><span class="hero-letter side">I</span></h1>
         <p class="site-sub-name">Rex <span class="orange floaty">True</span>form <span class="orange floaty">ART</span>s Hub</p>
@@ -50,22 +47,6 @@
       </div>
     </div>
   </header>
-
-  <!-- Scroll-through solar system -->
-  <section class="solar" id="solar" aria-label="Travel the solar system">
-    <div class="solar-stage" id="solarStage" role="img" aria-label="Photoreal 3D solar system you can drag through">
-      <div class="solar-fallback">
-        <p>Your browser can't render the 3D system — but the art's still below. ↓</p>
-      </div>
-    </div>
-    <div class="solar-hud">
-      <p class="solar-kicker">Rex's Cosmos</p>
-      <h2 class="solar-name" id="solarName">Neptune</h2>
-      <p class="solar-fact" id="solarFact">The windiest world — supersonic storms tear across its deep blue methane sky.</p>
-    </div>
-    <div class="solar-scrub" id="solarScrub" aria-label="Jump to a planet"></div>
-    <p class="solar-hint">drag to travel — inward to the Sun</p>
-  </section>
 
   <div class="filter-bar" id="filterBar">
     <div class="filter-scroll">
@@ -172,7 +153,5 @@
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script src="{{ url_for('static', filename='effects.js') }}"></script>
   <script src="{{ url_for('static', filename='herotext.js') }}"></script>
-  <script src="{{ url_for('static', filename='sun.js') }}"></script>
-  <script type="module" src="{{ url_for('static', filename='solar.js') }}"></script>
 </body>
 </html>
