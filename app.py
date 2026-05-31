@@ -7,13 +7,20 @@ import mimetypes
 import os
 import sqlite3
 import functools
+import io
+import subprocess
+import tempfile
+import urllib.request
+from PIL import Image
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
 
 VIDEO_DIR      = Path(__file__).parent.parent / "Art Hub"
 UPLOAD_DIR     = Path(__file__).parent / "uploads"
+AI_MUSIC_DIR   = UPLOAD_DIR / "ai-music"   # audio here is auto-classed as "AI Music"
 METADATA_FILE  = Path(__file__).parent / "videos.json"
+PRODUCTS_FILE  = Path(__file__).parent / "products.json"
 DB_FILE        = Path(__file__).parent / "users.db"
 VIDEO_EXTENSIONS = {".mp4", ".MP4", ".webm", ".mov", ".MOV", ".m4v"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".JPG", ".JPEG", ".png", ".PNG", ".webp", ".WEBP", ".gif", ".GIF", ".avif"}
@@ -242,8 +249,32 @@ def get_videos():
                     "src":   f"/uploads/{filename}",
                 })
 
+    # ── AI music ────────────────────────────────────────────────────────────
+    # Audio dropped into uploads/ai-music/ is auto-classed as "AI Music".
+    # A video named "intro" in that folder is Rex's explainer, surfaced separately.
+    ai_music_intro = None
+    if AI_MUSIC_DIR.exists():
+        for path in sorted(AI_MUSIC_DIR.iterdir()):
+            if not path.is_file():
+                continue
+            if path.stem.lower() == "intro" and path.suffix in VIDEO_EXTENSIONS:
+                ai_music_intro = f"/uploads/ai-music/{path.name}"
+                continue
+            if path.suffix in AUDIO_EXTENSIONS:
+                key  = f"ai-music/{path.name}"
+                meta = metadata.get(key, {})
+                videos.append({
+                    "file":    key,
+                    "title":   meta.get("title", clean_title(path.name)),
+                    "style":   meta.get("style", "ai"),
+                    "type":    "music",
+                    "subtype": "ai",
+                    "order":   meta.get("order", 9999),
+                    "src":     f"/uploads/ai-music/{path.name}",
+                })
+
     videos.sort(key=lambda v: (v["order"], v["file"]))
-    return jsonify({"videos": videos})
+    return jsonify({"videos": videos, "ai_music_intro": ai_music_intro})
 
 
 @app.route("/api/videos/reorder", methods=["POST"])
@@ -313,30 +344,113 @@ def upload_video():
     return jsonify({"ok": True, "filename": filename, "title": metadata[filename]["title"], "type": mtype})
 
 
+# Formats we can convert to, per media kind, with their MIME types.
+DOWNLOAD_FORMATS = {
+    "video": {"mp4": "video/mp4"},
+    "image": {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"},
+    "music": {"mp3": "audio/mpeg", "wav": "audio/wav"},
+}
+
+
+def _resolve_local(filename: str):
+    """Return a local Path for a media file, or None. Guards against traversal."""
+    for base in (VIDEO_DIR, UPLOAD_DIR):
+        p = base / filename
+        if p.exists() and p.is_file():
+            try:
+                p.resolve().relative_to(base.resolve())
+            except ValueError:
+                abort(403)
+            return p
+    return None
+
+
+def _is_native(kind: str, fmt: str, src_ext: str) -> bool:
+    """True when no conversion is needed (requested format == the source's)."""
+    if not fmt or fmt == src_ext:
+        return True
+    return kind == "video" and fmt == "mp4" and src_ext in ("mp4", "m4v")
+
+
 @app.route("/api/videos/<path:filename>/download")
 @login_required
 def download_video(filename: str):
-    metadata = load_metadata()
-    meta     = metadata.get(filename, {})
+    fmt     = (request.args.get("format") or "").lower().strip()
+    kind    = media_type_for(filename) or "video"
+    src_ext = Path(filename).suffix.lower().lstrip(".")
+    stem    = Path(filename).stem
 
-    if GITHUB_RAW_BASE:
-        src_override = meta.get("src_override")
-        if src_override:
-            return redirect(src_override)
-        encoded = "/".join(p.replace(" ", "%20") for p in filename.split("/"))
-        return redirect(f"{GITHUB_RAW_BASE}/{encoded}")
+    # Locate the source as a local file, fetching a remote (GitHub) source if needed.
+    local  = _resolve_local(filename)
+    tmp_in = None
+    try:
+        if local is None:
+            if not GITHUB_RAW_BASE:
+                abort(404)
+            meta = load_metadata().get(filename, {})
+            url  = meta.get("src_override")
+            if url and url.startswith("/"):   # an /uploads path that isn't on disk
+                abort(404)
+            if not url:
+                encoded = "/".join(p.replace(" ", "%20") for p in filename.split("/"))
+                url = f"{GITHUB_RAW_BASE}/{encoded}"
+            if _is_native(kind, fmt, src_ext):
+                return redirect(url)          # no conversion → let the CDN serve it
+            fd, tmp_path = tempfile.mkstemp(suffix=Path(filename).suffix)
+            os.close(fd)
+            tmp_in = Path(tmp_path)
+            urllib.request.urlretrieve(url, tmp_in)   # noqa: S310 (our own metadata URLs)
+            local = tmp_in
 
-    for base in (VIDEO_DIR, UPLOAD_DIR):
-        filepath = base / filename
-        if filepath.exists() and filepath.is_file():
-            try:
-                filepath.resolve().relative_to(base.resolve())
-            except ValueError:
-                abort(403)
-            mime = mimetypes.guess_type(str(filepath))[0] or "video/mp4"
-            return send_file(filepath, mimetype=mime, as_attachment=True, download_name=filename)
+        # Native format → stream the original untouched.
+        if _is_native(kind, fmt, src_ext):
+            mime = mimetypes.guess_type(str(local))[0] or "application/octet-stream"
+            return send_file(local, mimetype=mime, as_attachment=True,
+                             download_name=Path(filename).name)
 
-    abort(404)
+        if fmt not in DOWNLOAD_FORMATS.get(kind, {}):
+            return jsonify({"error": f"Cannot convert {kind} to '{fmt}'"}), 400
+
+        # ── Image conversion via Pillow ──
+        if kind == "image":
+            buf = io.BytesIO()
+            with Image.open(local) as img:
+                if fmt in ("jpg", "jpeg") and img.mode in ("RGBA", "P", "LA"):
+                    img = img.convert("RGB")
+                save_fmt = "JPEG" if fmt in ("jpg", "jpeg") else fmt.upper()
+                if save_fmt in ("JPEG", "WEBP"):
+                    img.save(buf, save_fmt, quality=90)
+                else:
+                    img.save(buf, save_fmt)
+            buf.seek(0)
+            out_ext = "jpg" if fmt == "jpeg" else fmt
+            return send_file(buf, mimetype=DOWNLOAD_FORMATS["image"][fmt],
+                             as_attachment=True, download_name=f"{stem}.{out_ext}")
+
+        # ── Audio / video conversion via ffmpeg ──
+        fd, out_path = tempfile.mkstemp(suffix=f".{fmt}")
+        os.close(fd)
+        out = Path(out_path)
+        if kind == "music" and fmt == "mp3":
+            cmd = ["ffmpeg", "-y", "-i", str(local), "-vn", "-codec:a", "libmp3lame", "-q:a", "2", str(out)]
+        elif kind == "music":  # wav
+            cmd = ["ffmpeg", "-y", "-i", str(local), "-vn", str(out)]
+        else:                  # video → mp4
+            cmd = ["ffmpeg", "-y", "-i", str(local), "-c:v", "libx264", "-preset", "veryfast",
+                   "-c:a", "aac", "-movflags", "+faststart", str(out)]
+
+        proc = subprocess.run(cmd, capture_output=True)
+        if proc.returncode != 0 or not out.exists() or out.stat().st_size == 0:
+            out.unlink(missing_ok=True)
+            return jsonify({"error": "Conversion failed"}), 500
+
+        data = out.read_bytes()
+        out.unlink(missing_ok=True)
+        return send_file(io.BytesIO(data), mimetype=DOWNLOAD_FORMATS[kind][fmt],
+                         as_attachment=True, download_name=f"{stem}.{fmt}")
+    finally:
+        if tmp_in is not None:
+            tmp_in.unlink(missing_ok=True)
 
 
 @app.route("/api/videos/<path:filename>", methods=["PATCH"])
@@ -360,6 +474,19 @@ def update_video_meta(filename: str):
 
     save_metadata(metadata)
     return jsonify({"ok": True, "file": filename, **entry})
+
+
+@app.route("/api/products")
+def get_products():
+    """Rex's products showcase — read from products.json (edit that file to add tools)."""
+    try:
+        with open(PRODUCTS_FILE, encoding="utf-8") as f:
+            products = json.load(f)
+        if not isinstance(products, list):
+            products = []
+    except (FileNotFoundError, json.JSONDecodeError):
+        products = []
+    return jsonify({"products": products})
 
 
 @app.route("/api/admin/users")

@@ -10,7 +10,7 @@ const modalTag    = document.getElementById('modalStyleTag');
 const modalClose  = document.getElementById('modalClose');
 const modalBg     = document.getElementById('modalBg');
 const countNum    = document.getElementById('countNum');
-const downloadBtn = document.getElementById('downloadBtn');
+const dlFormats   = document.getElementById('dlFormats');
 const navRight    = document.getElementById('navRight');
 
 // Media sections shown on the one page, in this order.
@@ -35,9 +35,6 @@ async function checkAuth() {
   const data = await res.json();
   currentUser = data.logged_in ? data : null;
   renderNav();
-  if (downloadBtn) {
-    downloadBtn.style.display = currentUser ? 'flex' : 'none';
-  }
 }
 
 function renderNav() {
@@ -77,7 +74,6 @@ async function doLogout() {
   await fetch('/api/logout', { method: 'POST' });
   currentUser = null;
   renderNav();
-  if (downloadBtn) downloadBtn.style.display = 'none';
 }
 
 // ── Auth modal ───────────────────────────────────────────────────────────────
@@ -255,35 +251,75 @@ uploadSubmit.addEventListener('click', async () => {
 
 // ── Download ─────────────────────────────────────────────────────────────────
 
-downloadBtn.addEventListener('click', () => {
+// Format options offered per media type (server converts on the fly).
+const DL_FORMATS = {
+  music: ['MP3', 'WAV'],
+  image: ['PNG', 'JPG', 'WEBP'],
+  video: ['MP4'],
+};
+
+function buildDownloadOptions(type) {
+  if (!dlFormats) return;
+  dlFormats.innerHTML = '';
+  if (!currentUser || !currentFile) { dlFormats.style.display = 'none'; return; }   // members only; skip the file-less intro
+  dlFormats.style.display = 'flex';
+
+  const label = document.createElement('span');
+  label.className = 'dl-label';
+  label.textContent = '↓';
+  dlFormats.appendChild(label);
+
+  (DL_FORMATS[type] || ['MP4']).forEach(f => {
+    const b = document.createElement('button');
+    b.className = 'dl-chip';
+    b.type = 'button';
+    b.textContent = f;
+    b.addEventListener('click', () => downloadCurrent(f.toLowerCase(), b));
+    dlFormats.appendChild(b);
+  });
+}
+
+function downloadCurrent(fmt, btn) {
   if (!currentFile || !currentUser) return;
+  // Preserve sub-folder slashes (e.g. ai-music/track.wav) while escaping each part.
+  const safePath = currentFile.split('/').map(encodeURIComponent).join('/');
+  if (btn) { btn.classList.add('working'); setTimeout(() => btn.classList.remove('working'), 1400); }
   const a = document.createElement('a');
-  a.href     = `/api/videos/${encodeURIComponent(currentFile)}/download`;
-  a.download = currentFile;
+  a.href = `/api/videos/${safePath}/download?format=${encodeURIComponent(fmt)}`;
+  a.download = '';
+  document.body.appendChild(a);
   a.click();
-});
+  a.remove();
+}
 
 // ── Build gallery from API ──────────────────────────────────────────────────
 
 async function init() {
-  let videos;
+  let videos, aiIntro = null;
 
   try {
     const res = await fetch('/api/videos');
     if (!res.ok) throw new Error(res.statusText);
-    ({ videos } = await res.json());
+    const data = await res.json();
+    videos  = data.videos;
+    aiIntro = data.ai_music_intro || null;
   } catch (err) {
     const loading = document.getElementById('galleryLoading');
     if (loading) loading.innerHTML = '<span style="color:#ff5500;font-size:11px;letter-spacing:.15em">Could not load works</span>';
     return;
   }
 
-  // Group by media type.
-  const groups = { video: [], image: [], music: [] };
-  videos.forEach(v => { (groups[v.type] || groups.video).push(v); });
+  // Group by media type; music splits into "My Music" vs "AI Music".
+  const groups = { video: [], image: [], musicMine: [], musicAi: [] };
+  videos.forEach(v => {
+    if (v.type === 'music') (v.subtype === 'ai' ? groups.musicAi : groups.musicMine).push(v);
+    else (groups[v.type] || groups.video).push(v);
+  });
 
   content.innerHTML = '';
-  SECTIONS.forEach(({ type, label }) => buildSection(type, label, groups[type]));
+  buildSection('video', 'Video', groups.video);
+  buildSection('image', 'Images', groups.image);
+  buildMusicSection(groups.musicMine, groups.musicAi, aiIntro);
 
   countNum.textContent = videos.length;
   applyTypeFilter(currentType);
@@ -315,38 +351,249 @@ function buildSection(type, label, items) {
     return;
   }
 
-  const grid = document.createElement('div');
-  grid.className = 'card-grid';
-  items.forEach((item, i) => {
-    const card = buildCard(item);
-    if (i >= PREVIEW_COUNT) card.classList.add('beyond-preview');
-    grid.appendChild(card);
-  });
-  section.appendChild(grid);
+  const cf = makeCoverflow(items);
+  section.appendChild(cf.el);
+  section._cfs = [cf];                            // rails to relayout on filter/resize
+  content.appendChild(section);
+  requestAnimationFrame(() => cf.layout());       // lay out once it has width in the DOM
+}
 
-  if (items.length > PREVIEW_COUNT) {
-    const viewAll = document.createElement('button');
-    viewAll.className = 'view-all';
-    viewAll.textContent = `View all ${items.length}`;
-    viewAll.addEventListener('click', () => {
-      grid.querySelectorAll('.beyond-preview').forEach(c => {
-        c.classList.remove('beyond-preview');
-        revealObserver.observe(c);
-      });
-      viewAll.remove();
-    });
-    section.appendChild(viewAll);
+// Build a rail into `parent`, or an empty-state note if there's nothing. Returns the rail (or null).
+function railOrEmpty(items, parent) {
+  if (!items.length) {
+    const empty = document.createElement('p');
+    empty.className = 'section-empty';
+    empty.textContent = 'Nothing here yet';
+    parent.appendChild(empty);
+    return null;
   }
+  const cf = makeCoverflow(items);
+  parent.appendChild(cf.el);
+  requestAnimationFrame(() => cf.layout());
+  return cf;
+}
+
+// Music gets two sub-rails: "My Music" and a pressable "AI Music" whose heading
+// opens Rex's intro video. Drop audio into uploads/ai-music/ to fill the AI rail,
+// and a video named intro.mp4 there to wire the explainer.
+function buildMusicSection(mine, ai, introSrc) {
+  const section = document.createElement('section');
+  section.className = 'media-section';
+  section.dataset.type = 'music';
+  section.id = 'section-music';
+  section._cfs = [];
+
+  const head = document.createElement('div');
+  head.className = 'section-head';
+  const h2 = document.createElement('h2');
+  h2.className = 'section-title';
+  h2.textContent = 'Music';
+  const count = document.createElement('span');
+  count.className = 'section-count';
+  count.textContent = mine.length + ai.length;
+  head.append(h2, count);
+  section.appendChild(head);
+
+  // ── My Music ──
+  const sub1 = document.createElement('div');
+  sub1.className = 'music-sub';
+  const sh1 = document.createElement('div');
+  sh1.className = 'sub-head';
+  sh1.innerHTML = `<h3 class="sub-title">My Music</h3><span class="sub-count">${mine.length}</span>`;
+  sub1.appendChild(sh1);
+  const cf1 = railOrEmpty(mine, sub1);
+  if (cf1) section._cfs.push(cf1);
+  section.appendChild(sub1);
+
+  // ── AI Music (pressable heading → intro video) ──
+  const sub2 = document.createElement('div');
+  sub2.className = 'music-sub';
+  const sh2 = document.createElement('div');
+  sh2.className = 'sub-head ai';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'sub-title sub-title-btn';
+  btn.innerHTML = 'AI Music <span class="ai-info" aria-hidden="true">&#9432;</span>';
+  btn.setAttribute('aria-label', 'AI Music — play Rex\'s intro video');
+  const sc2 = document.createElement('span');
+  sc2.className = 'sub-count';
+  sc2.textContent = ai.length;
+  sh2.append(btn, sc2);
+  sub2.appendChild(sh2);
+
+  const note = document.createElement('p');
+  note.className = 'ai-note';
+  note.hidden = true;
+  sub2.appendChild(note);
+
+  btn.addEventListener('click', () => {
+    if (introSrc) {
+      openModal({ src: introSrc, title: 'AI Music — what it is', style: 'intro', type: 'video', file: null }, { sound: true });
+    } else {
+      note.hidden = false;
+      note.textContent = 'Intro video coming soon — Rex will explain the AI music here.';
+    }
+  });
+
+  const cf2 = railOrEmpty(ai, sub2);
+  if (cf2) section._cfs.push(cf2);
+  section.appendChild(sub2);
 
   content.appendChild(section);
 }
 
-function buildCard(item) {
+// ── 3D Coverflow rail ─────────────────────────────────────────────────────────
+// A horizontal carousel: the centre card faces you, neighbours angle back into Z.
+// Drag, trackpad-swipe, arrow keys, arrow buttons, or click a side card to glide.
+function makeCoverflow(items) {
+  const el = document.createElement('div');
+  el.className = 'coverflow';
+  el.tabIndex = 0;
+
+  const viewport = document.createElement('div');
+  viewport.className = 'cf-viewport';
+  el.appendChild(viewport);
+
+  let active = 0;
+  let moved  = false;            // true after a real drag — suppresses the click-open
+
+  const cards = items.map((item, i) => {
+    const card = buildCard(item, { coverflow: true });
+    card.dataset.idx = i;
+    card.addEventListener('click', () => {
+      if (moved) { moved = false; return; }      // drag, not a click
+      if (i === active) openModal(item);          // centre → open
+      else go(i);                                 // side → bring to centre
+    });
+    viewport.appendChild(card);
+    return card;
+  });
+
+  const prev = arrowBtn('prev', '‹', () => go(active - 1));
+  const next = arrowBtn('next', '›', () => go(active + 1));
+  const counter = document.createElement('div');
+  counter.className = 'cf-counter';
+  el.append(prev, next, counter);
+
+  const VISIBLE = 4;             // cards rendered either side of centre
+
+  function layout() {
+    const w = el.clientWidth || window.innerWidth;
+    const spread = Math.min(w * 0.32, 320);
+    cards.forEach((card, i) => {
+      const o = i - active;
+      const ao = Math.abs(o);
+      const sign = o < 0 ? -1 : 1;
+
+      if (ao > VISIBLE) {
+        card.style.opacity = '0';
+        card.style.pointerEvents = 'none';
+        card.style.zIndex = '0';
+        setActiveMedia(card, false);
+        card.classList.remove('cf-active');
+        return;
+      }
+
+      const x  = o === 0 ? 0 : sign * (spread + (ao - 1) * spread * 0.52);
+      const ry = o === 0 ? 0 : -sign * 46;
+      const z  = o === 0 ? 60 : -ao * 200;
+      const sc = o === 0 ? 1 : Math.max(0.6, 0.84 - (ao - 1) * 0.08);
+      const op = o === 0 ? 1 : Math.max(0.18, 0.82 - (ao - 1) * 0.24);
+
+      card.style.transform =
+        `translate(-50%, -50%) translateX(${x.toFixed(1)}px) translateZ(${z}px) ` +
+        `rotateY(${ry}deg) scale(${sc.toFixed(3)})`;
+      card.style.opacity = op.toFixed(2);
+      card.style.zIndex = String(100 - ao);
+      card.style.pointerEvents = ao <= 2 ? 'auto' : 'none';
+
+      ensureLoaded(card);
+      const isActive = o === 0;
+      card.classList.toggle('cf-active', isActive);
+      setActiveMedia(card, isActive);
+    });
+
+    counter.textContent = `${active + 1} / ${items.length}`;
+    prev.disabled = active === 0;
+    next.disabled = active === items.length - 1;
+  }
+
+  function go(i) {
+    active = Math.max(0, Math.min(items.length - 1, i));
+    layout();
+  }
+
+  function setActiveMedia(card, on) {
+    if (card._type !== 'video' || !card._media) return;
+    if (on) { card._media.play().catch(() => {}); }
+    else { try { card._media.pause(); card._media.currentTime = 0; } catch (e) {} }
+  }
+
+  // Pull a deferred video source in once the card is near the centre.
+  function ensureLoaded(card) {
+    const m = card._media;
+    if (m && m.tagName === 'VIDEO' && !m.src && m.dataset.src) m.src = m.dataset.src;
+  }
+
+  // ── Drag ───────────────────────────────────────────────────────────────────
+  let down = false, startX = 0, startActive = 0;
+  viewport.addEventListener('pointerdown', (e) => {
+    down = true; moved = false; startX = e.clientX; startActive = active;
+    el.classList.add('grabbing');
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!down) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 6) moved = true;
+    const steps = Math.round(-dx / (el.clientWidth * 0.16));
+    const ni = Math.max(0, Math.min(items.length - 1, startActive + steps));
+    if (ni !== active) go(ni);
+  });
+  window.addEventListener('pointerup', () => { down = false; el.classList.remove('grabbing'); });
+
+  // ── Trackpad horizontal swipe (vertical wheel left for page scroll) ──────────
+  let wheelAcc = 0, wheelLock = false;
+  el.addEventListener('wheel', (e) => {
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : 0;
+    if (!d) return;
+    e.preventDefault();
+    if (wheelLock) return;
+    wheelAcc += d;
+    if (Math.abs(wheelAcc) > 36) {
+      go(active + (wheelAcc > 0 ? 1 : -1));
+      wheelAcc = 0; wheelLock = true;
+      setTimeout(() => { wheelLock = false; }, 200);
+    }
+  }, { passive: false });
+
+  // ── Keyboard ─────────────────────────────────────────────────────────────────
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') { go(active + 1); e.preventDefault(); }
+    if (e.key === 'ArrowLeft')  { go(active - 1); e.preventDefault(); }
+    if (e.key === 'Enter')      { openModal(items[active]); }
+  });
+
+  return { el, layout };
+}
+
+function arrowBtn(cls, glyph, onClick) {
+  const b = document.createElement('button');
+  b.className = `cf-arrow ${cls}`;
+  b.type = 'button';
+  b.innerHTML = glyph;
+  b.setAttribute('aria-label', cls === 'prev' ? 'Previous' : 'Next');
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function buildCard(item, opts = {}) {
   const { title, style, src, type } = item;
+  const cf = !!opts.coverflow;
   const card = document.createElement('div');
-  card.className = 'card reveal';
+  card.className = cf ? 'card' : 'card reveal';
   card.dataset.style = style;
   card.dataset.type  = type;
+  card._type = type;
 
   const inner = document.createElement('div');
   inner.className = 'card-inner';
@@ -365,14 +612,18 @@ function buildCard(item) {
   } else {
     media = document.createElement('video');
     media.className   = 'card-video';
-    media.src         = src;
+    if (cf) { media.dataset.src = src; }   // deferred — the rail loads it when near centre
+    else    { media.src = src; }
     media.muted       = true;
     media.loop        = true;
     media.preload     = 'metadata';
     media.playsInline = true;
-    card.addEventListener('mouseenter', () => media.play().catch(() => {}));
-    card.addEventListener('mouseleave', () => { media.pause(); media.currentTime = 0; });
+    if (!cf) {
+      card.addEventListener('mouseenter', () => media.play().catch(() => {}));
+      card.addEventListener('mouseleave', () => { media.pause(); media.currentTime = 0; });
+    }
   }
+  card._media = media;
 
   const badge = document.createElement('div');
   badge.className = 'card-badge';
@@ -391,10 +642,11 @@ function buildCard(item) {
   inner.append(media, badge, overlay, sheen);
   card.appendChild(inner);
 
-  card.addEventListener('click', () => openModal(item));
-
+  if (!cf) {
+    card.addEventListener('click', () => openModal(item));
+    revealObserver.observe(card);
+  }
   attachTilt(card, inner, sheen);
-  revealObserver.observe(card);
 
   return card;
 }
@@ -443,7 +695,7 @@ function attachTilt(card, inner, sheen) {
 
 // ── Modal ───────────────────────────────────────────────────────────────────
 
-function openModal(item) {
+function openModal(item, opts = {}) {
   const { src, title, style, file, type } = item;
   currentFile = file;
   scrollY = window.scrollY;
@@ -464,7 +716,7 @@ function openModal(item) {
     modalAudio.play().catch(() => {});
   } else {
     modalVideo.src = src;
-    modalVideo.muted = true;
+    modalVideo.muted = !opts.sound;       // art clips stay muted; the AI-music intro plays with sound
     modalVideo.style.display = 'block';
     modalVideo.play().catch(() => {});
   }
@@ -473,7 +725,7 @@ function openModal(item) {
   modalTag.textContent   = (type === 'video') ? style : type;
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
-  if (downloadBtn) downloadBtn.style.display = currentUser ? 'flex' : 'none';
+  buildDownloadOptions(type);
 }
 
 function closeModal() {
@@ -499,8 +751,20 @@ function applyTypeFilter(type) {
   document.querySelectorAll('.media-section').forEach(section => {
     const show = type === 'all' || section.dataset.type === type;
     section.style.display = show ? '' : 'none';
+    if (show && section._cfs) requestAnimationFrame(() => section._cfs.forEach(cf => cf.layout()));
   });
+  const products = document.getElementById('products');
+  if (products) products.style.display = (type === 'all' || type === 'products') ? '' : 'none';
 }
+
+// Re-flow every rail on resize (card width / spread are viewport-relative).
+let cfResizeRaf = null;
+window.addEventListener('resize', () => {
+  if (cfResizeRaf) cancelAnimationFrame(cfResizeRaf);
+  cfResizeRaf = requestAnimationFrame(() => {
+    document.querySelectorAll('.media-section').forEach(s => (s._cfs || []).forEach(cf => cf.layout()));
+  });
+});
 
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -509,13 +773,98 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     const type = btn.dataset.type;
     applyTypeFilter(type);
     if (type !== 'all') {
-      const sec = document.getElementById(`section-${type}`);
+      const sec = document.getElementById(`section-${type}`) || document.getElementById(type);
       if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   });
 });
 
+// ── Rex's Products ────────────────────────────────────────────────────────────
+
+async function initProducts() {
+  const grid = document.getElementById('productsGrid');
+  const countEl = document.getElementById('productsCount');
+  if (!grid) return;
+  let products = [];
+  try {
+    const res = await fetch('/api/products');
+    if (res.ok) ({ products } = await res.json());
+  } catch (e) { /* leave empty */ }
+
+  grid.innerHTML = '';
+  if (countEl) countEl.textContent = products.length;
+  if (!products.length) {
+    const p = document.createElement('p');
+    p.className = 'section-empty';
+    p.textContent = 'Coming soon';
+    grid.appendChild(p);
+    return;
+  }
+  products.forEach(prod => grid.appendChild(buildProductCard(prod)));
+}
+
+function buildProductCard(p) {
+  const card = document.createElement('div');
+  card.className = 'product-card reveal';
+
+  const thumb = document.createElement('div');
+  thumb.className = 'product-thumb';
+  if (p.thumb) {
+    const img = document.createElement('img');
+    img.src = p.thumb; img.alt = p.name || ''; img.loading = 'lazy';
+    thumb.appendChild(img);
+  } else {
+    thumb.classList.add('placeholder');
+    thumb.textContent = (p.name || '?').trim().charAt(0).toUpperCase();
+  }
+  card.appendChild(thumb);
+
+  const body = document.createElement('div');
+  body.className = 'product-body';
+
+  const h3 = document.createElement('h3');
+  h3.className = 'product-name';
+  h3.textContent = p.name || 'Untitled';
+
+  const blurb = document.createElement('p');
+  blurb.className = 'product-blurb';
+  blurb.textContent = p.blurb || '';
+  body.append(h3, blurb);
+
+  if (Array.isArray(p.tags) && p.tags.length) {
+    const tags = document.createElement('div');
+    tags.className = 'product-tags';
+    p.tags.forEach(t => {
+      const s = document.createElement('span');
+      s.className = 'product-tag';
+      s.textContent = t;
+      tags.appendChild(s);
+    });
+    body.appendChild(tags);
+  }
+
+  const cta = document.createElement('a');
+  cta.className = 'product-cta';
+  const labels = { link: 'Open', repo: 'View code', download: 'Download' };
+  if (p.url) {
+    cta.textContent = labels[p.kind] || 'Open';
+    cta.href = p.url;
+    if (p.kind === 'download') { cta.setAttribute('download', ''); }
+    else { cta.target = '_blank'; cta.rel = 'noopener'; }
+  } else {
+    cta.textContent = 'Coming soon';
+    cta.classList.add('disabled');
+    cta.setAttribute('aria-disabled', 'true');
+  }
+  body.appendChild(cta);
+
+  card.appendChild(body);
+  revealObserver.observe(card);
+  return card;
+}
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 
 checkAuth();
 init();
+initProducts();

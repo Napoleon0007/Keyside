@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Surreal Editor",
+    "blurb": "FFmpeg video compiler with an HTML dashboard + Python server — stitches and processes clips into surreal edits.",
+    "tags": ["Python", "FFmpeg", "Flask"],
+    "kind": "link",
+    "url": "",
+    "thumb": ""
+  },
+  {
+    "name": "Image Scraper",
+    "blurb": "Python CLI + Flask dashboard for bulk stock-image downloads, with a clean run history.",
+    "tags": ["Python", "Flask"],
+    "kind": "link",
+    "url": "",
+    "thumb": ""
+  },
+  {
+    "name": "Famous Faces",
+    "blurb": "Wikipedia image collection tool — gathers portraits with a strict no-duplicates rule.",
+    "tags": ["Python", "Media"],
+    "kind": "download",
+    "url": "",
+    "thumb": ""
+  },
+  {
+    "name": "Old South Africa Photos",
+    "blurb": "A curated, growing archive of historical South African photography.",
+    "tags": ["Archive", "Media"],
+    "kind": "link",
+    "url": "",
+    "thumb": ""
+  }
+]

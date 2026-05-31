@@ -169,7 +169,7 @@ body.modal-open {
   z-index: 2;                 /* above the dark overlay, behind the lettering (text is z-index 3) */
   width: clamp(360px, 70vmin, 900px);
   height: clamp(360px, 70vmin, 900px);
-  /* vertically centred; pulled hard to the left so it tucks behind MESIDE */
+  /* vertically centred; pulled hard to the left so it tucks behind MEDICI */
   margin: calc(clamp(360px, 70vmin, 900px) / -2) 0 0 calc(clamp(360px, 70vmin, 900px) * -0.42);
   pointer-events: none;
   animation: moonFloat 14s ease-in-out infinite;
@@ -1057,4 +1057,388 @@ body.modal-open {
   .shake { animation: none; }
   .fx-grain { animation: none; }
   .card-inner { transition: box-shadow 0.4s ease; }
+}
+
+/* ── Scroll-through solar system ─────────────────────────────────────────── */
+.solar {
+  position: relative;
+  height: 100vh;
+  min-height: 600px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 70% 40%, #0a1020 0%, #05060c 55%, #000 100%);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.solar-stage {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  touch-action: pan-y;
+  outline: none;
+}
+.solar-stage.grabbing { cursor: grabbing; }
+.solar-stage canvas { display: block; width: 100%; height: 100%; }
+
+/* Fallback shown only when WebGL can't run (canvas never gets added on top). */
+.solar-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 24px;
+  color: var(--dim);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+.solar-stage canvas ~ .solar-fallback,
+.solar-stage:has(canvas) .solar-fallback { display: none; }
+
+.solar-hud {
+  position: absolute;
+  left: clamp(18px, 5vw, 64px);
+  bottom: clamp(80px, 14vh, 140px);
+  max-width: min(440px, 80vw);
+  pointer-events: none;
+  z-index: 3;
+}
+.solar-kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin: 0 0 6px;
+}
+.solar-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(46px, 9vw, 104px);
+  line-height: 0.92;
+  letter-spacing: 0.03em;
+  color: #fff;
+  margin: 0;
+  text-shadow: 0 6px 40px rgba(0, 0, 0, 0.8);
+}
+.solar-fact {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: clamp(15px, 2.2vw, 20px);
+  line-height: 1.4;
+  color: var(--off-white);
+  margin: 10px 0 0;
+  opacity: 0.92;
+}
+
+.solar-scrub {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: clamp(34px, 7vh, 56px);
+  display: flex;
+  gap: 14px;
+  z-index: 3;
+  padding: 10px 16px;
+  background: rgba(8, 10, 18, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 40px;
+  backdrop-filter: blur(8px);
+}
+.solar-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+  transition: transform 0.3s, background 0.3s, box-shadow 0.3s;
+  -webkit-tap-highlight-color: transparent;
+}
+.solar-dot:hover { background: rgba(255, 255, 255, 0.6); transform: scale(1.25); }
+.solar-dot.active {
+  background: var(--orange);
+  transform: scale(1.4);
+  box-shadow: 0 0 14px rgba(255, 85, 0, 0.8);
+}
+
+.solar-hint {
+  position: absolute;
+  right: clamp(18px, 5vw, 48px);
+  bottom: clamp(34px, 7vh, 56px);
+  margin: 0;
+  z-index: 3;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--dim);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .solar-hint { display: none; }
+  .solar { height: 86vh; }
+}
+
+/* ── 3D Coverflow rail ───────────────────────────────────────────────────── */
+.coverflow {
+  position: relative;
+  height: clamp(300px, 52vh, 560px);
+  margin: 6px 0 46px;
+  perspective: 1700px;
+  overflow: hidden;
+  cursor: grab;
+  outline: none;
+}
+.coverflow.grabbing { cursor: grabbing; }
+
+.cf-viewport {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+/* Coverflow cards are positioned by JS; override the grid card defaults. */
+.coverflow .card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(62vw, 540px);
+  height: auto;
+  margin: 0;
+  opacity: 0;                       /* set inline by layout() */
+  transform: translate(-50%, -50%);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.45s ease;
+  will-change: transform, opacity;
+  box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.9);
+  backface-visibility: hidden;
+}
+
+/* The centred card glows forward and reveals its title + badge. */
+.coverflow .card.cf-active {
+  box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.95),
+              0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.coverflow .card.cf-active .card-overlay,
+.coverflow .card.cf-active .card-badge { transform: translateY(0); }
+
+.cf-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 200;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: rgba(10, 10, 14, 0.5);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background 0.2s, opacity 0.2s, transform 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cf-arrow.prev { left: clamp(8px, 2vw, 26px); }
+.cf-arrow.next { right: clamp(8px, 2vw, 26px); }
+.cf-arrow:hover { background: var(--orange); color: var(--black); }
+.cf-arrow:disabled { opacity: 0.2; cursor: default; }
+
+.cf-counter {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--dim);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .coverflow .card { width: 80vw; }
+  .cf-arrow { width: 42px; height: 42px; font-size: 24px; }
+}
+
+/* ── Music sub-sections (My Music / AI Music) ────────────────────────────── */
+.music-sub { margin-bottom: 14px; }
+.sub-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 20px 0;
+}
+.sub-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(18px, 2.6vw, 28px);
+  letter-spacing: 0.08em;
+  color: var(--off-white);
+  margin: 0;
+}
+.sub-count {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--dim);
+}
+/* AI Music heading doubles as the "play the intro" button. */
+.sub-title-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.sub-title-btn:hover { color: var(--orange); }
+.sub-title-btn .ai-info {
+  font-size: 0.62em;
+  color: var(--orange);
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+.ai-note {
+  margin: 6px 20px 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--orange);
+}
+
+/* ── Download format chips (in the modal) ────────────────────────────────── */
+.dl-formats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.dl-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 14px;
+  color: var(--dim);
+  margin-right: 2px;
+}
+.dl-chip {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--off-white);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 7px 13px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.dl-chip:hover {
+  background: var(--orange);
+  color: var(--black);
+  border-color: var(--orange);
+}
+.dl-chip.working {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ── Rex's Products ──────────────────────────────────────────────────────── */
+.products { padding-bottom: 40px; }
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+  padding: 14px 18px 0;
+}
+.product-card {
+  display: flex;
+  flex-direction: column;
+  background: #0c0c0e;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s, box-shadow 0.3s;
+}
+.product-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255, 85, 0, 0.5);
+  box-shadow: 0 26px 56px -28px rgba(0, 0, 0, 0.9);
+}
+.product-thumb {
+  height: 150px;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.product-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.product-thumb.placeholder {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 64px;
+  color: var(--orange);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,120,40,0.4), transparent 55%),
+    linear-gradient(135deg, #160800 0%, #2a0f00 60%, #ff5500 240%);
+  text-shadow: 0 0 30px rgba(255, 85, 0, 0.6);
+}
+.product-body { display: flex; flex-direction: column; gap: 10px; padding: 18px; flex: 1; }
+.product-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  color: #fff;
+  margin: 0;
+}
+.product-blurb {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--off-white);
+  margin: 0;
+  flex: 1;
+}
+.product-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.product-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 9px;
+}
+.product-cta {
+  align-self: flex-start;
+  margin-top: 4px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--black);
+  background: var(--orange);
+  border-radius: 22px;
+  padding: 9px 18px;
+  text-decoration: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.product-cta:hover { transform: translateX(3px); }
+.product-cta.disabled {
+  background: transparent;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  pointer-events: none;
 }

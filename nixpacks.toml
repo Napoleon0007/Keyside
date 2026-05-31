@@ -1,0 +1,3 @@
+# Railway build: make ffmpeg available for on-the-fly download conversion.
+[phases.setup]
+nixPkgs = ["python3", "ffmpeg"]

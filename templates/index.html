@@ -3,11 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Meside</title>
+  <title>Medici</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,600;1,300;1,400&family=Space+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
 </head>
 <body>
 
@@ -33,7 +40,7 @@
         <img class="hero-moon-img" src="{{ url_for('static', filename='moon.jpg') }}" alt="">
       </div>
       <div class="hero-content">
-        <h1 class="site-title"><span class="hero-letter">M</span><span class="hero-letter">E</span><span class="hero-letter side">S</span><span class="hero-letter side">I</span><span class="hero-letter side">D</span><span class="hero-letter side">E</span></h1>
+        <h1 class="site-title"><span class="hero-letter">M</span><span class="hero-letter">E</span><span class="hero-letter side">D</span><span class="hero-letter side">I</span><span class="hero-letter side">C</span><span class="hero-letter side">I</span></h1>
         <p class="site-sub-name">Rex <span class="orange floaty">True</span>form <span class="orange floaty">ART</span>s Hub</p>
         <div class="title-underline"></div>
         <p class="site-sub">fuck that shit.. I just wanna <span class="orange floaty">BAN</span>G!!</p>
@@ -41,12 +48,29 @@
     </div>
   </header>
 
+  <!-- Scroll-through solar system -->
+  <section class="solar" id="solar" aria-label="Travel the solar system">
+    <div class="solar-stage" id="solarStage" role="img" aria-label="Photoreal 3D solar system you can drag through">
+      <div class="solar-fallback">
+        <p>Your browser can't render the 3D system — but the art's still below. ↓</p>
+      </div>
+    </div>
+    <div class="solar-hud">
+      <p class="solar-kicker">Rex's Cosmos</p>
+      <h2 class="solar-name" id="solarName">Neptune</h2>
+      <p class="solar-fact" id="solarFact">The windiest world — supersonic storms tear across its deep blue methane sky.</p>
+    </div>
+    <div class="solar-scrub" id="solarScrub" aria-label="Jump to a planet"></div>
+    <p class="solar-hint">drag to travel — inward to the Sun</p>
+  </section>
+
   <div class="filter-bar" id="filterBar">
     <div class="filter-scroll">
       <button class="filter-btn active" data-type="all">All</button>
       <button class="filter-btn" data-type="video">Video</button>
       <button class="filter-btn" data-type="image">Images</button>
       <button class="filter-btn" data-type="music">Music</button>
+      <button class="filter-btn" data-type="products">Rex's Products</button>
     </div>
     <div class="filter-count">
       <span id="countNum">—</span>&thinsp;works
@@ -60,6 +84,15 @@
       <span class="loading-dot"></span>
     </div>
   </main>
+
+  <!-- Rex's Products -->
+  <section class="products" id="products" aria-label="Rex's Products">
+    <div class="section-head">
+      <h2 class="section-title">Rex's <span class="orange">Products</span></h2>
+      <span class="section-count" id="productsCount">—</span>
+    </div>
+    <div class="products-grid" id="productsGrid"></div>
+  </section>
 
   <!-- Video modal -->
   <div class="modal" id="modal" aria-hidden="true" role="dialog">
@@ -79,7 +112,7 @@
           <h2 class="modal-title" id="modalTitle"></h2>
           <span class="modal-style-tag" id="modalStyleTag"></span>
         </div>
-        <button class="download-btn" id="downloadBtn" style="display:none">&#x2193; Download</button>
+        <div class="dl-formats" id="dlFormats" style="display:none"></div>
       </div>
     </div>
   </div>
@@ -136,5 +169,6 @@
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script src="{{ url_for('static', filename='effects.js') }}"></script>
   <script src="{{ url_for('static', filename='herotext.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='solar.js') }}"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// herotext.js — the MESIDE title floats gently in place, like it's resting on water.
+// herotext.js — the MEDICI title floats gently in place, like it's resting on water.
 // A soft wave rolls across the letters (each one phase-offset), with a little rocking
 // and depth. No flying off-screen. Vanilla, dependency-free. Honors reduced-motion;
 // pauses when the hero scrolls out of view.
