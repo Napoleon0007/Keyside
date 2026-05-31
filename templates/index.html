@@ -33,8 +33,7 @@
         <img class="hero-moon-img" src="{{ url_for('static', filename='moon.jpg') }}" alt="">
       </div>
       <div class="hero-sun" aria-hidden="true">
-        <div class="hero-sun-flares"></div>
-        <div class="hero-sun-core"></div>
+        <canvas class="hero-sun-canvas"></canvas>
       </div>
       <div class="hero-content">
         <h1 class="site-title"><span class="hero-letter">M</span><span class="hero-letter">E</span><span class="hero-letter side">S</span><span class="hero-letter side">I</span><span class="hero-letter side">D</span><span class="hero-letter side">E</span></h1>
@@ -140,5 +139,6 @@
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script src="{{ url_for('static', filename='effects.js') }}"></script>
   <script src="{{ url_for('static', filename='herotext.js') }}"></script>
+  <script src="{{ url_for('static', filename='sun.js') }}"></script>
 </body>
 </html>
