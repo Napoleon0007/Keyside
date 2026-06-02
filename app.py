@@ -21,6 +21,7 @@ UPLOAD_DIR     = Path(__file__).parent / "uploads"
 AI_MUSIC_DIR   = UPLOAD_DIR / "ai-music"   # audio here is auto-classed as "AI Music"
 METADATA_FILE  = Path(__file__).parent / "videos.json"
 PRODUCTS_FILE  = Path(__file__).parent / "products.json"
+LINKS_FILE     = Path(__file__).parent / "links.json"
 DB_FILE        = Path(__file__).parent / "users.db"
 VIDEO_EXTENSIONS = {".mp4", ".MP4", ".webm", ".mov", ".MOV", ".m4v"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".JPG", ".JPEG", ".png", ".PNG", ".webp", ".WEBP", ".gif", ".GIF", ".avif"}
@@ -487,6 +488,40 @@ def get_products():
     except (FileNotFoundError, json.JSONDecodeError):
         products = []
     return jsonify({"products": products})
+
+
+@app.route("/api/links")
+def get_links():
+    """External Rex Trueform presence (socials etc.) for the 3D world — read from links.json.
+
+    Edit links.json to add a destination or paste in a URL; nodes with a blank
+    url render as "coming soon" in the neural map until a link is filled in.
+    """
+    try:
+        with open(LINKS_FILE, encoding="utf-8") as f:
+            links = json.load(f)
+        if not isinstance(links, list):
+            links = []
+    except (FileNotFoundError, json.JSONDecodeError):
+        links = []
+    return jsonify({"links": links})
+
+
+@app.route("/api/galaxies")
+def get_galaxies():
+    """Background galaxy photos for the 3D world — every image in static/galaxies/.
+
+    Drop more galaxy images (jpg/png/webp) into static/galaxies/ and they appear
+    in the world's deep background automatically on reload.
+    """
+    folder = Path(__file__).parent / "static" / "galaxies"
+    exts = {".jpg", ".jpeg", ".png", ".webp", ".avif"}
+    galaxies = []
+    if folder.is_dir():
+        for p in sorted(folder.iterdir()):
+            if p.is_file() and p.suffix.lower() in exts:
+                galaxies.append(f"/static/galaxies/{p.name}")
+    return jsonify({"galaxies": galaxies})
 
 
 @app.route("/api/admin/users")

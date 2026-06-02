@@ -1,0 +1,906 @@
+// world.js — "The Rex Trueform World": a 3D interactive neural-map / solar system.
+// A central Rex Trueform core (the logo) with category hubs rendered as REAL planets,
+// pulled live from the site's APIs so the map grows itself as content/links are added.
+//   Network = Earth · Images = Moon · Edits = Pluto · Music = Jupiter (rings) · Products = Mars
+// Each planet's data points orbit it like moons (screenshot/letter circles). Free trackball:
+// drag any direction (under/around), scroll/pinch to zoom; click a node to focus + Open.
+// Vanilla Three.js (ESM via importmap). Pauses off-screen, degrades without WebGL.
+
+import * as THREE from 'three';
+
+const stage = document.getElementById('worldStage');
+if (stage) boot(stage).catch(() => revealFallback());
+
+function revealFallback() {
+  const fb = document.getElementById('worldFallback');
+  if (fb) fb.hidden = false;
+}
+
+async function boot(stage) {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── WebGL guard ─────────────────────────────────────────────────────────────
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+  } catch (e) {
+    revealFallback();
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setClearAlpha(0);
+  stage.appendChild(renderer.domElement);
+
+  const scene  = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 6000);
+  camera.position.set(0, 0, 620);
+
+  const pivot = new THREE.Group();   // subtle mouse-parallax lean
+  scene.add(pivot);
+  const root = new THREE.Group();    // the graph; free-orbit (trackball) rotation
+  pivot.add(root);
+
+  const labelLayer = document.getElementById('worldLabels');
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.42));
+  const coreLight = new THREE.PointLight(0xffd0a0, 2.0, 0, 1.1);   // warm "sun" glow from the core
+  scene.add(coreLight);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);      // white key so planets read true
+  keyLight.position.set(0.7, 0.5, 1);
+  scene.add(keyLight);
+  const loader = new THREE.TextureLoader();
+
+  const stars = makeStars();
+  scene.add(stars);
+
+  // Deep background: distant living galaxies (each drifting on its own slow orbit
+  // and spinning) plus sporadic shooting stars.
+  const galaxies = makeGalaxies();
+  scene.add(galaxies.group);
+  const meteors = makeMeteors();
+  scene.add(meteors.group);
+
+  // Real galaxies (NASA/Hubble photos) living in the deep background. Drop more
+  // images into static/galaxies/ and they appear automatically on reload.
+  const backdrop = new THREE.Group();
+  scene.add(backdrop);   // fixed in the scene → galaxies stay put at the back, no drift
+  fetch('/api/galaxies').then(r => r.json()).then(d => {
+    const files = Array.isArray(d.galaxies) ? d.galaxies : [];
+    if (!files.length) return;
+    const spots = [
+      { r: 2200, size: 1300, theta: 0.6, phi:  0.5 },
+      { r: 2600, size: 1000, theta: 2.4, phi: -0.4 },   // left side — shrunk (was 1550)
+      { r: 2000, size: 760,  theta: 3.8, phi:  0.8 },   // left side — shrunk (was 1050)
+      { r: 2800, size: 1750, theta: 5.2, phi: -0.2 },
+      { r: 2400, size: 1150, theta: 1.5, phi: -0.9 },
+      { r: 2300, size: 950,  theta: 4.4, phi:  0.3 },   // left side — shrunk (was 1450)
+    ];
+    spots.forEach((s, i) => {
+      // Feathered, luminance-keyed texture → no rectangle, melts into space.
+      const tex = featherGalaxyTexture(files[i % files.length]);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: tex, transparent: true, opacity: 0.95,
+        depthTest: true, depthWrite: false,   // far planets/foreground occlude them → stays a backdrop
+      }));
+      const ct = Math.cos(s.phi);
+      sp.position.set(s.r * ct * Math.cos(s.theta), s.r * Math.sin(s.phi), s.r * ct * Math.sin(s.theta));
+      sp.scale.setScalar(s.size);
+      sp.material.rotation = i * 1.1;
+      backdrop.add(sp);
+    });
+  }).catch(() => {});
+
+  // ── Fetch the live content; build the graph from it ─────────────────────────
+  const [vRes, pRes, lRes] = await Promise.all([
+    fetch('/api/videos').then(r => r.json()).catch(() => ({})),
+    fetch('/api/products').then(r => r.json()).catch(() => ({})),
+    fetch('/api/links').then(r => r.json()).catch(() => ({})),
+  ]);
+  const videos   = Array.isArray(vRes.videos)   ? vRes.videos   : [];
+  const products = Array.isArray(pRes.products) ? pRes.products : [];
+  const links    = Array.isArray(lRes.links)    ? lRes.links    : [];
+
+  const mediaVideo = videos.filter(v => v.type === 'video');
+  const mediaImage = videos.filter(v => v.type === 'image');
+  const mediaMusic = videos.filter(v => v.type === 'music');
+
+  const HUBS = [
+    { key: 'products', label: 'Products', color: 0xff5500,
+      leaves: products.map(p => ({ name: p.name, kind: 'app',   color: 0xff7a3d, payload: p, thumb: p.thumb })) },
+    { key: 'edits',    label: 'Edits',    color: 0xff8a3d,
+      leaves: mediaVideo.map(v => ({ name: v.title, kind: 'modal', color: 0xffae63, payload: v, mtype: 'video' })) },
+    { key: 'images',   label: 'Images',   color: 0x8a6cff,
+      leaves: mediaImage.map(v => ({ name: v.title, kind: 'modal', color: 0xa98cff, payload: v, mtype: 'image', thumb: v.src })) },
+    { key: 'music',    label: 'Music',    color: 0x2ad1ff,
+      leaves: mediaMusic.map(v => ({ name: v.title, kind: 'modal', color: 0x6fe0ff, payload: v, mtype: 'music' })) },
+    { key: 'network',  label: 'Network',  color: 0x4dff9e,
+      leaves: links.map(l => ({ name: l.name, kind: 'link', color: hexToInt(l.color, 0x4dff9e), payload: l, url: l.url })) },
+  ];
+
+  // Each category hub IS a real planet (NASA-style maps, same source as solar.js).
+  const PLANETS = {
+    products: { tex: 'marsmap1k',  r: 18, dist: 180, tilt: 0.45, spin: 0.010, orbitTilt:  0.30, orbitSpeed: 0.0011, moonTilt: 0.50, moonSpeed: 0.0016 },
+    edits:    { tex: 'plutomap',   r: 13, dist: 235, tilt: 0.30, spin: 0.008, orbitTilt: -0.28, orbitSpeed: 0.0008, moonTilt: 0.70, moonSpeed: 0.0013 },
+    images:   { tex: 'moonmap1k',  r: 12, dist: 150, tilt: 0.10, spin: 0.006, orbitTilt:  0.55, orbitSpeed: 0.0015, moonTilt: 0.30, moonSpeed: 0.0019 },
+    music:    { tex: 'jupitermap', r: 27, dist: 270, tilt: 0.05, spin: 0.014, orbitTilt:  0.12, orbitSpeed: 0.0006, ring: true, moonTilt: 0.40, moonSpeed: 0.0011 },
+    network:  { tex: 'earthmap1k', r: 19, dist: 205, tilt: 0.41, spin: 0.011, orbitTilt:  0.40, orbitSpeed: 0.0010, moonTilt: 0.45, moonSpeed: 0.0015 },
+  };
+
+  // ── Shared assets ───────────────────────────────────────────────────────────
+  const glowTex  = makeGlowTexture();
+  const sphereLo = new THREE.SphereGeometry(1, 20, 20);
+
+  const nodes        = [];   // label/dim targets (core, hubs, leaves)
+  const hits         = [];   // clickable leaf hit meshes
+  const labels       = [];   // persistent HTML labels (hub planets)
+  const planetMeshes = [];   // { mesh, ring, spin } self-rotating planets
+  const orbiters     = [];   // { group, speed } revolving groups (planets + moon systems)
+  const orbitRings   = [];   // LineLoop materials — the visible orbit paths (dimmed on focus)
+  const edgePairs    = [];   // [Object3D, Object3D] — endpoints read from world each frame
+  const ORBIT_RING_OPACITY = 0.2;
+
+  // Core — the Rex Trueform logo lives IN the 3D scene (a video sprite) so planets
+  // orbiting to the near side pass in FRONT of it and far ones go behind — true depth.
+  const core = makeNode({ name: 'Rex Trueform', kind: 'core', color: 0xff5500, radius: 22, emissive: 1.5 });
+  root.add(core.group);
+  nodes.push(core);
+  core.mesh.visible = false;   // no obsidian sphere / orange dot behind the logo —
+  core.glow.visible = false;   // the logo video is the only thing at the centre
+
+  const logoVid = document.createElement('video');
+  Object.assign(logoVid, { src: '/static/rex-logo.mp4', muted: true, loop: true, autoplay: true, playsInline: true, crossOrigin: 'anonymous' });
+  logoVid.play().catch(() => {});
+  const logoTex = new THREE.VideoTexture(logoVid);
+  logoTex.colorSpace = THREE.SRGBColorSpace;
+  const logoSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: logoTex, alphaMap: makeDiscMask(), transparent: true, depthTest: true, depthWrite: false,
+  }));
+  logoSprite.scale.setScalar(92);                 // the central "sun" — biggest body, depth-sorted
+  core.group.add(logoSprite);
+  const htmlLogo = document.getElementById('worldLogo');
+  if (htmlLogo) htmlLogo.style.display = 'none';  // replaced by the 3D logo above
+
+  HUBS.forEach((hub, hi) => {
+    const cfg = PLANETS[hub.key];
+
+    const orbit = new THREE.Group();           // orbital plane: revolves the planet around the core
+    orbit.rotation.set(cfg.orbitTilt, hi * (Math.PI * 2 / HUBS.length), 0);
+    root.add(orbit);
+    orbiters.push({ group: orbit, speed: cfg.orbitSpeed });
+
+    // The visible orbit path: a faint full ring at the planet's radius, sitting in
+    // its tilted orbital plane so you can see the track each planet travels.
+    const orbitRing = makeOrbitRing(cfg.dist);
+    orbit.add(orbitRing);
+    orbitRings.push(orbitRing.material);
+
+    const holder = new THREE.Group();          // the planet, out along the orbit radius
+    holder.position.set(cfg.dist, 0, 0);
+    orbit.add(holder);
+
+    const planet = makePlanet(cfg);
+    holder.add(planet.mesh);
+    if (planet.ring) holder.add(planet.ring);
+    planetMeshes.push({ mesh: planet.mesh, ring: planet.ring, spin: cfg.spin });
+
+    const hubNode = { group: holder, kind: 'hub', name: hub.label, color: hub.color };
+    nodes.push(hubNode);
+    labels.push(makeLabel(hubNode, 'hub'));
+    edgePairs.push([core.group, holder]);      // core → planet
+
+    const moons = new THREE.Group();           // the hub's data points orbit it like moons
+    moons.rotation.x = cfg.moonTilt;
+    holder.add(moons);
+    orbiters.push({ group: moons, speed: cfg.moonSpeed });
+
+    const dirs = fibonacciSphere(hub.leaves.length, hi * 7.13 + 1);
+    hub.leaves.forEach((leaf, li) => {
+      const jitter = 0.6 + 0.8 * frac(Math.sin((hi + 1) * 12.9898 + (li + 1) * 78.233) * 43758.5453);
+      const lr = cfg.r + 30 + 34 * jitter;
+      const dead = leaf.kind === 'link' && !leaf.url;   // social not linked yet
+      const node = makeNode({
+        name: leaf.name, kind: leaf.kind, color: leaf.color, radius: 5.2,
+        emissive: dead ? 0.18 : 0.85, dim: dead,
+        payload: leaf.payload, mtype: leaf.mtype, thumb: leaf.thumb, url: leaf.url,
+      });
+      node.group.position.copy(dirs[li].clone().multiplyScalar(lr));
+      node.hub = hub.key;
+      node.style = leaf.payload && leaf.payload.style;
+      moons.add(node.group);
+      nodes.push(node);
+      hits.push(node.hit);
+      edgePairs.push([holder, node.group]);    // planet → moon
+    });
+  });
+
+  // Cross-links: chain leaves sharing an art `style` (the "neural" web). Capped.
+  const byStyle = {};
+  nodes.filter(n => n.kind === 'modal' && n.style).forEach(n => {
+    (byStyle[n.style] = byStyle[n.style] || []).push(n);
+  });
+  let cross = 0;
+  Object.values(byStyle).forEach(group => {
+    for (let i = 1; i < group.length && cross < 120; i++, cross++) {
+      edgePairs.push([group[i - 1].group, group[i].group]);
+    }
+  });
+
+  // ── Dynamic edges — endpoints move with the orbits, rebuilt each frame ───────
+  const edgeGeo = new THREE.BufferGeometry();
+  edgeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(edgePairs.length * 6), 3));
+  const edgeMat = new THREE.LineBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  root.add(new THREE.LineSegments(edgeGeo, edgeMat));
+  const _e1 = new THREE.Vector3(), _e2 = new THREE.Vector3();
+  function updateEdges() {
+    const arr = edgeGeo.attributes.position.array;
+    let i = 0;
+    for (const [a, b] of edgePairs) {
+      _e1.setFromMatrixPosition(a.matrixWorld); root.worldToLocal(_e1);
+      _e2.setFromMatrixPosition(b.matrixWorld); root.worldToLocal(_e2);
+      arr[i++] = _e1.x; arr[i++] = _e1.y; arr[i++] = _e1.z;
+      arr[i++] = _e2.x; arr[i++] = _e2.y; arr[i++] = _e2.z;
+    }
+    edgeGeo.attributes.position.needsUpdate = true;
+  }
+
+  // ── Node + planet + texture factories ───────────────────────────────────────
+  function makeNode({ name, kind, color, radius, emissive, dim, payload, mtype, thumb, url }) {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x0b0b0e, metalness: 0.35, roughness: 0.32,
+      emissive: new THREE.Color(color), emissiveIntensity: emissive,
+    });
+    const mesh = new THREE.Mesh(sphereLo, mat);
+    mesh.scale.setScalar(radius);
+    group.add(mesh);
+
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color: new THREE.Color(color), transparent: true,
+      opacity: dim ? 0.22 : 0.52, blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    glow.scale.setScalar(radius * 4.0);
+    group.add(glow);
+
+    const node = { group, mesh, glow, kind, color, name, payload, mtype, thumb, url,
+                   baseEmissive: emissive, baseGlow: glow.material.opacity, radius, dim };
+
+    // Leaf data points become a CIRCLE showing their screenshot/image (or a letter disc).
+    if (kind === 'app' || kind === 'modal' || kind === 'link') {
+      const ring = '#' + new THREE.Color(color).getHexString();
+      const tex = thumb
+        ? circleImageTexture(thumb, ring)
+        : letterDiscTexture((name || '?').trim().charAt(0).toUpperCase(), color, ring);
+      const billboard = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: tex, transparent: true, depthWrite: false, opacity: dim ? 0.5 : 1,
+      }));
+      billboard.scale.setScalar(radius * 2.8);
+      group.add(billboard);
+      mesh.visible = false;
+      node.billboard = billboard;
+
+      const hit = new THREE.Mesh(sphereLo, new THREE.MeshBasicMaterial({ visible: false }));
+      hit.scale.setScalar(radius * 2.6);
+      hit.userData.node = node;
+      group.add(hit);
+      node.hit = hit;
+    }
+    return node;
+  }
+
+  function loadTex(name) {
+    const t = loader.load(`/static/textures/${name}.jpg`);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    return t;
+  }
+  function makePlanet(cfg) {
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(cfg.r, 48, 48),
+      new THREE.MeshStandardMaterial({ map: loadTex(cfg.tex), roughness: 1, metalness: 0, transparent: true }),
+    );
+    mesh.rotation.z = cfg.tilt || 0;
+    let ring = null;
+    if (cfg.ring) {
+      ring = makeRing(cfg.r * 1.5, cfg.r * 2.5);
+      ring.rotation.set(Math.PI / 2 - 0.32, 0.15, 0);
+    }
+    return { mesh, ring };
+  }
+  // A thin circular line marking a planet's orbit path (XZ plane, centred on the core).
+  function makeOrbitRing(radius) {
+    const seg = 160;
+    const pos = new Float32Array((seg + 1) * 3);
+    for (let i = 0; i <= seg; i++) {
+      const a = (i / seg) * Math.PI * 2;
+      pos[i * 3]     = Math.cos(a) * radius;
+      pos[i * 3 + 1] = 0;
+      pos[i * 3 + 2] = Math.sin(a) * radius;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    return new THREE.LineLoop(geo, new THREE.LineBasicMaterial({
+      color: 0xffffff, transparent: true, opacity: ORBIT_RING_OPACITY, depthWrite: false,
+    }));
+  }
+  function makeRing(inner, outer) {
+    const geo = new THREE.RingGeometry(inner, outer, 96);
+    const pos = geo.attributes.position, uv = geo.attributes.uv, v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {       // remap UVs so the ring texture runs radially
+      v.fromBufferAttribute(pos, i);
+      uv.setXY(i, (v.length() - inner) / (outer - inner), 1);
+    }
+    return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      map: loadTex('saturnringcolor'), side: THREE.DoubleSide, transparent: true, opacity: 0.85,
+    }));
+  }
+
+  // Turn a rectangular galaxy photo into an edgeless texture: the image's own
+  // brightness becomes its transparency (dark sky → see-through) and a radial
+  // feather dissolves the corners. No straight edges, melts into space.
+  function featherGalaxyTexture(url) {
+    const S = 512;
+    const cv = document.createElement('canvas'); cv.width = cv.height = S;
+    const g = cv.getContext('2d');
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const s = Math.max(S / img.width, S / img.height);
+      const w = img.width * s, h = img.height * s;
+      g.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+      const data = g.getImageData(0, 0, S, S), px = data.data;
+      const c = S / 2, rmax = S / 2;
+      for (let y = 0; y < S; y++) {
+        for (let x = 0; x < S; x++) {
+          const i = (y * S + x) * 4;
+          const L = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255;
+          let a = Math.min(1, Math.max(0, (L - 0.06) * 1.7));     // dark sky → transparent
+          const d = Math.hypot(x - c, y - c) / rmax;              // 0 centre … 1.41 corner
+          a *= Math.max(0, 1 - Math.pow(d, 2.2));                 // radial feather kills the box
+          px[i + 3] = (a * 255) | 0;
+        }
+      }
+      g.putImageData(data, 0, 0);
+      tex.needsUpdate = true;
+    };
+    img.onerror = () => {};
+    img.src = url;
+    return tex;
+  }
+
+  // Soft circular alpha mask so the (square) logo video reads as a glowing disc.
+  function makeDiscMask() {
+    const s = 128, c = document.createElement('canvas'); c.width = c.height = s;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    grad.addColorStop(0, '#fff'); grad.addColorStop(0.82, '#fff');
+    grad.addColorStop(0.96, '#666'); grad.addColorStop(1, '#000');
+    g.fillStyle = grad; g.fillRect(0, 0, s, s);
+    const tex = new THREE.CanvasTexture(c);
+    return tex;
+  }
+
+  function circleImageTexture(url, ring) {
+    const size = 160, c = document.createElement('canvas'); c.width = c.height = size;
+    const g = c.getContext('2d');
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      g.clearRect(0, 0, size, size);
+      g.save();
+      g.beginPath(); g.arc(size / 2, size / 2, size / 2 - 5, 0, Math.PI * 2); g.clip();
+      const s = Math.max(size / img.width, size / img.height);
+      const w = img.width * s, h = img.height * s;
+      g.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      g.restore();
+      g.lineWidth = 7; g.strokeStyle = ring;
+      g.beginPath(); g.arc(size / 2, size / 2, size / 2 - 5, 0, Math.PI * 2); g.stroke();
+      tex.needsUpdate = true;
+    };
+    img.onerror = () => {};
+    img.src = url;
+    return tex;
+  }
+  function letterDiscTexture(letter, colorInt, ring) {
+    const size = 160, c = document.createElement('canvas'); c.width = c.height = size;
+    const g = c.getContext('2d');
+    const col = new THREE.Color(colorInt);
+    g.beginPath(); g.arc(size / 2, size / 2, size / 2 - 5, 0, Math.PI * 2);
+    g.fillStyle = `rgb(${Math.round(col.r * 70 + 10)},${Math.round(col.g * 70 + 10)},${Math.round(col.b * 70 + 10)})`;
+    g.fill();
+    g.lineWidth = 7; g.strokeStyle = ring; g.stroke();
+    g.fillStyle = '#fff'; g.font = 'bold 80px sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(letter, size / 2, size / 2 + 6);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  // ── Resize ──────────────────────────────────────────────────────────────────
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(stage);
+  resize();
+
+  // ── Interaction: free trackball orbit / zoom / pick ──────────────────────────
+  let camZ = 620, tCamZ = 620;
+  let dragging = false, moved = false, lastX = 0, lastY = 0;
+  let focused = null, focusQuat = null, paused = false;
+  let autoRot = !reduced;
+  let velYaw = 0, velPitch = 0;
+  let parTX = 0, parTY = 0, parX = 0, parY = 0;
+  const pointers = new Map();
+  let pinchDist = 0;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // Premultiplying WORLD-axis rotations makes a drag feel screen-relative — you can
+  // spin under, over and around with no gimbal lock, whichever way the mouse goes.
+  const ROT_SPEED = 0.006;
+  const _qa = new THREE.Quaternion(), _ax = new THREE.Vector3();
+  const _camDir = new THREE.Vector3(0, 0, 1), _wp = new THREE.Vector3();
+  function rotateBy(dx, dy) {
+    _qa.setFromAxisAngle(_ax.set(0, 1, 0), dx * ROT_SPEED); root.quaternion.premultiply(_qa);
+    _qa.setFromAxisAngle(_ax.set(1, 0, 0), dy * ROT_SPEED); root.quaternion.premultiply(_qa);
+  }
+
+  const el = renderer.domElement;
+  el.style.touchAction = 'none';
+
+  el.addEventListener('pointerdown', e => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1) { dragging = true; moved = false; lastX = e.clientX; lastY = e.clientY; velYaw = velPitch = 0; }
+    else if (pointers.size === 2) pinchDist = pointerSpread();
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  el.addEventListener('pointermove', e => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) { handlePinch(); return; }
+    if (dragging) {
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+      rotateBy(dx, dy);
+      velYaw = dx; velPitch = dy;
+      lastX = e.clientX; lastY = e.clientY;
+    } else {
+      updateParallaxTarget(e);
+      hover(e);
+    }
+  });
+  el.addEventListener('pointerleave', () => { parTX = parTY = 0; });
+  function updateParallaxTarget(e) {
+    if (focused) return;
+    const r = el.getBoundingClientRect();
+    parTY = (((e.clientX - r.left) / r.width) * 2 - 1) * 0.20;
+    parTX = (((e.clientY - r.top) / r.height) * 2 - 1) * 0.16;
+  }
+
+  function endPointer(e) {
+    if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
+    if (dragging && pointers.size === 0) {
+      dragging = false;
+      if (!moved) pick(e);   // a tap, not a drag → select
+    }
+    if (pointers.size < 2) pinchDist = 0;
+  }
+  el.addEventListener('pointerup', endPointer);
+  el.addEventListener('pointercancel', endPointer);
+
+  el.addEventListener('wheel', e => {
+    e.preventDefault();
+    // macOS trackpad pinch arrives as a ctrlKey wheel — treat it as a stronger zoom,
+    // so pinch-to-zoom and two-finger scroll both work natively.
+    const factor = e.ctrlKey ? 7 : 0.5;
+    tCamZ = clamp(tCamZ + e.deltaY * factor, 180, 1500);
+  }, { passive: false });
+
+  function pointerSpread() {
+    const p = [...pointers.values()];
+    return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+  }
+  function handlePinch() {
+    const d = pointerSpread();
+    if (pinchDist) tCamZ = clamp(tCamZ + (pinchDist - d) * 1.5, 230, 1300);
+    pinchDist = d;
+  }
+
+  // ── Raycasting ───────────────────────────────────────────────────────────────
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const hoverLabel = labelLayer ? makeHoverLabel() : null;
+  let hovered = null;
+
+  function rayHit(e) {
+    const r = el.getBoundingClientRect();
+    ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(hits, false)[0];
+    return hit ? hit.object.userData.node : null;
+  }
+  function hover(e) {
+    const node = rayHit(e);
+    if (node === hovered) return;
+    hovered = node;
+    el.style.cursor = node ? 'pointer' : 'grab';
+    if (hoverLabel) hoverLabel.style.display = node ? 'block' : 'none';
+    if (node && hoverLabel) hoverLabel.textContent = node.name + (node.kind === 'link' && !node.url ? ' · soon' : '');
+  }
+  function pick(e) {
+    const node = rayHit(e);
+    if (node) focus(node);
+    else if (focused) unfocus();
+  }
+
+  // ── Focus + info card ────────────────────────────────────────────────────────
+  const card      = document.getElementById('worldCard');
+  const cardThumb = document.getElementById('worldCardThumb');
+  const cardTitle = document.getElementById('worldCardTitle');
+  const cardTag   = document.getElementById('worldCardTag');
+  const cardOpen  = document.getElementById('worldCardOpen');
+  const cardClose = document.getElementById('worldCardClose');
+  const TAGS = { app: 'Product', link: 'Network', video: 'Edit', image: 'Image', music: 'Music' };
+
+  function focus(node) {
+    focused = node;
+    autoRot = false;
+    paused = true;                                   // freeze orbits so the node stays put
+    root.updateMatrixWorld(true);
+    _wp.setFromMatrixPosition(node.group.matrixWorld);
+    root.worldToLocal(_wp);
+    _ax.copy(_wp).normalize();
+    focusQuat = new THREE.Quaternion().setFromUnitVectors(_ax, _camDir);
+    parTX = parTY = 0;
+    tCamZ = 360;
+    logoSprite.visible = false;
+    nodes.forEach(n => {
+      const on = n === node;
+      if (n.mesh)  n.mesh.material.emissiveIntensity = on ? Math.max(1.4, n.baseEmissive) : (n.baseEmissive || 0) * 0.12;
+      if (n.glow)  n.glow.material.opacity = on ? Math.min(1, n.baseGlow + 0.3) : n.baseGlow * 0.12;
+      if (n.billboard) n.billboard.material.opacity = on ? 1 : 0.12;
+    });
+    planetMeshes.forEach(p => { p.mesh.material.opacity = 0.14; if (p.ring) p.ring.material.opacity = 0.08; });
+    edgeMat.opacity = 0.05;
+    orbitRings.forEach(m => { m.opacity = 0.05; });
+    showCard(node);
+  }
+  function unfocus() {
+    focused = null;
+    focusQuat = null;
+    paused = false;
+    tCamZ = 620;
+    nodes.forEach(n => {
+      if (n.mesh)  n.mesh.material.emissiveIntensity = n.baseEmissive;
+      if (n.glow)  n.glow.material.opacity = n.baseGlow;
+      if (n.billboard) n.billboard.material.opacity = n.dim ? 0.5 : 1;
+    });
+    planetMeshes.forEach(p => { p.mesh.material.opacity = 1; if (p.ring) p.ring.material.opacity = 0.85; });
+    edgeMat.opacity = 0.42;
+    orbitRings.forEach(m => { m.opacity = ORBIT_RING_OPACITY; });
+    logoSprite.visible = true;
+    hideCard();
+    autoRot = !reduced;
+  }
+
+  function showCard(node) {
+    cardTitle.textContent = node.name;
+    cardTag.textContent = TAGS[node.kind === 'modal' ? node.mtype : node.kind] || '';
+    cardThumb.innerHTML = '';
+    cardThumb.style.background = '';
+    if (node.thumb) {
+      const img = document.createElement('img');
+      img.src = node.thumb; img.alt = node.name; img.loading = 'lazy';
+      cardThumb.appendChild(img);
+    } else {
+      cardThumb.textContent = iconFor(node);
+      cardThumb.style.background = '#' + new THREE.Color(node.color).getHexString();
+    }
+    cardOpen.classList.remove('disabled');
+    cardOpen.textContent = 'Open';
+    if (node.kind === 'link' && !node.url) {
+      cardOpen.classList.add('disabled');
+      cardOpen.textContent = 'Coming soon';
+      cardOpen.onclick = e => e.preventDefault();
+    } else {
+      cardOpen.onclick = e => {
+        e.preventDefault();
+        if (node.kind === 'app' && window.openAppModal) window.openAppModal(node.payload);
+        else if (node.kind === 'modal' && window.openModal) window.openModal(node.payload);
+        else if (node.kind === 'link') window.open(node.url, '_blank', 'noopener');
+      };
+    }
+    card.classList.add('open');
+    card.setAttribute('aria-hidden', 'false');
+  }
+  function hideCard() {
+    card.classList.remove('open');
+    card.setAttribute('aria-hidden', 'true');
+  }
+  function iconFor(node) {
+    if (node.kind === 'link')   return (node.name || '?').trim().charAt(0).toUpperCase();
+    if (node.mtype === 'music') return '♫';
+    if (node.mtype === 'video') return '▶';
+    return '◉';
+  }
+  if (cardClose) cardClose.addEventListener('click', unfocus);
+
+  // ── Expand → fullscreen ──────────────────────────────────────────────────────
+  const expandBtn = document.getElementById('worldExpand');
+  const section = document.getElementById('section-world');
+  if (expandBtn && section) {
+    expandBtn.addEventListener('click', () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else section.requestFullscreen?.();
+    });
+    document.addEventListener('fullscreenchange', () => requestAnimationFrame(resize));
+  }
+
+  // ── HTML labels (planets, projected each frame) ──────────────────────────────
+  function makeLabel(node, cls) {
+    if (!labelLayer) return null;
+    const d = document.createElement('div');
+    d.className = 'world-label ' + cls;
+    d.textContent = node.name;
+    labelLayer.appendChild(d);
+    return { el: d, node };
+  }
+  function makeHoverLabel() {
+    const d = document.createElement('div');
+    d.className = 'world-label hover';
+    d.style.display = 'none';
+    labelLayer.appendChild(d);
+    return d;
+  }
+  const _v = new THREE.Vector3();
+  function place(el2, obj) {
+    const r = el.getBoundingClientRect();
+    _v.setFromMatrixPosition(obj.matrixWorld).project(camera);
+    if (_v.z >= 1) { el2.style.display = 'none'; return; }
+    el2.style.display = '';
+    el2.style.left = ((_v.x * 0.5 + 0.5) * r.width) + 'px';
+    el2.style.top  = ((-_v.y * 0.5 + 0.5) * r.height) + 'px';
+  }
+  function updateLabels() {
+    labels.forEach(l => { if (l) place(l.el, l.node.group); });
+    if (hoverLabel && hovered) place(hoverLabel, hovered.group);
+  }
+
+  // ── Render loop (paused off-screen) ──────────────────────────────────────────
+  let raf = null, visible = false, t = 0;
+  const io = new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting;
+    if (visible && !raf) raf = requestAnimationFrame(loop);
+  }, { threshold: 0.02 });
+  io.observe(section || stage);
+
+  function loop() {
+    t += 0.016;
+    if (focused && focusQuat) {
+      root.quaternion.slerp(focusQuat, 0.12);
+    } else if (!dragging) {
+      rotateBy(velYaw, velPitch);
+      velYaw *= 0.92; velPitch *= 0.92;
+      if (autoRot && Math.abs(velYaw) < 0.04 && Math.abs(velPitch) < 0.04) rotateBy(0.16, 0);
+    }
+    if (!paused) {
+      for (const o of orbiters) o.group.rotation.y += o.speed;
+      for (const p of planetMeshes) p.mesh.rotation.y += p.spin;
+      galaxies.update(0.016);
+      meteors.update(t);
+    }
+    parX += (parTX - parX) * 0.06; parY += (parTY - parY) * 0.06;
+    pivot.rotation.set(parX, parY, 0);
+    camZ += (tCamZ - camZ) * 0.08; camera.position.z = camZ;
+
+    pivot.updateMatrixWorld(true);   // sync all world matrices for edges + labels
+    const pulse = 1 + Math.sin(t * 1.6) * 0.06;
+    core.glow.scale.setScalar(core.radius * 4.0 * pulse);
+    if (!focused) core.mesh.material.emissiveIntensity = 1.3 + Math.sin(t * 1.6) * 0.25;
+    stars.rotation.y += 0.0002;
+
+    updateEdges();
+    updateLabels();
+    renderer.render(scene, camera);
+    raf = visible ? requestAnimationFrame(loop) : null;
+  }
+  raf = requestAnimationFrame(loop);
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function makeStars() {
+  const N = 1400, pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
+    const rr = Math.sqrt(1 - u * u), R = 1600 + Math.random() * 1400;
+    pos[i * 3]     = R * rr * Math.cos(th);
+    pos[i * 3 + 1] = R * u;
+    pos[i * 3 + 2] = R * rr * Math.sin(th);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0.8 }));
+}
+
+function makeGlowTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.25, 'rgba(255,255,255,0.7)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function fibonacciSphere(n, offset = 0) {
+  const out = [];
+  if (n <= 0) return out;
+  const phi = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    const y = n === 1 ? 0 : 1 - (i / (n - 1)) * 2;
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    const th = phi * i + offset;
+    out.push(new THREE.Vector3(Math.cos(th) * r, y, Math.sin(th) * r));
+  }
+  return out;
+}
+
+function frac(x) { return x - Math.floor(x); }
+
+function hexToInt(hex, fallback) {
+  if (typeof hex !== 'string') return fallback;
+  const v = parseInt(hex.replace('#', ''), 16);
+  return Number.isNaN(v) ? fallback : v;
+}
+
+// ── Deep-space background: galaxies + shooting stars ─────────────────────────
+
+// '#rrggbb' + alpha → rgba() string
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+// A face-on spiral galaxy drawn from thousands of little stars along log arms.
+function galaxyTexSpiral(pal) {
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'); g.translate(S / 2, S / 2);
+  let haze = g.createRadialGradient(0, 0, 0, 0, 0, S * 0.5);
+  haze.addColorStop(0, hexA(pal[0], 0.45)); haze.addColorStop(0.4, hexA(pal[2], 0.12)); haze.addColorStop(1, hexA(pal[2], 0));
+  g.fillStyle = haze; g.beginPath(); g.arc(0, 0, S * 0.5, 0, 7); g.fill();
+  const arms = Math.random() < 0.5 ? 2 : 3, wind = 2.2 + Math.random() * 1.4;
+  for (let a = 0; a < arms; a++) {
+    const base = a * (Math.PI * 2 / arms) + Math.random() * 0.3;
+    for (let s = 0; s < 300; s++) {
+      const tt = s / 300, r = tt * S * 0.46, ang = base + tt * wind * Math.PI * 2, sc = (1 - tt) * 5 + 1.5;
+      const x = Math.cos(ang) * r + (Math.random() * 2 - 1) * sc;
+      const y = Math.sin(ang) * r + (Math.random() * 2 - 1) * sc;
+      g.globalAlpha = (1 - tt) * 0.55 + 0.06;
+      g.fillStyle = tt < 0.35 ? pal[0] : (tt < 0.7 ? pal[1] : pal[2]);
+      g.beginPath(); g.arc(x, y, Math.max(0.5, (1 - tt) * 1.7 + 0.4), 0, 7); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+  let core = g.createRadialGradient(0, 0, 0, 0, 0, S * 0.16);
+  core.addColorStop(0, '#ffffff'); core.addColorStop(0.4, hexA(pal[0], 0.9)); core.addColorStop(1, hexA(pal[1], 0));
+  g.fillStyle = core; g.beginPath(); g.arc(0, 0, S * 0.16, 0, 7); g.fill();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+
+// A softer elliptical galaxy — a tilted glowing ovoid with speckle stars.
+function galaxyTexElliptical(pal) {
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'); g.translate(S / 2, S / 2); g.rotate(Math.random() * Math.PI); g.scale(1, 0.6);
+  let gr = g.createRadialGradient(0, 0, 0, 0, 0, S * 0.5);
+  gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.18, hexA(pal[0], 0.85)); gr.addColorStop(0.5, hexA(pal[1], 0.28)); gr.addColorStop(1, hexA(pal[2], 0));
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, S * 0.5, 0, 7); g.fill();
+  for (let i = 0; i < 130; i++) {
+    const a = Math.random() * 7, r = Math.random() * S * 0.45;
+    g.globalAlpha = Math.random() * 0.5; g.fillStyle = '#fff';
+    g.beginPath(); g.arc(Math.cos(a) * r, Math.sin(a) * r, 0.6, 0, 7); g.fill();
+  }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+
+// A field of distant galaxies, each drifting on its own slow orbit + spinning.
+function makeGalaxies() {
+  const group = new THREE.Group();
+  const palettes = [
+    ['#fff4e0', '#ffb36b', '#8a5cff'], ['#eaf2ff', '#7fb0ff', '#3b5bff'],
+    ['#fff0f6', '#ff7eb6', '#a05bff'], ['#eafff4', '#7ce0b0', '#3fa9ff'],
+  ];
+  const items = [];
+  for (let i = 0; i < 6; i++) {
+    const pal = palettes[i % palettes.length];
+    const tex = Math.random() < 0.7 ? galaxyTexSpiral(pal) : galaxyTexElliptical(pal);
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false });
+    const sp = new THREE.Sprite(mat);
+    const size = 460 + Math.random() * 680; sp.scale.set(size, size, 1);
+    const axis = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize();
+    const up = Math.abs(axis.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+    const e1 = new THREE.Vector3().crossVectors(axis, up).normalize();
+    const e2 = new THREE.Vector3().crossVectors(axis, e1).normalize();
+    items.push({
+      sp, mat, e1, e2,
+      radius: 2700 + Math.random() * 1700,
+      phase: Math.random() * Math.PI * 2,
+      speed: (0.004 + Math.random() * 0.008) * (Math.random() < 0.5 ? -1 : 1),
+      spin: (0.0008 + Math.random() * 0.0018) * (Math.random() < 0.5 ? -1 : 1),
+    });
+    group.add(sp);
+  }
+  let acc = 0;
+  return {
+    group,
+    update(dt) {
+      acc += dt;
+      for (const it of items) {
+        const a = it.phase + acc * it.speed;
+        it.sp.position.set(
+          (Math.cos(a) * it.e1.x + Math.sin(a) * it.e2.x) * it.radius,
+          (Math.cos(a) * it.e1.y + Math.sin(a) * it.e2.y) * it.radius,
+          (Math.cos(a) * it.e1.z + Math.sin(a) * it.e2.z) * it.radius,
+        );
+        it.mat.rotation += it.spin;
+      }
+    },
+  };
+}
+
+// Bright head with a fading tail.
+function meteorTexture() {
+  const w = 160, h = 24, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, w, 0);
+  grad.addColorStop(0, 'rgba(160,200,255,0)');
+  grad.addColorStop(0.6, 'rgba(200,220,255,0.12)');
+  grad.addColorStop(0.92, 'rgba(255,255,255,0.85)');
+  grad.addColorStop(1, 'rgba(255,255,255,1)');
+  g.fillStyle = grad; g.fillRect(0, h / 2 - 1.5, w, 3);
+  const hg = g.createRadialGradient(w - 8, h / 2, 0, w - 8, h / 2, 9);
+  hg.addColorStop(0, 'rgba(255,255,255,1)'); hg.addColorStop(0.5, 'rgba(200,225,255,0.8)'); hg.addColorStop(1, 'rgba(160,200,255,0)');
+  g.fillStyle = hg; g.beginPath(); g.arc(w - 8, h / 2, 9, 0, 7); g.fill();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+
+// One shooting star at a time, streaking from a fresh random spot every ~10s.
+function makeMeteors() {
+  const group = new THREE.Group();
+  const mat = new THREE.SpriteMaterial({ map: meteorTexture(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
+  const sp = new THREE.Sprite(mat); sp.scale.set(190, 30, 1); group.add(sp);
+  const p0 = new THREE.Vector3(), p1 = new THREE.Vector3();
+  let active = false, t0 = 0, dur = 1, nextAt = 4;
+  function spawn(t) {
+    const x0 = (Math.random() * 2 - 1) * 1500, y0 = 500 + Math.random() * 700, z0 = -200 + Math.random() * 700;
+    p0.set(x0, y0, z0);
+    const dx = (Math.random() < 0.5 ? -1 : 1) * (800 + Math.random() * 1100), dy = -(350 + Math.random() * 650);
+    p1.set(x0 + dx, y0 + dy, z0 + (Math.random() * 2 - 1) * 200);
+    mat.rotation = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+    dur = 0.9 + Math.random() * 0.6; t0 = t; active = true;
+  }
+  return {
+    group,
+    update(t) {
+      if (!active) { if (t >= nextAt) spawn(t); else { mat.opacity = 0; return; } }
+      const k = (t - t0) / dur;
+      if (k >= 1) { active = false; mat.opacity = 0; nextAt = t + 8 + Math.random() * 5; return; }
+      sp.position.set(p0.x + (p1.x - p0.x) * k, p0.y + (p1.y - p0.y) * k, p0.z + (p1.z - p0.z) * k);
+      mat.opacity = Math.sin(k * Math.PI) * 0.95;
+    },
+  };
+}

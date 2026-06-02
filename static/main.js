@@ -744,6 +744,45 @@ modalClose.addEventListener('click', closeModal);
 modalBg.addEventListener('click', closeModal);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+// ── App (in-site product) modal ───────────────────────────────────────────────
+
+const appModal       = document.getElementById('appModal');
+const appModalFrame  = document.getElementById('appModalFrame');
+const appModalTitle  = document.getElementById('appModalTitle');
+const appModalNew    = document.getElementById('appModalNew');
+const appModalClose  = document.getElementById('appModalClose');
+const appModalLoader = document.getElementById('appModalLoader');
+
+function openAppModal(p) {
+  if (!p || !p.url) return;
+  scrollY = window.scrollY;
+  document.body.style.top = `-${scrollY}px`;
+  document.body.classList.add('modal-open');
+
+  appModalTitle.textContent = p.name || '';
+  appModalNew.href = p.url;
+  appModalFrame.title = p.name || '';
+  appModalLoader.style.display = 'flex';
+  appModalFrame.addEventListener('load', () => { appModalLoader.style.display = 'none'; }, { once: true });
+  appModalFrame.src = p.url;
+
+  appModal.classList.add('open');
+  appModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAppModal() {
+  if (!appModal.classList.contains('open')) return;
+  appModal.classList.remove('open');
+  appModal.setAttribute('aria-hidden', 'true');
+  appModalFrame.removeAttribute('src');   // stop the embedded app (audio/video/network)
+  document.body.classList.remove('modal-open');
+  document.body.style.top = '';
+  window.scrollTo(0, scrollY);
+}
+
+appModalClose.addEventListener('click', closeAppModal);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAppModal(); });
+
 // ── Filter ──────────────────────────────────────────────────────────────────
 
 function applyTypeFilter(type) {
@@ -755,6 +794,8 @@ function applyTypeFilter(type) {
   });
   const products = document.getElementById('products');
   if (products) products.style.display = (type === 'all' || type === 'products') ? '' : 'none';
+  const world = document.getElementById('section-world');
+  if (world) world.style.display = (type === 'all' || type === 'world') ? '' : 'none';
 }
 
 // Re-flow every rail on resize (card width / spread are viewport-relative).
@@ -845,11 +886,19 @@ function buildProductCard(p) {
 
   const cta = document.createElement('a');
   cta.className = 'product-cta';
-  const labels = { link: 'Open', repo: 'View code', download: 'Download' };
+  const labels = { app: 'Open', link: 'Open', repo: 'View code', download: 'Download' };
   if (p.url) {
     cta.textContent = labels[p.kind] || 'Open';
     cta.href = p.url;
-    if (p.kind === 'download') { cta.setAttribute('download', ''); }
+    if (p.kind === 'app') {
+      // Opens inside the site in an iframe modal rather than leaving Keyside.
+      card.classList.add('is-app');
+      cta.addEventListener('click', e => { e.preventDefault(); openAppModal(p); });
+      card.addEventListener('click', e => {
+        if (e.target.closest('.product-cta')) return;  // CTA handles its own click
+        openAppModal(p);
+      });
+    } else if (p.kind === 'download') { cta.setAttribute('download', ''); }
     else { cta.target = '_blank'; cta.rel = 'noopener'; }
   } else {
     cta.textContent = 'Coming soon';

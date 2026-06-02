@@ -1,0 +1,10 @@
+[
+  { "name": "YouTube",   "category": "network", "url": "", "color": "#ff0000" },
+  { "name": "TikTok",    "category": "network", "url": "", "color": "#25f4ee" },
+  { "name": "Spotify",   "category": "network", "url": "", "color": "#1db954" },
+  { "name": "Instagram", "category": "network", "url": "", "color": "#e1306c" },
+  { "name": "Facebook",  "category": "network", "url": "", "color": "#1877f2" },
+  { "name": "LinkedIn",  "category": "network", "url": "", "color": "#0a66c2" },
+  { "name": "X",         "category": "network", "url": "", "color": "#ffffff" },
+  { "name": "Community", "category": "network", "url": "", "color": "#ff5500" }
+]

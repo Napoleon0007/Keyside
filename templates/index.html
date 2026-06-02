@@ -51,15 +51,40 @@
   <div class="filter-bar" id="filterBar">
     <div class="filter-scroll">
       <button class="filter-btn active" data-type="all">All</button>
+      <button class="filter-btn" data-type="world">World</button>
       <button class="filter-btn" data-type="video">Video</button>
       <button class="filter-btn" data-type="image">Images</button>
       <button class="filter-btn" data-type="music">Music</button>
-      <button class="filter-btn" data-type="products">Rex's Products</button>
+      <button class="filter-btn" data-type="products">Rex Trueform Products</button>
     </div>
     <div class="filter-count">
       <span id="countNum">—</span>&thinsp;works
     </div>
   </div>
+
+  <!-- The Rex Trueform World — 3D interactive neural map -->
+  <section class="world" id="section-world" data-type="world" aria-label="Rex's World">
+    <div class="world-head">
+      <h2 class="world-title"><span class="orange">Rex's</span> World</h2>
+      <button class="world-expand" id="worldExpand" aria-label="Expand to fullscreen" title="Expand">&#x26F6;</button>
+    </div>
+    <div class="world-stage" id="worldStage"></div>
+    <video class="world-logo" id="worldLogo" muted loop autoplay playsinline preload="auto" aria-hidden="true">
+      <source src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/Rex%20trueform%20logo.MP4" type="video/mp4">
+    </video>
+    <div class="world-labels" id="worldLabels"></div>
+    <div class="world-card" id="worldCard" aria-hidden="true">
+      <button class="world-card-close" id="worldCardClose" aria-label="Close">&#x2715;</button>
+      <div class="world-card-thumb" id="worldCardThumb"></div>
+      <h3 class="world-card-title" id="worldCardTitle"></h3>
+      <span class="world-card-tag" id="worldCardTag"></span>
+      <a class="world-card-open" id="worldCardOpen">Open</a>
+    </div>
+    <div class="world-fallback" id="worldFallback" hidden>
+      <span>Your browser can't render the 3D world.</span>
+    </div>
+    <p class="world-hint">drag to orbit &middot; scroll to zoom &middot; click a node</p>
+  </section>
 
   <main class="content" id="content">
     <div class="gallery-loading" id="galleryLoading">
@@ -70,9 +95,9 @@
   </main>
 
   <!-- Rex's Products -->
-  <section class="products" id="products" aria-label="Rex's Products">
+  <section class="products" id="products" aria-label="Rex Trueform Products">
     <div class="section-head">
-      <h2 class="section-title">Rex's <span class="orange">Products</span></h2>
+      <h2 class="section-title">Rex Trueform <span class="orange">Products</span></h2>
       <span class="section-count" id="productsCount">—</span>
     </div>
     <div class="products-grid" id="productsGrid"></div>
@@ -98,6 +123,21 @@
         </div>
         <div class="dl-formats" id="dlFormats" style="display:none"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- App (in-site product) modal -->
+  <div class="app-modal" id="appModal" aria-hidden="true" role="dialog">
+    <div class="app-modal-bar">
+      <span class="app-modal-title" id="appModalTitle"></span>
+      <div class="app-modal-actions">
+        <a class="app-modal-new" id="appModalNew" target="_blank" rel="noopener" title="Open in new tab">Open in new tab &#x2197;</a>
+        <button class="app-modal-close" id="appModalClose" aria-label="Close">&#x2715;</button>
+      </div>
+    </div>
+    <div class="app-modal-frame-wrap">
+      <div class="app-modal-loader" id="appModalLoader"><span></span></div>
+      <iframe class="app-modal-frame" id="appModalFrame" title="" allow="fullscreen; autoplay; clipboard-write; encrypted-media"></iframe>
     </div>
   </div>
 
@@ -153,5 +193,6 @@
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script src="{{ url_for('static', filename='effects.js') }}"></script>
   <script src="{{ url_for('static', filename='herotext.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='world.js') }}"></script>
 </body>
 </html>

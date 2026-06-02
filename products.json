@@ -1,34 +1,50 @@
 [
   {
+    "name": "Rex Casino",
+    "blurb": "Rex Trueform's social betting floor — wager on sports with friends, sign in with a magic link.",
+    "tags": ["React", "Betting", "Realtime"],
+    "kind": "app",
+    "url": "https://rex-trueform-production.up.railway.app",
+    "thumb": "/static/products/rex-casino.png"
+  },
+  {
+    "name": "Rex Trader",
+    "blurb": "Live crypto paper-trading bot — tracks BTC, runs an EMA strategy and logs every trade in real time.",
+    "tags": ["Python", "Crypto", "Realtime"],
+    "kind": "app",
+    "url": "https://rex-trader-production.up.railway.app",
+    "thumb": "/static/products/rex-trader.png"
+  },
+  {
     "name": "Surreal Editor",
-    "blurb": "FFmpeg video compiler with an HTML dashboard + Python server — stitches and processes clips into surreal edits.",
+    "blurb": "FFmpeg video compiler with a live dashboard — stitch, process and warp clips into surreal edits.",
     "tags": ["Python", "FFmpeg", "Flask"],
-    "kind": "link",
-    "url": "",
-    "thumb": ""
+    "kind": "app",
+    "url": "https://surreal-editor-production.up.railway.app",
+    "thumb": "/static/products/surreal-editor.png"
   },
   {
-    "name": "Image Scraper",
-    "blurb": "Python CLI + Flask dashboard for bulk stock-image downloads, with a clean run history.",
-    "tags": ["Python", "Flask"],
-    "kind": "link",
-    "url": "",
-    "thumb": ""
+    "name": "Screenplay Claude",
+    "blurb": "AI screenwriting studio — write properly formatted scripts with an assistant for lines, beats and notes.",
+    "tags": ["AI", "Writing", "React"],
+    "kind": "app",
+    "url": "https://screenplay-claude-production.up.railway.app",
+    "thumb": "/static/products/screenplay-claude.png"
   },
   {
-    "name": "Famous Faces",
-    "blurb": "Wikipedia image collection tool — gathers portraits with a strict no-duplicates rule.",
-    "tags": ["Python", "Media"],
-    "kind": "download",
-    "url": "",
-    "thumb": ""
+    "name": "BPM & Key Butler",
+    "blurb": "Analyse and organise your Splice samples by BPM and key, then tidy the whole library in one click.",
+    "tags": ["Python", "Flask", "Audio"],
+    "kind": "app",
+    "url": "https://sample-organiser-production.up.railway.app",
+    "thumb": "/static/products/bpm-key-butler.png"
   },
   {
-    "name": "Old South Africa Photos",
-    "blurb": "A curated, growing archive of historical South African photography.",
-    "tags": ["Archive", "Media"],
-    "kind": "link",
-    "url": "",
-    "thumb": ""
+    "name": "The Suppressor",
+    "blurb": "Shrinks files of every kind — compress video, images and documents down to a fraction of their size.",
+    "tags": ["Python", "Files", "Compression"],
+    "kind": "app",
+    "url": "https://the-suppressor-production.up.railway.app",
+    "thumb": "/static/products/the-suppressor.png"
   }
 ]
