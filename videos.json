@@ -223,18 +223,33 @@
     "title": "Dog House",
     "style": "song",
     "type": "music",
-    "order": 44
+    "order": 44,
+    "thumb": "/static/video-thumbs/cotton-ball-fire.jpg"
   },
   "Sing Your Praises.mp3": {
     "title": "Sing Your Praises",
     "style": "song",
     "type": "music",
-    "order": 45
+    "order": 45,
+    "thumb": "/static/video-thumbs/hovering-men.jpg"
   },
   "Breaking Down The Door.mp3": {
     "title": "Breaking Down The Door",
     "style": "song",
     "type": "music",
-    "order": 46
+    "order": 46,
+    "thumb": "/static/video-thumbs/mercury-acid-trip.jpg"
+  },
+  "edits/Zuma.mp4": {
+    "title": "Zuma",
+    "style": "music video",
+    "type": "edit",
+    "order": 48
+  },
+  "edits/Boer war.mp4": {
+    "title": "The Boer War",
+    "style": "documentary",
+    "type": "edit",
+    "order": 47
   }
 }

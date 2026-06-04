@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 import json
 import mimetypes
 import os
+import re
 import sqlite3
 import functools
 import io
@@ -19,6 +20,8 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
 VIDEO_DIR      = Path(__file__).parent.parent / "Art Hub"
 UPLOAD_DIR     = Path(__file__).parent / "uploads"
 AI_MUSIC_DIR   = UPLOAD_DIR / "ai-music"   # audio here is auto-classed as "AI Music"
+EDITS_DIR      = Path(__file__).parent / "edits"   # real edits (music videos, short docs) → "Edit"
+THUMBS_DIR     = Path(__file__).parent / "static" / "video-thumbs"   # auto-extracted frame thumbnails
 METADATA_FILE  = Path(__file__).parent / "videos.json"
 PRODUCTS_FILE  = Path(__file__).parent / "products.json"
 LINKS_FILE     = Path(__file__).parent / "links.json"
@@ -106,6 +109,22 @@ def save_metadata(data: dict) -> None:
 def clean_title(filename: str) -> str:
     stem = Path(filename).stem
     return stem.replace("_", " ").replace("-", " ").title()
+
+
+def slugify(text: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", str(text).lower().strip()).strip("-")
+    return s or "x"
+
+
+def thumb_for(filename: str, meta: dict):
+    """Display thumbnail for a media item: an explicit videos.json "thumb" wins,
+    else an auto-extracted video frame at static/video-thumbs/<slug>.jpg, else None."""
+    if meta.get("thumb"):
+        return meta["thumb"]
+    slug = slugify(Path(filename).stem)
+    if (THUMBS_DIR / f"{slug}.jpg").exists():
+        return f"/static/video-thumbs/{slug}.jpg"
+    return None
 
 
 def assign_orders(metadata: dict) -> dict:
@@ -274,6 +293,30 @@ def get_videos():
                     "src":     f"/uploads/ai-music/{path.name}",
                 })
 
+    # ── Edits ───────────────────────────────────────────────────────────────
+    # Real edits (music videos, short documentaries) dropped into the edits/ folder
+    # are auto-classed as "edit". The folder ships with the app, so these work in
+    # production too (served locally, not from the GitHub media repo). Titles/styles
+    # can be overridden in videos.json under the key "edits/<filename>".
+    if EDITS_DIR.exists():
+        for path in sorted(EDITS_DIR.iterdir()):
+            if path.is_file() and path.suffix in MEDIA_EXTENSIONS:
+                key  = f"edits/{path.name}"
+                meta = metadata.get(key, {})
+                videos.append({
+                    "file":  key,
+                    "title": meta.get("title", clean_title(path.name)),
+                    "style": meta.get("style", "edit"),
+                    "type":  "edit",
+                    "order": meta.get("order", 9999),
+                    "src":   f"/edits/{path.name}",
+                })
+
+    # Attach a thumbnail to every entry — explicit (videos.json "thumb") or an
+    # auto-extracted video frame — so the gallery + the 3D world circles show imagery.
+    for v in videos:
+        v["thumb"] = thumb_for(v["file"], metadata.get(v["file"], {}))
+
     videos.sort(key=lambda v: (v["order"], v["file"]))
     return jsonify({"videos": videos, "ai_music_intro": ai_music_intro})
 
@@ -355,8 +398,11 @@ DOWNLOAD_FORMATS = {
 
 def _resolve_local(filename: str):
     """Return a local Path for a media file, or None. Guards against traversal."""
-    for base in (VIDEO_DIR, UPLOAD_DIR):
-        p = base / filename
+    bases = [(VIDEO_DIR, filename), (UPLOAD_DIR, filename)]
+    if filename.startswith("edits/"):
+        bases.append((EDITS_DIR, filename[len("edits/"):]))   # key is "edits/<name>"; file lives at edits/<name>
+    for base, rel in bases:
+        p = base / rel
         if p.exists() and p.is_file():
             try:
                 p.resolve().relative_to(base.resolve())
@@ -552,6 +598,19 @@ def serve_upload(filename: str):
         abort(404)
     try:
         filepath.resolve().relative_to(UPLOAD_DIR.resolve())
+    except ValueError:
+        abort(403)
+    mime = mimetypes.guess_type(str(filepath))[0] or "video/mp4"
+    return send_file(filepath, mimetype=mime, conditional=True)
+
+
+@app.route("/edits/<path:filename>")
+def serve_edit(filename: str):
+    filepath = EDITS_DIR / filename
+    if not filepath.exists() or not filepath.is_file():
+        abort(404)
+    try:
+        filepath.resolve().relative_to(EDITS_DIR.resolve())
     except ValueError:
         abort(403)
     mime = mimetypes.guess_type(str(filepath))[0] or "video/mp4"

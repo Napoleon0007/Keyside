@@ -102,18 +102,21 @@ async function boot(stage) {
   const links    = Array.isArray(lRes.links)    ? lRes.links    : [];
 
   const mediaVideo = videos.filter(v => v.type === 'video');
+  const mediaEdit  = videos.filter(v => v.type === 'edit');
   const mediaImage = videos.filter(v => v.type === 'image');
   const mediaMusic = videos.filter(v => v.type === 'music');
 
   const HUBS = [
     { key: 'products', label: 'Products', color: 0xff5500,
       leaves: products.map(p => ({ name: p.name, kind: 'app',   color: 0xff7a3d, payload: p, thumb: p.thumb })) },
-    { key: 'edits',    label: 'Edits',    color: 0xff8a3d,
-      leaves: mediaVideo.map(v => ({ name: v.title, kind: 'modal', color: 0xffae63, payload: v, mtype: 'video' })) },
+    { key: 'video',    label: 'Video',    color: 0xff8a3d,
+      leaves: mediaVideo.map(v => ({ name: v.title, kind: 'modal', color: 0xffae63, payload: v, mtype: 'video', thumb: v.thumb })) },
+    { key: 'edits',    label: 'Edits',    color: 0x3da5ff,
+      leaves: mediaEdit.map(v => ({ name: v.title, kind: 'modal', color: 0x7dc4ff, payload: v, mtype: 'edit', thumb: v.thumb })) },
     { key: 'images',   label: 'Images',   color: 0x8a6cff,
       leaves: mediaImage.map(v => ({ name: v.title, kind: 'modal', color: 0xa98cff, payload: v, mtype: 'image', thumb: v.src })) },
     { key: 'music',    label: 'Music',    color: 0x2ad1ff,
-      leaves: mediaMusic.map(v => ({ name: v.title, kind: 'modal', color: 0x6fe0ff, payload: v, mtype: 'music' })) },
+      leaves: mediaMusic.map(v => ({ name: v.title, kind: 'modal', color: 0x6fe0ff, payload: v, mtype: 'music', thumb: v.thumb })) },
     { key: 'network',  label: 'Network',  color: 0x4dff9e,
       leaves: links.map(l => ({ name: l.name, kind: 'link', color: hexToInt(l.color, 0x4dff9e), payload: l, url: l.url })) },
   ];
@@ -121,7 +124,8 @@ async function boot(stage) {
   // Each category hub IS a real planet (NASA-style maps, same source as solar.js).
   const PLANETS = {
     products: { tex: 'marsmap1k',  r: 18, dist: 180, tilt: 0.45, spin: 0.010, orbitTilt:  0.30, orbitSpeed: 0.0011, moonTilt: 0.50, moonSpeed: 0.0016 },
-    edits:    { tex: 'plutomap',   r: 13, dist: 235, tilt: 0.30, spin: 0.008, orbitTilt: -0.28, orbitSpeed: 0.0008, moonTilt: 0.70, moonSpeed: 0.0013 },
+    video:    { tex: 'plutomap',   r: 13, dist: 235, tilt: 0.30, spin: 0.008, orbitTilt: -0.28, orbitSpeed: 0.0008, moonTilt: 0.70, moonSpeed: 0.0013 },
+    edits:    { tex: 'neptunemap', r: 15, dist: 305, tilt: 0.22, spin: 0.009, orbitTilt:  0.18, orbitSpeed: 0.0009, moonTilt: 0.50, moonSpeed: 0.0014 },
     images:   { tex: 'moonmap1k',  r: 12, dist: 150, tilt: 0.10, spin: 0.006, orbitTilt:  0.55, orbitSpeed: 0.0015, moonTilt: 0.30, moonSpeed: 0.0019 },
     music:    { tex: 'jupitermap', r: 27, dist: 270, tilt: 0.05, spin: 0.014, orbitTilt:  0.12, orbitSpeed: 0.0006, ring: true, moonTilt: 0.40, moonSpeed: 0.0011 },
     network:  { tex: 'earthmap1k', r: 19, dist: 205, tilt: 0.41, spin: 0.011, orbitTilt:  0.40, orbitSpeed: 0.0010, moonTilt: 0.45, moonSpeed: 0.0015 },
@@ -440,6 +444,21 @@ async function boot(stage) {
     return tex;
   }
 
+  // ── Zoom + small-screen fit ───────────────────────────────────────────────────
+  // Phones (especially portrait) can't fit the whole system at the desktop distance,
+  // so start further back and re-frame on rotate. Declared before resize() so it
+  // can use them; desktop is left at the original distance.
+  const phone = window.innerWidth < 760;
+  function fitZoom() {
+    const w = stage.clientWidth || window.innerWidth;
+    const h = stage.clientHeight || window.innerHeight;
+    const vHalf = (52 * Math.PI / 180) / 2;
+    const R = 360;                                   // frame radius (planets + inner moons)
+    return Math.max(560, Math.min(1300, (R / Math.tan(vHalf)) * Math.max(1, h / w)));
+  }
+  let camZ = 620, tCamZ = 620, userZoomed = false;
+  if (phone) { camZ = tCamZ = fitZoom(); }
+
   // ── Resize ──────────────────────────────────────────────────────────────────
   function resize() {
     const w = stage.clientWidth, h = stage.clientHeight;
@@ -447,12 +466,12 @@ async function boot(stage) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    if (phone && !userZoomed) tCamZ = fitZoom();     // re-frame on orientation change
   }
   new ResizeObserver(resize).observe(stage);
   resize();
 
   // ── Interaction: free trackball orbit / zoom / pick ──────────────────────────
-  let camZ = 620, tCamZ = 620;
   let dragging = false, moved = false, lastX = 0, lastY = 0;
   let autoRot = !reduced;
   let velYaw = 0, velPitch = 0;
@@ -516,6 +535,7 @@ async function boot(stage) {
     // macOS trackpad pinch arrives as a ctrlKey wheel — treat it as a stronger zoom,
     // so pinch-to-zoom and two-finger scroll both work natively.
     const factor = e.ctrlKey ? 7 : 0.5;
+    userZoomed = true;
     tCamZ = clamp(tCamZ + e.deltaY * factor, 180, 1500);
   }, { passive: false });
 
@@ -525,7 +545,7 @@ async function boot(stage) {
   }
   function handlePinch() {
     const d = pointerSpread();
-    if (pinchDist) tCamZ = clamp(tCamZ + (pinchDist - d) * 1.5, 230, 1300);
+    if (pinchDist) { userZoomed = true; tCamZ = clamp(tCamZ + (pinchDist - d) * 1.5, 230, 1300); }
     pinchDist = d;
   }
 
@@ -588,7 +608,7 @@ async function boot(stage) {
   }
 
   // ── Node info + navigation ───────────────────────────────────────────────────
-  const TAGS = { app: 'Product', link: 'Network', video: 'Edit', image: 'Image', music: 'Music' };
+  const TAGS = { app: 'Product', link: 'Network', video: 'Video', edit: 'Edit', image: 'Image', music: 'Music' };
 
   const cap = s => { s = (s == null ? '' : String(s)); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; };
 
@@ -610,7 +630,11 @@ async function boot(stage) {
       if (p.subtype === 'ai')        return 'AI-generated track';
       return style ? `${style} · track` : 'Music track';
     }
-    return style ? `${style} · animated edit` : 'Animated edit';
+    if (node.mtype === 'edit') {
+      const s = (p.style || '');
+      return (s && s !== 'edit') ? `${cap(s)} · edit` : 'A personal edit — music video / short doc';
+    }
+    return style ? `${style} · animated piece` : 'Animated piece';
   }
 
   function iconFor(node) {
@@ -618,7 +642,7 @@ async function boot(stage) {
     if (node.kind === 'hub')    return '◉';
     if (node.kind === 'link')   return (node.name || '?').trim().charAt(0).toUpperCase();
     if (node.mtype === 'music') return '♫';
-    if (node.mtype === 'video') return '▶';
+    if (node.mtype === 'video' || node.mtype === 'edit') return '▶';
     return '◉';
   }
 

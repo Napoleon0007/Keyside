@@ -498,6 +498,7 @@ body.modal-open {
 
 /* Music tile — no thumbnail, so a branded orange cover */
 .card-audio {
+  position: relative;
   width: 100%;
   height: 100%;
   display: flex;
@@ -509,10 +510,27 @@ body.modal-open {
   transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .card:hover .card-audio { transform: scale(1.06) translateZ(30px); }
+/* When a song has a picture (e.g. Cotton Ball Fire), show it as the card art with
+   a soft dark scrim so the ♫ + title stay legible. */
+.card-audio.has-thumb {
+  background-size: cover;
+  background-position: center;
+}
+.card-audio.has-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.35) 100%);
+}
 .card-audio-note {
+  position: relative;
   font-size: clamp(40px, 6vw, 72px);
   color: var(--orange);
   text-shadow: 0 0 26px rgba(255,85,0,0.7);
+}
+.card-audio.has-thumb .card-audio-note {
+  color: #fff;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.85);
 }
 
 /* ── Media sections (Video / Images / Music) ─────────────── */

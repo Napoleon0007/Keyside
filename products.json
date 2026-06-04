@@ -24,7 +24,7 @@
     "thumb": "/static/products/surreal-editor.png"
   },
   {
-    "name": "Screenplay Claude",
+    "name": "Screenplay by Rex for Rex",
     "blurb": "AI screenwriting studio — write properly formatted scripts with an assistant for lines, beats and notes.",
     "tags": ["AI", "Writing", "React"],
     "kind": "app",

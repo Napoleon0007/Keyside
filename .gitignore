@@ -4,5 +4,10 @@ __pycache__/
 .DS_Store
 .env
 venv/
+.venv/
 users.db
 uploads/
+Music for keyside/
+static/main 2.js
+Boer war.mp4
+zuma music vid final.mov

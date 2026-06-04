@@ -310,7 +310,7 @@ async function init() {
   }
 
   // Group by media type; music splits into "My Music" vs "AI Music".
-  const groups = { video: [], image: [], musicMine: [], musicAi: [] };
+  const groups = { video: [], edit: [], image: [], musicMine: [], musicAi: [] };
   videos.forEach(v => {
     if (v.type === 'music') (v.subtype === 'ai' ? groups.musicAi : groups.musicMine).push(v);
     else (groups[v.type] || groups.video).push(v);
@@ -318,6 +318,7 @@ async function init() {
 
   content.innerHTML = '';
   buildSection('video', 'Video', groups.video);
+  buildSection('edit', 'Edits', groups.edit);
   buildSection('image', 'Images', groups.image);
   buildMusicSection(groups.musicMine, groups.musicAi, aiIntro);
 
@@ -524,7 +525,7 @@ function makeCoverflow(items) {
   }
 
   function setActiveMedia(card, on) {
-    if (card._type !== 'video' || !card._media) return;
+    if ((card._type !== 'video' && card._type !== 'edit') || !card._media) return;
     if (on) { card._media.play().catch(() => {}); }
     else { try { card._media.pause(); card._media.currentTime = 0; } catch (e) {} }
   }
@@ -608,6 +609,10 @@ function buildCard(item, opts = {}) {
   } else if (type === 'music') {
     media = document.createElement('div');
     media.className = 'card-audio';
+    if (item.thumb) {
+      media.classList.add('has-thumb');
+      media.style.backgroundImage = `url("${item.thumb}")`;
+    }
     media.innerHTML = '<span class="card-audio-note">&#9835;</span>';
   } else {
     media = document.createElement('video');
@@ -716,7 +721,7 @@ function openModal(item, opts = {}) {
     modalAudio.play().catch(() => {});
   } else {
     modalVideo.src = src;
-    modalVideo.muted = !opts.sound;       // art clips stay muted; the AI-music intro plays with sound
+    modalVideo.muted = !(opts.sound || type === 'edit');   // art clips muted; edits + AI-music intro play with sound
     modalVideo.style.display = 'block';
     modalVideo.play().catch(() => {});
   }
