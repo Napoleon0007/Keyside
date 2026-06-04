@@ -32,8 +32,9 @@
       </div>
     </div>
     <div class="hero">
-      <video class="hero-bg-video" autoplay muted loop playsinline>
-        <source src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/Dark%20church.mp4" type="video/mp4">
+      <video class="hero-bg-video" id="heroBgVideo" autoplay muted loop playsinline preload="auto"
+             poster="{{ url_for('static', filename='video-thumbs/dark-church.jpg') }}">
+        <source src="{{ url_for('static', filename='dark-church.mp4') }}" type="video/mp4">
       </video>
       <div class="hero-overlay"></div>
       <div class="hero-moon" aria-hidden="true">
@@ -67,7 +68,10 @@
   <section class="world" id="section-world" data-type="world" aria-label="Rex's World">
     <div class="world-head">
       <h2 class="world-title"><span class="orange">Rex's</span> World</h2>
-      <button class="world-expand" id="worldExpand" aria-label="Expand to fullscreen" title="Expand">&#x26F6;</button>
+      <div class="world-head-actions">
+        <button class="world-expand world-tour" id="worldTour" aria-label="Take me on a tour" title="Take me on a tour">&#x25B6;</button>
+        <button class="world-expand" id="worldExpand" aria-label="Expand to fullscreen" title="Expand">&#x26F6;</button>
+      </div>
     </div>
     <div class="world-stage" id="worldStage"></div>
     <video class="world-logo" id="worldLogo" muted loop autoplay playsinline preload="auto" aria-hidden="true">
@@ -77,7 +81,7 @@
     <div class="world-fallback" id="worldFallback" hidden>
       <span>Your browser can't render the 3D world.</span>
     </div>
-    <p class="world-hint">drag to orbit &middot; scroll to zoom &middot; click a node</p>
+    <p class="world-hint">drag to orbit &middot; grab a planet &middot; click art to open &middot; &#x25B6; tour</p>
   </section>
 
   <main class="content" id="content">

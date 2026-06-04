@@ -3,6 +3,20 @@
 // and depth. No flying off-screen. Vanilla, dependency-free. Honors reduced-motion;
 // pauses when the hero scrolls out of view.
 
+// Hero background video — make sure it actually plays. Muted+playsinline autoplay is
+// allowed everywhere, but iOS Low-Power-Mode (and the odd mobile browser) can still
+// stall it on a poster frame. Kick it on load and again on the first user gesture.
+(() => {
+  const v = document.getElementById('heroBgVideo');
+  if (!v) return;
+  const kick = () => v.play().catch(() => {});
+  kick();
+  v.addEventListener('canplay', kick, { once: true });
+  ['pointerdown', 'touchstart', 'keydown'].forEach(evt =>
+    window.addEventListener(evt, kick, { once: true, passive: true })
+  );
+})();
+
 (() => {
   const title = document.querySelector('.site-title');
   if (!title) return;

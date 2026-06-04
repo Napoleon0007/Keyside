@@ -317,10 +317,10 @@ async function init() {
   });
 
   content.innerHTML = '';
+  buildMusicSection(groups.musicMine, groups.musicAi, aiIntro);   // music first, up top
   buildSection('video', 'Video', groups.video);
   buildSection('edit', 'Edits', groups.edit);
   buildSection('image', 'Images', groups.image);
-  buildMusicSection(groups.musicMine, groups.musicAi, aiIntro);
 
   countNum.textContent = videos.length;
   applyTypeFilter(currentType);
@@ -617,6 +617,7 @@ function buildCard(item, opts = {}) {
   } else {
     media = document.createElement('video');
     media.className   = 'card-video';
+    if (item.thumb) media.poster = item.thumb;   // show the thumbnail until the clip loads/plays
     if (cf) { media.dataset.src = src; }   // deferred — the rail loads it when near centre
     else    { media.src = src; }
     media.muted       = true;
@@ -790,6 +791,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAppModa
 
 // ── Filter ──────────────────────────────────────────────────────────────────
 
+// Filter categories that map to a planet hub in Rex's World (for the swoop-to focus).
+const HUB_OF = { video: 'video', edit: 'edits', image: 'images', music: 'music', products: 'products' };
+
 function applyTypeFilter(type) {
   currentType = type;
   document.querySelectorAll('.media-section').forEach(section => {
@@ -800,7 +804,8 @@ function applyTypeFilter(type) {
   const products = document.getElementById('products');
   if (products) products.style.display = (type === 'all' || type === 'products') ? '' : 'none';
   const world = document.getElementById('section-world');
-  if (world) world.style.display = (type === 'all' || type === 'world') ? '' : 'none';
+  // Keep the world visible (and let it swoop to the hub) for any category that maps to a planet.
+  if (world) world.style.display = (type === 'all' || type === 'world' || (type in HUB_OF)) ? '' : 'none';
 }
 
 // Re-flow every rail on resize (card width / spread are viewport-relative).
@@ -818,8 +823,11 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.classList.add('active');
     const type = btn.dataset.type;
     applyTypeFilter(type);
+    const hub = HUB_OF[type];
+    if (hub && window.worldFocusHub) window.worldFocusHub(hub);   // swoop the cosmos to that planet
     if (type !== 'all') {
-      const sec = document.getElementById(`section-${type}`) || document.getElementById(type);
+      const sec = hub ? document.getElementById('section-world')
+                      : (document.getElementById(`section-${type}`) || document.getElementById(type));
       if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   });

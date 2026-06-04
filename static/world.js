@@ -43,7 +43,8 @@ async function boot(stage) {
 
   const labelLayer = document.getElementById('worldLabels');
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.42));
+  const ambient = new THREE.AmbientLight(0xffffff, 0.42);
+  scene.add(ambient);
   const coreLight = new THREE.PointLight(0xffd0a0, 2.0, 0, 1.1);   // warm "sun" glow from the core
   scene.add(coreLight);
   const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);      // white key so planets read true
@@ -61,6 +62,20 @@ async function boot(stage) {
   const meteors = makeMeteors();
   scene.add(meteors.group);
 
+  // ── Living sky (Phase 3) — shift the cosmos by the visitor's real local time ──
+  const worldEl = document.querySelector('.world');
+  function applySky(hour) {
+    const p = skyPalette(hour);
+    coreLight.color.copy(p.core); coreLight.intensity = p.coreI;
+    keyLight.color.copy(p.key);   keyLight.intensity = p.keyI;
+    ambient.color.copy(p.amb);    ambient.intensity = p.ambI;
+    stars.material.color.copy(p.star);
+    if (worldEl) worldEl.style.setProperty('--sky-veil', p.veil.join(', '));
+  }
+  const _clock = () => { const n = new Date(); return n.getHours() + n.getMinutes() / 60; };
+  applySky(_clock());
+  setInterval(() => applySky(_clock()), 4 * 60 * 1000);
+
   // Real galaxies (NASA/Hubble photos) living in the deep background. Drop more
   // images into static/galaxies/ and they appear automatically on reload.
   const backdrop = new THREE.Group();
@@ -70,11 +85,11 @@ async function boot(stage) {
     if (!files.length) return;
     const spots = [
       { r: 2200, size: 1300, theta: 0.6, phi:  0.5 },
-      { r: 2600, size: 1000, theta: 2.4, phi: -0.4 },   // left side — shrunk (was 1550)
-      { r: 2000, size: 760,  theta: 3.8, phi:  0.8 },   // left side — shrunk (was 1050)
+      { r: 2600, size: 1280, theta: 2.4, phi: -0.4 },   // left side — middle (was 1550, then 1000)
+      { r: 2000, size: 905,  theta: 3.8, phi:  0.8 },   // left side — middle (was 1050, then 760)
       { r: 2800, size: 1750, theta: 5.2, phi: -0.2 },
       { r: 2400, size: 1150, theta: 1.5, phi: -0.9 },
-      { r: 2300, size: 950,  theta: 4.4, phi:  0.3 },   // left side — shrunk (was 1450)
+      { r: 2300, size: 1200, theta: 4.4, phi:  0.3 },   // left side — middle (was 1450, then 950)
     ];
     spots.forEach((s, i) => {
       // Feathered, luminance-keyed texture → no rectangle, melts into space.
@@ -131,6 +146,22 @@ async function boot(stage) {
     network:  { tex: 'earthmap1k', r: 19, dist: 205, tilt: 0.41, spin: 0.011, orbitTilt:  0.40, orbitSpeed: 0.0010, moonTilt: 0.45, moonSpeed: 0.0015 },
   };
 
+  // ── Gravity (Phase 1) ─────────────────────────────────────────────────────────
+  // Each planet is a real physics body: it springs toward its analytic orbital
+  // "home", feels softened mutual gravity from the others (mass ∝ radius, so Music/
+  // Jupiter pulls hardest), and can be grabbed, dragged and flung. Dial the feel here.
+  const GRAV = {
+    spring:    0.018,   // pull back toward the orbital home (higher = snappier)
+    damp:      0.84,    // velocity retained per frame (lower = gooier/slower)
+    G:         320,     // mutual-gravity strength
+    soft:      55,      // softening length (px) so close planets don't explode
+    massScale: 1.0,     // mass = radius ** massScale
+    maxForce:  3.0,     // per-pair force clamp
+    throwGain: 0.65,    // fling velocity scale on release → slingshot
+    idleSway:  reduced ? 0 : 1,   // 0 under reduced-motion: planets sit still (drag still works)
+    maxOffset: 280,     // furthest a planet may stray from home before a hard pull-back
+  };
+
   // ── Shared assets ───────────────────────────────────────────────────────────
   const glowTex  = makeGlowTexture();
   const sphereLo = new THREE.SphereGeometry(1, 20, 20);
@@ -140,7 +171,9 @@ async function boot(stage) {
   const hoverHits    = [];   // hoverable hit meshes (leaves + planets + core → info card)
   const labels       = [];   // persistent HTML labels (hub planets)
   const planetMeshes = [];   // { mesh, ring, spin } self-rotating planets
-  const orbiters     = [];   // { group, speed } revolving groups (planets + moon systems)
+  const orbiters     = [];   // { group, speed } revolving groups (moon systems only now)
+  const bodies       = [];   // planet physics records (Phase 1 gravity)
+  const planetHits   = [];   // invisible planet spheres → grabbable on pointerdown
   const orbitRings   = [];   // LineLoop materials — the visible orbit paths (dimmed on focus)
   const edgePairs    = [];   // [Object3D, Object3D] — endpoints read from world each frame
   const ORBIT_RING_OPACITY = 0.2;
@@ -177,10 +210,10 @@ async function boot(stage) {
   HUBS.forEach((hub, hi) => {
     const cfg = PLANETS[hub.key];
 
-    const orbit = new THREE.Group();           // orbital plane: revolves the planet around the core
+    const orbit = new THREE.Group();           // orbital plane (math frame): defines the tilted ring
     orbit.rotation.set(cfg.orbitTilt, hi * (Math.PI * 2 / HUBS.length), 0);
     root.add(orbit);
-    orbiters.push({ group: orbit, speed: cfg.orbitSpeed });
+    orbit.updateMatrix();                       // stable — orbit no longer spins; the planet glides via physics
 
     // The visible orbit path: a faint full ring at the planet's radius, sitting in
     // its tilted orbital plane so you can see the track each planet travels.
@@ -188,9 +221,23 @@ async function boot(stage) {
     orbit.add(orbitRing);
     orbitRings.push(orbitRing.material);
 
-    const holder = new THREE.Group();          // the planet, out along the orbit radius
-    holder.position.set(cfg.dist, 0, 0);
-    orbit.add(holder);
+    // The planet is a free physics body in `root` space (Phase 1 — gravity). Its
+    // analytic "home" is the point on the tilted ring; springs + mutual gravity let
+    // it be dragged, flung and tugged. Everything attached (moons, edges, labels,
+    // hit sphere) rides along because it all reads holder.matrixWorld each frame.
+    const holder = new THREE.Group();
+    root.add(holder);
+    const home0 = new THREE.Vector3(cfg.dist, 0, 0).applyMatrix4(orbit.matrix);
+    holder.position.copy(home0);
+
+    const body = {
+      key: hub.key, holder, orbit,
+      dist: cfg.dist, orbitSpeed: cfg.orbitSpeed, theta: 0,
+      mass: Math.pow(cfg.r, GRAV.massScale),
+      home: home0.clone(), pos: home0.clone(), vel: new THREE.Vector3(),
+      acc: new THREE.Vector3(), grabbed: false,
+    };
+    bodies.push(body);
 
     const planet = makePlanet(cfg);
     holder.add(planet.mesh);
@@ -202,12 +249,14 @@ async function boot(stage) {
     labels.push(makeLabel(hubNode, 'hub'));
     edgePairs.push([core.group, holder]);      // core → planet
 
-    // The planet itself is hoverable (shows "{Hub} · N items"), but not a click target.
+    // The planet is hoverable ("{Hub} · N items") and grabbable (drag), but not a leaf click target.
     const hubHit = new THREE.Mesh(sphereLo, new THREE.MeshBasicMaterial({ visible: false }));
     hubHit.scale.setScalar(cfg.r * 1.3);
     hubHit.userData.node = hubNode;
+    hubHit.userData.body = body;
     holder.add(hubHit);
     hoverHits.push(hubHit);
+    planetHits.push(hubHit);
 
     const moons = new THREE.Group();           // the hub's data points orbit it like moons
     moons.rotation.x = cfg.moonTilt;
@@ -265,6 +314,45 @@ async function boot(stage) {
       arr[i++] = _e2.x; arr[i++] = _e2.y; arr[i++] = _e2.z;
     }
     edgeGeo.attributes.position.needsUpdate = true;
+  }
+
+  // ── Planet physics (Phase 1) — spring-to-home + softened mutual gravity ──────
+  const _phHome = new THREE.Vector3(), _phD = new THREE.Vector3(), _phDir = new THREE.Vector3();
+  function stepPhysics() {
+    // Recompute each planet's orbital home and seed its accel with the spring force.
+    for (const b of bodies) {
+      b.theta += b.orbitSpeed * GRAV.idleSway;
+      _phHome.set(Math.cos(b.theta) * b.dist, 0, Math.sin(b.theta) * b.dist).applyMatrix4(b.orbit.matrix);
+      b.home.copy(_phHome);
+      b.acc.copy(_phHome).sub(b.pos).multiplyScalar(GRAV.spring);
+    }
+    // Mutual gravity — only 6 bodies (15 pairs), so a full double loop is free.
+    for (let i = 0; i < bodies.length; i++) {
+      for (let j = i + 1; j < bodies.length; j++) {
+        const a = bodies[i], c = bodies[j];
+        _phD.copy(c.pos).sub(a.pos);
+        const dist2 = _phD.lengthSq();
+        let f = GRAV.G * a.mass * c.mass / (dist2 + GRAV.soft * GRAV.soft);
+        if (f > GRAV.maxForce) f = GRAV.maxForce;
+        _phDir.copy(_phD).multiplyScalar(1 / Math.sqrt(dist2 || 1));
+        a.acc.addScaledVector(_phDir,  f / a.mass);
+        c.acc.addScaledVector(_phDir, -f / c.mass);
+      }
+    }
+    // Integrate (grabbed planets keep their dragged position but still pull on others).
+    for (const b of bodies) {
+      if (!b.grabbed) {
+        b.vel.add(b.acc).multiplyScalar(GRAV.damp);
+        b.pos.add(b.vel);
+        _phD.copy(b.pos).sub(b.home);
+        const off = _phD.length();
+        if (off > GRAV.maxOffset) {
+          b.pos.copy(b.home).addScaledVector(_phD.multiplyScalar(1 / off), GRAV.maxOffset);
+          b.vel.multiplyScalar(0.4);
+        }
+      }
+      b.holder.position.copy(b.pos);
+    }
   }
 
   // ── Node + planet + texture factories ───────────────────────────────────────
@@ -406,7 +494,7 @@ async function boot(stage) {
   }
 
   function circleImageTexture(url, ring) {
-    const size = 160, c = document.createElement('canvas'); c.width = c.height = size;
+    const size = 256, c = document.createElement('canvas'); c.width = c.height = size;
     const g = c.getContext('2d');
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -480,6 +568,10 @@ async function boot(stage) {
   let pinchDist = 0;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+  // Gesture arbiter (Phase 1): 'idle' | 'orbit' (camera trackball) | 'planetDrag'.
+  let inputMode = 'idle', dragBody = null;
+  const dragPlane = new THREE.Plane(), _PLANE_N = new THREE.Vector3(0, 0, 1), _dragHit = new THREE.Vector3();
+
   // Premultiplying WORLD-axis rotations makes a drag feel screen-relative — you can
   // spin under, over and around with no gimbal lock, whichever way the mouse goes.
   const ROT_SPEED = 0.006;
@@ -494,13 +586,36 @@ async function boot(stage) {
 
   el.addEventListener('pointerdown', e => {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.size === 1) { dragging = true; moved = false; lastX = e.clientX; lastY = e.clientY; velYaw = velPitch = 0; }
-    else if (pointers.size === 2) pinchDist = pointerSpread();
     try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    if (tour.active) { stopTour(); return; }           // first touch exits the tour
+    if (focus) cancelFocus();                          // any user input hands control back
+    if (pointers.size >= 2) {                         // second finger → pinch; abandon any planet grab
+      if (dragBody) dragBody.grabbed = false;
+      dragBody = null; dragging = false; inputMode = 'orbit';
+      pinchDist = pointerSpread();
+      return;
+    }
+    const body = bodyAt(e);                            // grab a planet, else fall back to camera orbit
+    if (body) {
+      inputMode = 'planetDrag'; dragBody = body; body.grabbed = true;
+      moved = false; lastX = e.clientX; lastY = e.clientY;
+      body.holder.getWorldPosition(_dragHit);
+      dragPlane.setFromNormalAndCoplanarPoint(_PLANE_N, _dragHit);
+    } else {
+      inputMode = 'orbit'; dragging = true; moved = false;
+      lastX = e.clientX; lastY = e.clientY; velYaw = velPitch = 0;
+    }
   });
   el.addEventListener('pointermove', e => {
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) { handlePinch(); return; }
+    if (inputMode === 'planetDrag' && dragBody) {
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+      lastX = e.clientX; lastY = e.clientY;
+      dragPlaneMove(e);
+      return;
+    }
     if (dragging) {
       const dx = e.clientX - lastX, dy = e.clientY - lastY;
       if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
@@ -521,8 +636,16 @@ async function boot(stage) {
 
   function endPointer(e) {
     if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
-    if (dragging && pointers.size === 0) {
-      dragging = false;
+    if (inputMode === 'planetDrag' && pointers.size === 0) {
+      const b = dragBody;
+      if (b) {
+        b.grabbed = false;
+        if (moved) b.vel.multiplyScalar(GRAV.throwGain);   // fling → slingshot
+      }
+      dragBody = null; inputMode = 'idle';
+      if (b && !moved) focusOn(b, { frameRadius: 170 });   // a tap (no drag) → fly to the planet
+    } else if (dragging && pointers.size === 0) {
+      dragging = false; inputMode = 'idle';
       if (!moved) pick(e);   // a tap, not a drag → select
     }
     if (pointers.size < 2) pinchDist = 0;
@@ -532,6 +655,8 @@ async function boot(stage) {
 
   el.addEventListener('wheel', e => {
     e.preventDefault();
+    if (tour.active) stopTour();
+    if (focus) cancelFocus();
     // macOS trackpad pinch arrives as a ctrlKey wheel — treat it as a stronger zoom,
     // so pinch-to-zoom and two-finger scroll both work natively.
     const factor = e.ctrlKey ? 7 : 0.5;
@@ -570,6 +695,102 @@ async function boot(stage) {
     return hit ? hit.object.userData.node : null;
   }
 
+  // Which planet (if any) is under the pointer — for grabbing on pointerdown.
+  function bodyAt(e) {
+    const r = el.getBoundingClientRect();
+    ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(planetHits, false)[0];
+    return hit ? hit.object.userData.body : null;
+  }
+
+  // Drag the grabbed planet: project the pointer onto a screen-parallel plane through
+  // the planet, in root-local space. The per-move delta becomes the throw velocity.
+  function dragPlaneMove(e) {
+    const r = el.getBoundingClientRect();
+    ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(ndc, camera);
+    if (!ray.ray.intersectPlane(dragPlane, _dragHit)) return;
+    root.worldToLocal(_dragHit);
+    dragBody.vel.copy(_dragHit).sub(dragBody.pos);
+    dragBody.pos.copy(_dragHit);
+  }
+
+  // ── Cinematic focus / fly-to (Phase 2) — reused by clicks, filters and the tour ──
+  const FOCUS_MS = reduced ? 0 : 800;
+  const _AXIS_Z = new THREE.Vector3(0, 0, 1);
+  let focus = null;   // { qFrom, qTo, zFrom, zTo, t0, dur, then, track, target, frameRadius }
+
+  // Resolve a focus target (body / node / Object3D / Vector3) to a root-local point.
+  function resolveLocal(target) {
+    if (!target) return null;
+    if (target.isVector3) return target.clone();
+    const obj = target.holder || target.group || (target.isObject3D ? target : null);
+    if (!obj) return null;
+    const p = new THREE.Vector3().setFromMatrixPosition(obj.matrixWorld);
+    return root.worldToLocal(p);
+  }
+  // Camera Z that frames a body of radius r sitting at root-local point P.
+  function frameDistance(P, r) {
+    const vHalf = (52 * Math.PI / 180) / 2;
+    const camToTarget = Math.max(150, r / Math.tan(vHalf));
+    return clamp(P.length() + camToTarget, 200, 1400);
+  }
+  // Swing `root` so the target lands centre-screen, easing the zoom to frame it.
+  function focusOn(target, opts = {}) {
+    const P = resolveLocal(target);
+    if (!P || P.lengthSq() < 1e-6) return;
+    const frameRadius = opts.frameRadius != null ? opts.frameRadius : 90;
+    focus = {
+      qFrom: root.quaternion.clone(),
+      qTo: new THREE.Quaternion().setFromUnitVectors(P.clone().normalize(), _AXIS_Z),
+      zFrom: tCamZ, zTo: frameDistance(P, frameRadius),
+      t0: t, dur: (opts.ms != null ? opts.ms : FOCUS_MS) / 1000,
+      then: opts.then || null, track: !!opts.track, target, frameRadius,
+    };
+    inputMode = 'focusing'; autoRot = false;
+  }
+  function cancelFocus() {
+    focus = null;
+    if (inputMode === 'focusing') inputMode = 'idle';
+    autoRot = !reduced;
+  }
+  // Let the page's category filter swoop the world to a hub (main.js calls this).
+  window.worldFocusHub = (key) => {
+    const b = bodies.find(x => x.key === key);
+    if (b) focusOn(b, { frameRadius: 175 });
+  };
+
+  // ── Planetarium tour (Phase 4) — autopilot through the cosmos ────────────────
+  const tourBtn = document.getElementById('worldTour');
+  const tour = { active: false, idx: -1, holdUntil: 0, seq: [] };
+  function advanceTour() {
+    tour.idx = (tour.idx + 1) % tour.seq.length;
+    const node = tour.seq[tour.idx];
+    focusOn(node, {
+      frameRadius: node.kind === 'core' ? 120 : 175,
+      ms: reduced ? 0 : 1500, track: true,
+      then: () => { tour.holdUntil = t + 3.2; },   // dwell on each body before moving on
+    });
+    showPeek(node);                                 // caption follows the framed body
+  }
+  function startTour() {
+    tour.seq = [core, ...nodes.filter(n => n.kind === 'hub')];
+    if (!tour.seq.length) return;
+    tour.active = true; tour.idx = -1; tour.holdUntil = 0;
+    if (tourBtn) { tourBtn.classList.add('touring'); tourBtn.textContent = '■'; }
+    advanceTour();
+  }
+  function stopTour() {
+    tour.active = false;
+    if (tourBtn) { tourBtn.classList.remove('touring'); tourBtn.textContent = '▶'; }
+    cancelFocus();
+    clearHover();
+  }
+  if (tourBtn) tourBtn.addEventListener('click', () => (tour.active ? stopTour() : startTour()));
+
   // Desktop hover → show the rich info card for whatever node is under the cursor.
   function hover(e) {
     const node = rayAt(e, hoverHits);
@@ -591,7 +812,7 @@ async function boot(stage) {
     if (!node) { peeked = null; if (touch) clearHover(); return; }
     if (touch && peeked !== node) { peeked = node; showPeek(node); return; }
     peeked = null;
-    if (isClickable(node)) openTarget(node);
+    if (isClickable(node)) focusOn(node, { frameRadius: 60, then: () => openTarget(node) });
   }
 
   function showPeek(node) {
@@ -748,13 +969,39 @@ async function boot(stage) {
 
   function loop() {
     t += 0.016;
-    if (!dragging) {
+
+    if (focus) {                                   // cinematic fly-to (Phase 2)
+      let k = focus.dur > 0 ? (t - focus.t0) / focus.dur : 1;
+      if (k > 1) k = 1;
+      const ke = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;   // easeInOutCubic
+      if (focus.track) {                           // re-aim at a moving target (tour)
+        const P = resolveLocal(focus.target);
+        if (P && P.lengthSq() > 1e-6) {
+          focus.qTo.setFromUnitVectors(P.clone().normalize(), _AXIS_Z);
+          focus.zTo = frameDistance(P, focus.frameRadius);
+        }
+      }
+      root.quaternion.slerpQuaternions(focus.qFrom, focus.qTo, ke);
+      tCamZ = focus.zFrom + (focus.zTo - focus.zFrom) * ke;
+      if (k >= 1) {
+        const then = focus.then, wasTrack = focus.track;
+        focus = null;
+        if (inputMode === 'focusing') inputMode = 'idle';
+        autoRot = !reduced && !wasTrack;
+        if (then) then();
+      }
+    }
+
+    if (tour.active && !focus && t >= tour.holdUntil) advanceTour();   // autopilot dwell → next body
+
+    if (!dragging && inputMode === 'idle' && !tour.active) {
       rotateBy(velYaw, velPitch);
       velYaw *= 0.92; velPitch *= 0.92;
       if (autoRot && Math.abs(velYaw) < 0.04 && Math.abs(velPitch) < 0.04) rotateBy(0.16, 0);
     }
     for (const o of orbiters) o.group.rotation.y += o.speed;
     for (const p of planetMeshes) p.mesh.rotation.y += p.spin;
+    stepPhysics();
     galaxies.update(0.016);
     meteors.update(t);
 
@@ -825,6 +1072,31 @@ function hexToInt(hex, fallback) {
   if (typeof hex !== 'string') return fallback;
   const v = parseInt(hex.replace('#', ''), 16);
   return Number.isNaN(v) ? fallback : v;
+}
+
+// Living-sky palette (Phase 3): the world's mood by hour of day, lerped between
+// keyframes — night violet → dawn warm → midday bright-cool → dusk orange-pink.
+function skyPalette(h) {
+  const K = [
+    { h: 0,  core: 0x6a4bff, key: 0x8a7cff, amb: 0x241a40, ambI: 0.30, coreI: 1.4, keyI: 0.9, star: 0xb9c4ff, veil: [10, 4, 22] },
+    { h: 6,  core: 0xffb070, key: 0xfff0d8, amb: 0x3a2a30, ambI: 0.42, coreI: 2.0, keyI: 1.3, star: 0xffe0c0, veil: [24, 10, 14] },
+    { h: 12, core: 0xfff4e0, key: 0xffffff, amb: 0x3a3a44, ambI: 0.55, coreI: 1.8, keyI: 1.6, star: 0xffffff, veil: [10, 10, 18] },
+    { h: 18, core: 0xff6a2a, key: 0xffb38a, amb: 0x402028, ambI: 0.46, coreI: 2.2, keyI: 1.2, star: 0xffcab0, veil: [30, 8, 12] },
+    { h: 24, core: 0x6a4bff, key: 0x8a7cff, amb: 0x241a40, ambI: 0.30, coreI: 1.4, keyI: 0.9, star: 0xb9c4ff, veil: [10, 4, 22] },
+  ];
+  h = ((h % 24) + 24) % 24;
+  let a = K[0], b = K[1];
+  for (let i = 0; i < K.length - 1; i++) {
+    if (h >= K[i].h && h <= K[i + 1].h) { a = K[i]; b = K[i + 1]; break; }
+  }
+  const f = (h - a.h) / ((b.h - a.h) || 1);
+  const col = (x, y) => new THREE.Color(x).lerp(new THREE.Color(y), f);
+  const num = (x, y) => x + (y - x) * f;
+  return {
+    core: col(a.core, b.core), key: col(a.key, b.key), amb: col(a.amb, b.amb), star: col(a.star, b.star),
+    coreI: num(a.coreI, b.coreI), keyI: num(a.keyI, b.keyI), ambI: num(a.ambI, b.ambI),
+    veil: [Math.round(num(a.veil[0], b.veil[0])), Math.round(num(a.veil[1], b.veil[1])), Math.round(num(a.veil[2], b.veil[2]))],
+  };
 }
 
 // ── Deep-space background: galaxies + shooting stars ─────────────────────────

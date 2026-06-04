@@ -5,7 +5,7 @@
     "tags": ["React", "Betting", "Realtime"],
     "kind": "app",
     "url": "https://rex-trueform-production.up.railway.app",
-    "thumb": "/static/products/rex-casino.png"
+    "thumb": "/static/products/rex-casino.webp"
   },
   {
     "name": "Rex Trader",
@@ -21,7 +21,7 @@
     "tags": ["Python", "FFmpeg", "Flask"],
     "kind": "app",
     "url": "https://surreal-editor-production.up.railway.app",
-    "thumb": "/static/products/surreal-editor.png"
+    "thumb": "/static/products/surreal-editor.webp"
   },
   {
     "name": "Screenplay by Rex for Rex",
@@ -37,7 +37,7 @@
     "tags": ["Python", "Flask", "Audio"],
     "kind": "app",
     "url": "https://sample-organiser-production.up.railway.app",
-    "thumb": "/static/products/bpm-key-butler.png"
+    "thumb": "/static/products/bpm-key-butler.webp"
   },
   {
     "name": "The Suppressor",
@@ -45,6 +45,6 @@
     "tags": ["Python", "Files", "Compression"],
     "kind": "app",
     "url": "https://the-suppressor-production.up.railway.app",
-    "thumb": "/static/products/the-suppressor.png"
+    "thumb": "/static/products/the-suppressor.webp"
   }
 ]
