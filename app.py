@@ -230,6 +230,8 @@ def get_videos():
 
     if GITHUB_RAW_BASE:
         for filename, meta in metadata.items():
+            if filename.startswith("edits/") or filename.startswith("ai-music/"):
+                continue   # served by their own local routes/blocks below, not GitHub raw
             encoded = "/".join(p.replace(" ", "%20") for p in filename.split("/"))
             src = meta.get("src_override") or f"{GITHUB_RAW_BASE}/{encoded}"
             videos.append({
