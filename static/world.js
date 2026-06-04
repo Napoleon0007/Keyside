@@ -34,7 +34,7 @@ async function boot(stage) {
 
   const scene  = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 6000);
-  camera.position.set(0, 0, 620);
+  camera.position.set(0, 0, 520);
 
   const pivot = new THREE.Group();   // subtle mouse-parallax lean
   scene.add(pivot);
@@ -655,14 +655,15 @@ async function boot(stage) {
   // so start further back and re-frame on rotate. Declared before resize() so it
   // can use them; desktop is left at the original distance.
   const phone = window.innerWidth < 760;
+  const DEFAULT_CAMZ = 520;                          // closer default framing (was 620) — reads better on scroll-in
   function fitZoom() {
     const w = stage.clientWidth || window.innerWidth;
     const h = stage.clientHeight || window.innerHeight;
     const vHalf = (52 * Math.PI / 180) / 2;
-    const R = 360;                                   // frame radius (planets + inner moons)
-    return Math.max(560, Math.min(1300, (R / Math.tan(vHalf)) * Math.max(1, h / w)));
+    const R = 320;                                   // frame radius (planets + inner moons) — tighter = closer
+    return Math.max(500, Math.min(1300, (R / Math.tan(vHalf)) * Math.max(1, h / w)));
   }
-  let camZ = 620, tCamZ = 620, userZoomed = false;
+  let camZ = DEFAULT_CAMZ, tCamZ = DEFAULT_CAMZ, userZoomed = false;
   if (phone) { camZ = tCamZ = fitZoom(); }
 
   // ── Resize ──────────────────────────────────────────────────────────────────
@@ -885,12 +886,13 @@ async function boot(stage) {
   const tourBtn = document.getElementById('worldTour');
   const tour = { active: false, idx: -1, holdUntil: 0, seq: [] };
   function advanceTour() {
-    tour.idx = (tour.idx + 1) % tour.seq.length;
+    tour.idx++;
+    if (tour.idx >= tour.seq.length) { finishTour(); return; }   // one full pass → reset itself
     const node = tour.seq[tour.idx];
     focusOn(node, {
       frameRadius: node.kind === 'core' ? 120 : 175,
-      ms: reduced ? 0 : 1500, track: true,
-      then: () => { tour.holdUntil = t + 3.2; },   // dwell on each body before moving on
+      ms: reduced ? 0 : 900, track: true,                         // quicker fly between bodies
+      then: () => { tour.holdUntil = t + 1.6; },                  // quicker dwell on each body
     });
     showPeek(node);                                 // caption follows the framed body
   }
@@ -906,6 +908,14 @@ async function boot(stage) {
     if (tourBtn) { tourBtn.classList.remove('touring'); tourBtn.textContent = '▶'; }
     cancelFocus();
     clearHover();
+  }
+  // Played through every body → stop and ease back out to the default framing.
+  function finishTour() {
+    tour.active = false;
+    if (tourBtn) { tourBtn.classList.remove('touring'); tourBtn.textContent = '▶'; }
+    clearHover();
+    tCamZ = phone ? fitZoom() : DEFAULT_CAMZ;
+    autoRot = !reduced;
   }
   if (tourBtn) tourBtn.addEventListener('click', () => (tour.active ? stopTour() : startTour()));
 
