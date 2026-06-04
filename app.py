@@ -127,6 +127,15 @@ def thumb_for(filename: str, meta: dict):
     return None
 
 
+def media_src(filename: str) -> str:
+    """Playable URL for a plain media filename — GitHub raw in prod, local /video route
+    in dev. Lets a music card point its animated cover at one of Rex's art clips."""
+    if GITHUB_RAW_BASE:
+        encoded = "/".join(p.replace(" ", "%20") for p in filename.split("/"))
+        return f"{GITHUB_RAW_BASE}/{encoded}"
+    return f"/video/{filename}"
+
+
 def assign_orders(metadata: dict) -> dict:
     needs_order = [k for k, v in metadata.items() if "order" not in v]
     if needs_order:
@@ -317,7 +326,13 @@ def get_videos():
     # Attach a thumbnail to every entry — explicit (videos.json "thumb") or an
     # auto-extracted video frame — so the gallery + the 3D world circles show imagery.
     for v in videos:
-        v["thumb"] = thumb_for(v["file"], metadata.get(v["file"], {}))
+        meta = metadata.get(v["file"], {})
+        v["thumb"] = thumb_for(v["file"], meta)
+        if meta.get("cover"):
+            v["cover"] = media_src(meta["cover"])   # animated cover clip for a music tile
+        v["new"] = bool(meta.get("new"))            # mark a fresh drop → comets it in (Rex's World)
+        if meta.get("added"):
+            v["added"] = meta["added"]
 
     videos.sort(key=lambda v: (v["order"], v["file"]))
     return jsonify({"videos": videos, "ai_music_intro": ai_music_intro})

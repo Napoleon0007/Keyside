@@ -296,6 +296,65 @@ async function boot(stage) {
     }
   });
 
+  // ── Comets (Phase 5) — the newest artworks streak in on first view this session ──
+  const comets = makeComets();
+  scene.add(comets.group);
+  const cometQueue = [];
+  if (!reduced) {
+    const art   = nodes.filter(n => (n.kind === 'modal' || n.kind === 'app') && n.thumb && n.group && n.hit);
+    const keyOf = n => (n.payload && (n.payload.file || n.payload.name)) || n.name || '';
+    let seen = {};
+    try { seen = JSON.parse(sessionStorage.getItem('rexComets') || '{}'); } catch (_) {}
+    // Prefer items explicitly flagged new; otherwise the most-recently-added (highest order).
+    let fresh = art.filter(n => n.payload && n.payload.new);
+    if (!fresh.length) {
+      fresh = art.slice().sort((a, b) => ((b.payload && b.payload.order) || 0) - ((a.payload && a.payload.order) || 0));
+    }
+    fresh = fresh.filter(n => !seen[keyOf(n)]).slice(0, 3);   // ≤3, once per session — never a storm
+    fresh.forEach((n, i) => {
+      n.group.visible = false;                                // hidden until its comet lands
+      if (n.hit) n.hit.visible = false;
+      seen[keyOf(n)] = 1;
+      cometQueue.push({ node: n, body: bodies.find(x => x.key === n.hub), at: 0.8 + i * 0.95 });
+    });
+    try { sessionStorage.setItem('rexComets', JSON.stringify(seen)); } catch (_) {}
+  }
+
+  // ── Black-hole portal (Phase 6) — "bring your own universe" (future multi-user) ──
+  // A dark event horizon ringed by a swirling accretion disc and an orange halo,
+  // sitting out beyond the planets. Hoverable ("coming soon"), not yet clickable.
+  const portal = new THREE.Group();
+  portal.position.set(340, -150, -300);
+  root.add(portal);
+  const portalNode = { group: portal, kind: 'portal', name: 'Bring Your Own Universe', color: 0xff7a1a };
+
+  const horizon = new THREE.Mesh(sphereLo, new THREE.MeshBasicMaterial({ color: 0x05030a }));
+  horizon.scale.setScalar(20); horizon.renderOrder = 2;
+  portal.add(horizon);
+
+  const portalTilt = new THREE.Group();
+  portalTilt.rotation.set(Math.PI / 2 - 0.55, 0.25, 0);   // lay the disc to read edge-on-ish
+  portal.add(portalTilt);
+  const portalDisc = new THREE.Mesh(
+    new THREE.PlaneGeometry(170, 170),
+    new THREE.MeshBasicMaterial({ map: accretionTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  portalTilt.add(portalDisc);
+
+  const portalHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTex, color: new THREE.Color(0xff7a1a), transparent: true, opacity: 0.5,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  portalHalo.scale.setScalar(150);
+  portal.add(portalHalo);
+
+  const portalHit = new THREE.Mesh(sphereLo, new THREE.MeshBasicMaterial({ visible: false }));
+  portalHit.scale.setScalar(80);
+  portalHit.userData.node = portalNode;
+  portal.add(portalHit);
+  hoverHits.push(portalHit);
+  labels.push(makeLabel(portalNode, 'portal'));
+
   // ── Dynamic edges — endpoints move with the orbits, rebuilt each frame ───────
   const edgeGeo = new THREE.BufferGeometry();
   edgeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(edgePairs.length * 6), 3));
@@ -530,6 +589,65 @@ async function boot(stage) {
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
+  }
+
+  // ── Comets (Phase 5) — a fresh artwork streaks in, then pops into its cluster ──
+  function makeComets() {
+    const group = new THREE.Group();
+    const tailTex = meteorTexture();   // shared bright-head/fading-tail streak
+    const live = [];                    // comets in flight
+    const popping = [];                 // leaves easing in after arrival
+    function launch(node, target, startT) {
+      const ring = '#' + new THREE.Color(node.color || 0xffffff).getHexString();
+      const head = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: circleImageTexture(node.thumb, ring), transparent: true, opacity: 0,
+        depthTest: false, depthWrite: false,
+      }));
+      head.scale.setScalar((node.radius || 7) * 4.2);
+      const tail = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: tailTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+        depthTest: false, depthWrite: false,
+      }));
+      tail.scale.set(170, 30, 1);
+      group.add(tail); group.add(head);
+      const p0 = new THREE.Vector3((Math.random() * 2 - 1) * 1500, 500 + Math.random() * 600, 250 + Math.random() * 600);
+      live.push({ head, tail, p0, p1: target.clone(), t0: startT, dur: 1.1 + Math.random() * 0.4, node });
+    }
+    function update(tt) {
+      for (let i = live.length - 1; i >= 0; i--) {
+        const c = live[i];
+        const k = (tt - c.t0) / c.dur;
+        if (k < 0) continue;
+        if (k >= 1) {                                   // arrived → reveal the leaf with a pop
+          group.remove(c.head); group.remove(c.tail);
+          c.head.material.map?.dispose?.(); c.head.material.dispose(); c.tail.material.dispose();
+          if (c.node) {
+            c.node.group.visible = true;
+            if (c.node.hit) c.node.hit.visible = true;
+            c.node.group.scale.setScalar(0.01);
+            popping.push({ node: c.node, t0: tt });
+          }
+          live.splice(i, 1);
+          continue;
+        }
+        const x = c.p0.x + (c.p1.x - c.p0.x) * k;
+        const y = c.p0.y + (c.p1.y - c.p0.y) * k;
+        const z = c.p0.z + (c.p1.z - c.p0.z) * k;
+        c.head.position.set(x, y, z);
+        c.tail.position.set(x, y, z);
+        c.tail.material.rotation = Math.atan2(c.p1.y - c.p0.y, c.p1.x - c.p0.x);
+        const o = Math.sin(k * Math.PI);
+        c.head.material.opacity = Math.min(1, o * 1.6);
+        c.tail.material.opacity = o * 0.8;
+      }
+      for (let i = popping.length - 1; i >= 0; i--) {
+        const p = popping[i];
+        const k = (tt - p.t0) / 0.4;
+        if (k >= 1) { p.node.group.scale.setScalar(1); popping.splice(i, 1); continue; }
+        p.node.group.scale.setScalar(0.01 + (1 - Math.pow(1 - k, 3)) * 0.99);   // easeOutCubic pop
+      }
+    }
+    return { group, update, launch };
   }
 
   // ── Zoom + small-screen fit ───────────────────────────────────────────────────
@@ -837,7 +955,8 @@ async function boot(stage) {
   // real blurb; everything else is described from its style / type / category.
   function autoDesc(node) {
     const p = node.payload || {};
-    if (node.kind === 'core') return "The centre of Rex's World";
+    if (node.kind === 'core')   return "The centre of Rex's World";
+    if (node.kind === 'portal') return 'A shared cosmos — bring your own universe. Coming soon.';
     if (node.kind === 'hub')  return `${node.count} ${node.count === 1 ? 'item' : 'items'} orbiting here`;
     if (node.kind === 'app')  return p.blurb || 'A Rex Trueform product';
     if (node.kind === 'link') {
@@ -860,6 +979,7 @@ async function boot(stage) {
 
   function iconFor(node) {
     if (node.kind === 'core')   return '✦';
+    if (node.kind === 'portal') return '◍';
     if (node.kind === 'hub')    return '◉';
     if (node.kind === 'link')   return (node.name || '?').trim().charAt(0).toUpperCase();
     if (node.mtype === 'music') return '♫';
@@ -891,6 +1011,7 @@ async function boot(stage) {
     hcDesc.textContent  = autoDesc(node);
     hcTag.textContent   = node.kind === 'hub' ? 'Hub'
                         : node.kind === 'core' ? 'Core'
+                        : node.kind === 'portal' ? 'Portal'
                         : (TAGS[node.kind === 'modal' ? node.mtype : node.kind] || '');
 
     hcThumb.innerHTML = '';
@@ -907,6 +1028,7 @@ async function boot(stage) {
     }
 
     if (node.kind === 'link' && !node.url) { hcGo.textContent = 'coming soon'; hcGo.classList.add('soon'); }
+    else if (node.kind === 'portal')       { hcGo.textContent = 'coming soon'; hcGo.classList.add('soon'); }
     else if (isClickable(node))            { hcGo.textContent = 'click to open →'; hcGo.classList.remove('soon'); }
     else                                   { hcGo.textContent = ''; hcGo.classList.remove('soon'); }
   }
@@ -1004,6 +1126,15 @@ async function boot(stage) {
     stepPhysics();
     galaxies.update(0.016);
     meteors.update(t);
+    comets.update(t);
+    for (let i = cometQueue.length - 1; i >= 0; i--) {        // launch queued comets when due
+      if (t >= cometQueue[i].at) {
+        const q = cometQueue.splice(i, 1)[0];
+        const target = new THREE.Vector3();
+        (q.body ? q.body.holder : q.node.group).getWorldPosition(target);
+        comets.launch(q.node, target, t);
+      }
+    }
 
     parX += (parTX - parX) * 0.06; parY += (parTY - parY) * 0.06;
     pivot.rotation.set(parX, parY, 0);
@@ -1014,6 +1145,8 @@ async function boot(stage) {
     core.glow.scale.setScalar(core.radius * 4.0 * pulse);
     core.mesh.material.emissiveIntensity = 1.3 + Math.sin(t * 1.6) * 0.25;
     stars.rotation.y += 0.0002;
+    portalDisc.rotation.z += reduced ? 0 : 0.0035;                 // accretion swirl
+    portalHalo.material.opacity = 0.4 + Math.sin(t * 1.1) * 0.12;  // breathing halo
 
     updateEdges();
     updateLabels();
@@ -1206,6 +1339,38 @@ function meteorTexture() {
   const hg = g.createRadialGradient(w - 8, h / 2, 0, w - 8, h / 2, 9);
   hg.addColorStop(0, 'rgba(255,255,255,1)'); hg.addColorStop(0.5, 'rgba(200,225,255,0.8)'); hg.addColorStop(1, 'rgba(160,200,255,0)');
   g.fillStyle = hg; g.beginPath(); g.arc(w - 8, h / 2, 9, 0, 7); g.fill();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+
+// Accretion disc for the black-hole portal (Phase 6): a glowing orange annulus with
+// faint spiral streaks, transparent in the centre (the void shows through) and edges.
+function accretionTexture() {
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'); g.translate(S / 2, S / 2);
+  const grad = g.createRadialGradient(0, 0, S * 0.18, 0, 0, S * 0.5);
+  grad.addColorStop(0.00, 'rgba(255,255,255,0)');
+  grad.addColorStop(0.12, 'rgba(255,240,210,0.95)');   // white-hot inner edge
+  grad.addColorStop(0.30, 'rgba(255,150,40,0.80)');
+  grad.addColorStop(0.62, 'rgba(255,85,0,0.40)');
+  grad.addColorStop(1.00, 'rgba(120,20,0,0)');          // fades into space
+  g.fillStyle = grad; g.beginPath(); g.arc(0, 0, S * 0.5, 0, 7); g.fill();
+  g.globalCompositeOperation = 'destination-out';        // punch a clean void in the centre
+  const hole = g.createRadialGradient(0, 0, 0, 0, 0, S * 0.2);
+  hole.addColorStop(0, 'rgba(0,0,0,1)'); hole.addColorStop(0.7, 'rgba(0,0,0,1)'); hole.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = hole; g.beginPath(); g.arc(0, 0, S * 0.2, 0, 7); g.fill();
+  g.globalCompositeOperation = 'lighter';
+  for (let a = 0; a < 28; a++) {                          // faint spiral streaks → structure/swirl
+    const ang = a * 0.61, r0 = S * 0.2 + (a % 5) * S * 0.012;
+    g.strokeStyle = `rgba(255,225,190,${0.04 + (a % 7) * 0.012})`;
+    g.lineWidth = 0.8 + (a % 3) * 0.5;
+    g.beginPath();
+    for (let s = 0; s <= 1.0001; s += 0.1) {
+      const rr = r0 + s * S * 0.28, aa = ang + s * 1.6;
+      const x = Math.cos(aa) * rr, y = Math.sin(aa) * rr;
+      s === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+    }
+    g.stroke();
+  }
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
 }
 

@@ -613,7 +613,20 @@ function buildCard(item, opts = {}) {
       media.classList.add('has-thumb');
       media.style.backgroundImage = `url("${item.thumb}")`;
     }
-    media.innerHTML = '<span class="card-audio-note">&#9835;</span>';
+    if (item.cover) {                                 // animated cover → loop the art clip behind the tile
+      const bg = document.createElement('video');
+      bg.className   = 'card-audio-video';
+      bg.src         = item.cover;
+      bg.muted       = true;
+      bg.loop        = true;
+      bg.autoplay    = true;
+      bg.playsInline = true;
+      bg.preload     = 'metadata';
+      if (item.thumb) bg.poster = item.thumb;         // show the still until the clip is ready
+      bg.addEventListener('loadeddata', () => bg.play().catch(() => {}));
+      media.appendChild(bg);
+    }
+    media.insertAdjacentHTML('beforeend', '<span class="card-audio-note">&#9835;</span>');
   } else {
     media = document.createElement('video');
     media.className   = 'card-video';
