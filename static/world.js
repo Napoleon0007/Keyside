@@ -132,7 +132,8 @@ async function boot(stage) {
   const sphereLo = new THREE.SphereGeometry(1, 20, 20);
 
   const nodes        = [];   // label/dim targets (core, hubs, leaves)
-  const hits         = [];   // clickable leaf hit meshes
+  const hits         = [];   // clickable leaf hit meshes (tap → open)
+  const hoverHits    = [];   // hoverable hit meshes (leaves + planets + core → info card)
   const labels       = [];   // persistent HTML labels (hub planets)
   const planetMeshes = [];   // { mesh, ring, spin } self-rotating planets
   const orbiters     = [];   // { group, speed } revolving groups (planets + moon systems)
@@ -147,6 +148,14 @@ async function boot(stage) {
   nodes.push(core);
   core.mesh.visible = false;   // no obsidian sphere / orange dot behind the logo —
   core.glow.visible = false;   // the logo video is the only thing at the centre
+
+  // Invisible sphere so the Rex core is hoverable (shows its info card) without
+  // being a click target.
+  const coreHit = new THREE.Mesh(sphereLo, new THREE.MeshBasicMaterial({ visible: false }));
+  coreHit.scale.setScalar(core.radius * 1.4);
+  coreHit.userData.node = core;
+  core.group.add(coreHit);
+  hoverHits.push(coreHit);
 
   const logoVid = document.createElement('video');
   Object.assign(logoVid, { src: '/static/rex-logo.mp4', muted: true, loop: true, autoplay: true, playsInline: true, crossOrigin: 'anonymous' });
@@ -184,10 +193,17 @@ async function boot(stage) {
     if (planet.ring) holder.add(planet.ring);
     planetMeshes.push({ mesh: planet.mesh, ring: planet.ring, spin: cfg.spin });
 
-    const hubNode = { group: holder, kind: 'hub', name: hub.label, color: hub.color };
+    const hubNode = { group: holder, kind: 'hub', name: hub.label, color: hub.color, count: hub.leaves.length };
     nodes.push(hubNode);
     labels.push(makeLabel(hubNode, 'hub'));
     edgePairs.push([core.group, holder]);      // core → planet
+
+    // The planet itself is hoverable (shows "{Hub} · N items"), but not a click target.
+    const hubHit = new THREE.Mesh(sphereLo, new THREE.MeshBasicMaterial({ visible: false }));
+    hubHit.scale.setScalar(cfg.r * 1.3);
+    hubHit.userData.node = hubNode;
+    holder.add(hubHit);
+    hoverHits.push(hubHit);
 
     const moons = new THREE.Group();           // the hub's data points orbit it like moons
     moons.rotation.x = cfg.moonTilt;
@@ -197,11 +213,11 @@ async function boot(stage) {
     const dirs = fibonacciSphere(hub.leaves.length, hi * 7.13 + 1);
     hub.leaves.forEach((leaf, li) => {
       const jitter = 0.6 + 0.8 * frac(Math.sin((hi + 1) * 12.9898 + (li + 1) * 78.233) * 43758.5453);
-      const lr = cfg.r + 30 + 34 * jitter;
+      const lr = cfg.r + 36 + 40 * jitter;        // pushed out a touch so the bigger nodes don't crowd the planet
       const dead = leaf.kind === 'link' && !leaf.url;   // social not linked yet
       const node = makeNode({
-        name: leaf.name, kind: leaf.kind, color: leaf.color, radius: 5.2,
-        emissive: dead ? 0.18 : 0.85, dim: dead,
+        name: leaf.name, kind: leaf.kind, color: leaf.color, radius: 7,
+        emissive: dead ? 0.22 : 0.95, dim: dead,
         payload: leaf.payload, mtype: leaf.mtype, thumb: leaf.thumb, url: leaf.url,
       });
       node.group.position.copy(dirs[li].clone().multiplyScalar(lr));
@@ -210,6 +226,7 @@ async function boot(stage) {
       moons.add(node.group);
       nodes.push(node);
       hits.push(node.hit);
+      hoverHits.push(node.hit);
       edgePairs.push([holder, node.group]);    // planet → moon
     });
   });
@@ -276,13 +293,13 @@ async function boot(stage) {
       const billboard = new THREE.Sprite(new THREE.SpriteMaterial({
         map: tex, transparent: true, depthWrite: false, opacity: dim ? 0.5 : 1,
       }));
-      billboard.scale.setScalar(radius * 2.8);
+      billboard.scale.setScalar(radius * 3.1);
       group.add(billboard);
       mesh.visible = false;
       node.billboard = billboard;
 
       const hit = new THREE.Mesh(sphereLo, new THREE.MeshBasicMaterial({ visible: false }));
-      hit.scale.setScalar(radius * 2.6);
+      hit.scale.setScalar(radius * 3.4);
       hit.userData.node = node;
       group.add(hit);
       node.hit = hit;
@@ -437,7 +454,6 @@ async function boot(stage) {
   // ── Interaction: free trackball orbit / zoom / pick ──────────────────────────
   let camZ = 620, tCamZ = 620;
   let dragging = false, moved = false, lastX = 0, lastY = 0;
-  let focused = null, focusQuat = null, paused = false;
   let autoRot = !reduced;
   let velYaw = 0, velPitch = 0;
   let parTX = 0, parTY = 0, parX = 0, parY = 0;
@@ -449,7 +465,6 @@ async function boot(stage) {
   // spin under, over and around with no gimbal lock, whichever way the mouse goes.
   const ROT_SPEED = 0.006;
   const _qa = new THREE.Quaternion(), _ax = new THREE.Vector3();
-  const _camDir = new THREE.Vector3(0, 0, 1), _wp = new THREE.Vector3();
   function rotateBy(dx, dy) {
     _qa.setFromAxisAngle(_ax.set(0, 1, 0), dx * ROT_SPEED); root.quaternion.premultiply(_qa);
     _qa.setFromAxisAngle(_ax.set(1, 0, 0), dy * ROT_SPEED); root.quaternion.premultiply(_qa);
@@ -480,7 +495,6 @@ async function boot(stage) {
   });
   el.addEventListener('pointerleave', () => { parTX = parTY = 0; });
   function updateParallaxTarget(e) {
-    if (focused) return;
     const r = el.getBoundingClientRect();
     parTY = (((e.clientX - r.left) / r.width) * 2 - 1) * 0.20;
     parTX = (((e.clientY - r.top) / r.height) * 2 - 1) * 0.16;
@@ -518,122 +532,139 @@ async function boot(stage) {
   // ── Raycasting ───────────────────────────────────────────────────────────────
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
-  const hoverLabel = labelLayer ? makeHoverLabel() : null;
+  const hoverCard = labelLayer ? makeHoverCard() : null;
+  const hcThumb = hoverCard && hoverCard.querySelector('.whc-thumb');
+  const hcTitle = hoverCard && hoverCard.querySelector('.whc-title');
+  const hcDesc  = hoverCard && hoverCard.querySelector('.whc-desc');
+  const hcTag   = hoverCard && hoverCard.querySelector('.whc-tag');
+  const hcGo    = hoverCard && hoverCard.querySelector('.whc-go');
   let hovered = null;
+  let peeked  = null;   // touch: the node shown on first tap (second tap opens it)
 
-  function rayHit(e) {
+  function rayAt(e, list) {
     const r = el.getBoundingClientRect();
     ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
     ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
     ray.setFromCamera(ndc, camera);
-    const hit = ray.intersectObjects(hits, false)[0];
+    const hit = ray.intersectObjects(list, false)[0];
     return hit ? hit.object.userData.node : null;
   }
+
+  // Desktop hover → show the rich info card for whatever node is under the cursor.
   function hover(e) {
-    const node = rayHit(e);
+    const node = rayAt(e, hoverHits);
     if (node === hovered) return;
+    setHoverPop(hovered, false);
     hovered = node;
-    el.style.cursor = node ? 'pointer' : 'grab';
-    if (hoverLabel) hoverLabel.style.display = node ? 'block' : 'none';
-    if (node && hoverLabel) hoverLabel.textContent = node.name + (node.kind === 'link' && !node.url ? ' · soon' : '');
-  }
-  function pick(e) {
-    const node = rayHit(e);
-    if (node) focus(node);
-    else if (focused) unfocus();
+    el.style.cursor = node ? (isClickable(node) ? 'pointer' : 'grab') : 'grab';
+    if (!node) { if (hoverCard) hoverCard.style.display = 'none'; return; }
+    setHoverPop(node, true);
+    fillHoverCard(node);
+    if (hoverCard) hoverCard.style.display = '';
   }
 
-  // ── Focus + info card ────────────────────────────────────────────────────────
-  const card      = document.getElementById('worldCard');
-  const cardThumb = document.getElementById('worldCardThumb');
-  const cardTitle = document.getElementById('worldCardTitle');
-  const cardTag   = document.getElementById('worldCardTag');
-  const cardOpen  = document.getElementById('worldCardOpen');
-  const cardClose = document.getElementById('worldCardClose');
+  // A tap that wasn't a drag. Desktop: open the node directly. Touch (no hover):
+  // first tap peeks the info card, second tap on the same node opens it.
+  function pick(e) {
+    const touch = e.pointerType === 'touch';
+    const node = rayAt(e, hits);
+    if (!node) { peeked = null; if (touch) clearHover(); return; }
+    if (touch && peeked !== node) { peeked = node; showPeek(node); return; }
+    peeked = null;
+    if (isClickable(node)) openTarget(node);
+  }
+
+  function showPeek(node) {
+    setHoverPop(hovered, false);
+    hovered = node;
+    setHoverPop(node, true);
+    fillHoverCard(node);
+    if (hoverCard) hoverCard.style.display = '';
+  }
+  function clearHover() {
+    setHoverPop(hovered, false);
+    hovered = null;
+    if (hoverCard) hoverCard.style.display = 'none';
+  }
+
+  // ── Node info + navigation ───────────────────────────────────────────────────
   const TAGS = { app: 'Product', link: 'Network', video: 'Edit', image: 'Image', music: 'Music' };
 
-  function focus(node) {
-    focused = node;
-    autoRot = false;
-    paused = true;                                   // freeze orbits so the node stays put
-    root.updateMatrixWorld(true);
-    _wp.setFromMatrixPosition(node.group.matrixWorld);
-    root.worldToLocal(_wp);
-    _ax.copy(_wp).normalize();
-    focusQuat = new THREE.Quaternion().setFromUnitVectors(_ax, _camDir);
-    parTX = parTY = 0;
-    tCamZ = 360;
-    logoSprite.visible = false;
-    nodes.forEach(n => {
-      const on = n === node;
-      if (n.mesh)  n.mesh.material.emissiveIntensity = on ? Math.max(1.4, n.baseEmissive) : (n.baseEmissive || 0) * 0.12;
-      if (n.glow)  n.glow.material.opacity = on ? Math.min(1, n.baseGlow + 0.3) : n.baseGlow * 0.12;
-      if (n.billboard) n.billboard.material.opacity = on ? 1 : 0.12;
-    });
-    planetMeshes.forEach(p => { p.mesh.material.opacity = 0.14; if (p.ring) p.ring.material.opacity = 0.08; });
-    edgeMat.opacity = 0.05;
-    orbitRings.forEach(m => { m.opacity = 0.05; });
-    showCard(node);
-  }
-  function unfocus() {
-    focused = null;
-    focusQuat = null;
-    paused = false;
-    tCamZ = 620;
-    nodes.forEach(n => {
-      if (n.mesh)  n.mesh.material.emissiveIntensity = n.baseEmissive;
-      if (n.glow)  n.glow.material.opacity = n.baseGlow;
-      if (n.billboard) n.billboard.material.opacity = n.dim ? 0.5 : 1;
-    });
-    planetMeshes.forEach(p => { p.mesh.material.opacity = 1; if (p.ring) p.ring.material.opacity = 0.85; });
-    edgeMat.opacity = 0.42;
-    orbitRings.forEach(m => { m.opacity = ORBIT_RING_OPACITY; });
-    logoSprite.visible = true;
-    hideCard();
-    autoRot = !reduced;
+  const cap = s => { s = (s == null ? '' : String(s)); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; };
+
+  // The "what it does" line, generated from each node's own data — products carry a
+  // real blurb; everything else is described from its style / type / category.
+  function autoDesc(node) {
+    const p = node.payload || {};
+    if (node.kind === 'core') return "The centre of Rex's World";
+    if (node.kind === 'hub')  return `${node.count} ${node.count === 1 ? 'item' : 'items'} orbiting here`;
+    if (node.kind === 'app')  return p.blurb || 'A Rex Trueform product';
+    if (node.kind === 'link') {
+      const cat = cap(p.category || 'network');
+      return p.url ? cat : `${cat} · coming soon`;
+    }
+    const style = cap(node.style || p.style || '');
+    if (node.mtype === 'image') return style ? `${style} · still image` : 'Still image';
+    if (node.mtype === 'music') {
+      if ((p.style || '') === 'song') return 'Original song';
+      if (p.subtype === 'ai')        return 'AI-generated track';
+      return style ? `${style} · track` : 'Music track';
+    }
+    return style ? `${style} · animated edit` : 'Animated edit';
   }
 
-  function showCard(node) {
-    cardTitle.textContent = node.name;
-    cardTag.textContent = TAGS[node.kind === 'modal' ? node.mtype : node.kind] || '';
-    cardThumb.innerHTML = '';
-    cardThumb.style.background = '';
-    if (node.thumb) {
-      const img = document.createElement('img');
-      img.src = node.thumb; img.alt = node.name; img.loading = 'lazy';
-      cardThumb.appendChild(img);
-    } else {
-      cardThumb.textContent = iconFor(node);
-      cardThumb.style.background = '#' + new THREE.Color(node.color).getHexString();
-    }
-    cardOpen.classList.remove('disabled');
-    cardOpen.textContent = 'Open';
-    if (node.kind === 'link' && !node.url) {
-      cardOpen.classList.add('disabled');
-      cardOpen.textContent = 'Coming soon';
-      cardOpen.onclick = e => e.preventDefault();
-    } else {
-      cardOpen.onclick = e => {
-        e.preventDefault();
-        if (node.kind === 'app' && window.openAppModal) window.openAppModal(node.payload);
-        else if (node.kind === 'modal' && window.openModal) window.openModal(node.payload);
-        else if (node.kind === 'link') window.open(node.url, '_blank', 'noopener');
-      };
-    }
-    card.classList.add('open');
-    card.setAttribute('aria-hidden', 'false');
-  }
-  function hideCard() {
-    card.classList.remove('open');
-    card.setAttribute('aria-hidden', 'true');
-  }
   function iconFor(node) {
+    if (node.kind === 'core')   return '✦';
+    if (node.kind === 'hub')    return '◉';
     if (node.kind === 'link')   return (node.name || '?').trim().charAt(0).toUpperCase();
     if (node.mtype === 'music') return '♫';
     if (node.mtype === 'video') return '▶';
     return '◉';
   }
-  if (cardClose) cardClose.addEventListener('click', unfocus);
+
+  function isClickable(node) {
+    return node.kind === 'app' || node.kind === 'modal' || (node.kind === 'link' && !!node.url);
+  }
+
+  // One click → straight to it, reusing main.js's navigation.
+  function openTarget(node) {
+    if (node.kind === 'app'   && window.openAppModal) window.openAppModal(node.payload);
+    else if (node.kind === 'modal' && window.openModal) window.openModal(node.payload);
+    else if (node.kind === 'link' && node.url) window.open(node.url, '_blank', 'noopener');
+  }
+
+  // Subtle pop + glow on the hovered/peeked leaf so it reads as touchable.
+  function setHoverPop(node, on) {
+    if (!node || !node.billboard) return;            // only leaves pop (not planets/core)
+    node.group.scale.setScalar(on ? 1.28 : 1);
+    if (node.glow) node.glow.material.opacity = on ? Math.min(1, node.baseGlow + 0.3) : node.baseGlow;
+  }
+
+  function fillHoverCard(node) {
+    if (!hoverCard) return;
+    hcTitle.textContent = node.name || '';
+    hcDesc.textContent  = autoDesc(node);
+    hcTag.textContent   = node.kind === 'hub' ? 'Hub'
+                        : node.kind === 'core' ? 'Core'
+                        : (TAGS[node.kind === 'modal' ? node.mtype : node.kind] || '');
+
+    hcThumb.innerHTML = '';
+    hcThumb.style.background = '';
+    hcThumb.classList.remove('icon');
+    if (node.thumb) {
+      const img = document.createElement('img');
+      img.src = node.thumb; img.alt = node.name || ''; img.loading = 'lazy';
+      hcThumb.appendChild(img);
+    } else {
+      hcThumb.classList.add('icon');
+      hcThumb.textContent = iconFor(node);
+      hcThumb.style.background = '#' + new THREE.Color(node.color || 0xff5500).getHexString();
+    }
+
+    if (node.kind === 'link' && !node.url) { hcGo.textContent = 'coming soon'; hcGo.classList.add('soon'); }
+    else if (isClickable(node))            { hcGo.textContent = 'click to open →'; hcGo.classList.remove('soon'); }
+    else                                   { hcGo.textContent = ''; hcGo.classList.remove('soon'); }
+  }
 
   // ── Expand → fullscreen ──────────────────────────────────────────────────────
   const expandBtn = document.getElementById('worldExpand');
@@ -655,10 +686,17 @@ async function boot(stage) {
     labelLayer.appendChild(d);
     return { el: d, node };
   }
-  function makeHoverLabel() {
+  function makeHoverCard() {
     const d = document.createElement('div');
-    d.className = 'world-label hover';
+    d.className = 'world-hovercard';
     d.style.display = 'none';
+    d.innerHTML =
+      '<div class="whc-thumb"></div>' +
+      '<div class="whc-body">' +
+        '<div class="whc-title"></div>' +
+        '<div class="whc-desc"></div>' +
+        '<div class="whc-foot"><span class="whc-tag"></span><span class="whc-go"></span></div>' +
+      '</div>';
     labelLayer.appendChild(d);
     return d;
   }
@@ -673,7 +711,7 @@ async function boot(stage) {
   }
   function updateLabels() {
     labels.forEach(l => { if (l) place(l.el, l.node.group); });
-    if (hoverLabel && hovered) place(hoverLabel, hovered.group);
+    if (hoverCard && hovered) place(hoverCard, hovered.group);
   }
 
   // ── Render loop (paused off-screen) ──────────────────────────────────────────
@@ -686,19 +724,16 @@ async function boot(stage) {
 
   function loop() {
     t += 0.016;
-    if (focused && focusQuat) {
-      root.quaternion.slerp(focusQuat, 0.12);
-    } else if (!dragging) {
+    if (!dragging) {
       rotateBy(velYaw, velPitch);
       velYaw *= 0.92; velPitch *= 0.92;
       if (autoRot && Math.abs(velYaw) < 0.04 && Math.abs(velPitch) < 0.04) rotateBy(0.16, 0);
     }
-    if (!paused) {
-      for (const o of orbiters) o.group.rotation.y += o.speed;
-      for (const p of planetMeshes) p.mesh.rotation.y += p.spin;
-      galaxies.update(0.016);
-      meteors.update(t);
-    }
+    for (const o of orbiters) o.group.rotation.y += o.speed;
+    for (const p of planetMeshes) p.mesh.rotation.y += p.spin;
+    galaxies.update(0.016);
+    meteors.update(t);
+
     parX += (parTX - parX) * 0.06; parY += (parTY - parY) * 0.06;
     pivot.rotation.set(parX, parY, 0);
     camZ += (tCamZ - camZ) * 0.08; camera.position.z = camZ;
@@ -706,7 +741,7 @@ async function boot(stage) {
     pivot.updateMatrixWorld(true);   // sync all world matrices for edges + labels
     const pulse = 1 + Math.sin(t * 1.6) * 0.06;
     core.glow.scale.setScalar(core.radius * 4.0 * pulse);
-    if (!focused) core.mesh.material.emissiveIntensity = 1.3 + Math.sin(t * 1.6) * 0.25;
+    core.mesh.material.emissiveIntensity = 1.3 + Math.sin(t * 1.6) * 0.25;
     stars.rotation.y += 0.0002;
 
     updateEdges();

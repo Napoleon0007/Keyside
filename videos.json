@@ -218,5 +218,23 @@
     "title": "Mark Twain",
     "style": "historical",
     "order": 43
+  },
+  "Dog House.mp3": {
+    "title": "Dog House",
+    "style": "song",
+    "type": "music",
+    "order": 44
+  },
+  "Sing Your Praises.mp3": {
+    "title": "Sing Your Praises",
+    "style": "song",
+    "type": "music",
+    "order": 45
+  },
+  "Breaking Down The Door.mp3": {
+    "title": "Breaking Down The Door",
+    "style": "song",
+    "type": "music",
+    "order": 46
   }
 }

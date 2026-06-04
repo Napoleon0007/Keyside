@@ -1558,81 +1558,69 @@ body.modal-open {
 }
 .world-label.core { color: var(--orange); font-size: 14px; letter-spacing: 0.18em; }
 .world-label.hub  { color: rgba(255, 200, 160, 0.85); font-size: 11px; }
-.world-label.hover {
-  color: #fff;
-  background: rgba(10, 6, 10, 0.78);
-  border: 1px solid rgba(255, 85, 0, 0.5);
-  border-radius: 20px;
-  padding: 4px 10px;
-  transform: translate(-50%, -200%);
-}
-
-.world-card {
+/* Rich hover/peek card: floats above whatever node is under the cursor (or tapped
+   on touch). Pointer-events off so it never blocks the drag-to-orbit canvas. */
+.world-hovercard {
   position: absolute;
   z-index: 5;
-  left: 30px;
-  bottom: 64px;
-  width: min(320px, calc(100% - 60px));
-  background: rgba(10, 9, 12, 0.92);
-  border: 1px solid rgba(255, 85, 0, 0.35);
-  border-radius: 16px;
-  padding: 16px;
+  transform: translate(-50%, calc(-100% - 22px));
+  width: 232px;
+  display: flex;
+  gap: 11px;
+  padding: 11px;
+  background: rgba(10, 9, 12, 0.93);
+  border: 1px solid rgba(255, 85, 0, 0.42);
+  border-radius: 14px;
   backdrop-filter: blur(10px);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(14px) scale(0.97);
-  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.28s;
-  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.95);
+  box-shadow: 0 20px 50px -22px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
+  white-space: normal;
 }
-.world-card.open { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
-.world-card-close {
-  position: absolute; top: 10px; right: 10px;
-  width: 26px; height: 26px;
-  background: transparent; border: 1px solid var(--border); color: var(--dim);
-  border-radius: 50%; cursor: pointer; font-size: 11px;
-  display: flex; align-items: center; justify-content: center;
-  transition: color 0.2s, border-color 0.2s;
+.world-hovercard::after {            /* little tail pointing down at the node */
+  content: "";
+  position: absolute;
+  left: 50%; bottom: -7px;
+  width: 12px; height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  background: rgba(10, 9, 12, 0.93);
+  border-right: 1px solid rgba(255, 85, 0, 0.42);
+  border-bottom: 1px solid rgba(255, 85, 0, 0.42);
 }
-.world-card-close:hover { color: var(--orange); border-color: var(--orange); }
-.world-card-thumb {
-  width: 100%; height: 150px;
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 12px;
+.whc-thumb {
+  width: 54px; height: 54px; flex-shrink: 0;
+  border-radius: 9px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 56px;
-  color: #fff;
-  text-shadow: 0 0 24px rgba(0, 0, 0, 0.6);
+  font-size: 24px; color: #fff;
   background: #111;
 }
-.world-card-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-.world-card-title {
+.whc-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.whc-thumb.icon { text-shadow: 0 0 12px rgba(0, 0, 0, 0.55); }
+.whc-body { flex: 1; min-width: 0; }
+.whc-title {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 24px; letter-spacing: 0.04em;
-  color: #fff; margin: 0 0 4px;
+  font-size: 18px; letter-spacing: 0.03em; line-height: 1.04;
+  color: #fff; margin-bottom: 3px;
 }
-.world-card-tag {
-  display: inline-block;
+.whc-desc {
   font-family: 'Space Mono', monospace;
-  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--dim);
-  margin-bottom: 12px;
+  font-size: 9.5px; line-height: 1.38;
+  color: rgba(255, 255, 255, 0.72);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  margin-bottom: 7px;
 }
-.world-card-open {
-  display: inline-block;
+.whc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.whc-tag {
   font-family: 'Space Mono', monospace;
-  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: #000; background: var(--orange);
-  border-radius: 22px; padding: 9px 20px;
-  text-decoration: none; cursor: pointer;
-  transition: transform 0.2s;
+  font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--orange);
 }
-.world-card-open:hover { transform: translateX(3px); }
-.world-card-open.disabled {
-  background: transparent; color: var(--dim);
-  border: 1px solid var(--border); cursor: default;
+.whc-go {
+  font-family: 'Space Mono', monospace;
+  font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
 }
+.whc-go.soon { color: rgba(255, 255, 255, 0.3); }
 
 .world-hint {
   position: absolute;
