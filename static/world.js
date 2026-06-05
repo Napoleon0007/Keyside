@@ -159,13 +159,14 @@ async function boot(stage) {
     music:    { tex: 'jupitermap', r: 27, dist: 355, tilt: 0.05, spin: 0.014, orbitTilt:  0.12, orbitSpeed: 0.0006, ring: true, moonTilt: 0.40, moonSpeed: 0.0011 },
     network:  { tex: 'earthmap1k', r: 19, dist: 265, tilt: 0.41, spin: 0.011, orbitTilt:  0.40, orbitSpeed: 0.0010, moonTilt: 0.45, moonSpeed: 0.0015 },
 
-    // Outer neurons — a clear shell beyond the inner hubs (305) so nothing bunches.
-    // Widely spaced, slow drift. Titan is the giant (ringed); Helios sits furthest out.
-    cinder:   { tex: 'mercurymap', r: 12, dist: 380, tilt: 0.12, spin: 0.012, orbitTilt:  0.28, orbitSpeed: 0.00080, moonTilt: 0.50, moonSpeed: 0.0013 },
-    aether:   { tex: 'uranusmap',  r: 16, dist: 450, tilt: 0.34, spin: 0.009, orbitTilt:  0.50, orbitSpeed: 0.00068, moonTilt: 0.55, moonSpeed: 0.0012 },
-    vesper:   { tex: 'venusmap',   r: 17, dist: 520, tilt: 0.20, spin: 0.008, orbitTilt: -0.36, orbitSpeed: 0.00058, moonTilt: 0.35, moonSpeed: 0.0011 },
-    titan:    { tex: 'saturnmap',  r: 34, dist: 595, tilt: 0.46, spin: 0.007, orbitTilt:  0.16, orbitSpeed: 0.00048, ring: true, moonTilt: 0.40, moonSpeed: 0.0010 },
-    helios:   { tex: 'sunmap',     r: 22, dist: 670, tilt: 0.08, spin: 0.013, orbitTilt: -0.20, orbitSpeed: 0.00040, moonTilt: 0.30, moonSpeed: 0.0009 },
+    // Outer neurons — a clear shell beyond the inner hubs (which now reach edits@400),
+    // so nothing bunches. Widely spaced, slow drift. Titan is the giant (ringed);
+    // Helios sits furthest out.
+    cinder:   { tex: 'mercurymap', r: 12, dist: 470, tilt: 0.12, spin: 0.012, orbitTilt:  0.28, orbitSpeed: 0.00072, moonTilt: 0.50, moonSpeed: 0.0013 },
+    aether:   { tex: 'uranusmap',  r: 16, dist: 545, tilt: 0.34, spin: 0.009, orbitTilt:  0.50, orbitSpeed: 0.00060, moonTilt: 0.55, moonSpeed: 0.0012 },
+    vesper:   { tex: 'venusmap',   r: 17, dist: 620, tilt: 0.20, spin: 0.008, orbitTilt: -0.36, orbitSpeed: 0.00052, moonTilt: 0.35, moonSpeed: 0.0011 },
+    titan:    { tex: 'saturnmap',  r: 34, dist: 700, tilt: 0.46, spin: 0.007, orbitTilt:  0.16, orbitSpeed: 0.00044, ring: true, moonTilt: 0.40, moonSpeed: 0.0010 },
+    helios:   { tex: 'sunmap',     r: 22, dist: 785, tilt: 0.08, spin: 0.013, orbitTilt: -0.20, orbitSpeed: 0.00038, moonTilt: 0.30, moonSpeed: 0.0009 },
   };
 
   // ── Gravity (Phase 1) ─────────────────────────────────────────────────────────
