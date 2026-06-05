@@ -201,8 +201,8 @@ body.modal-open {
   top: 50%;
   left: 0;
   z-index: 2;                 /* in front of the moon, behind the lettering (z-3) */
-  width: clamp(112px, 19vmin, 240px);
-  transform: translate(58%, -52%);   /* onto the visible disc, centred on the moon */
+  width: clamp(120px, 20vmin, 250px);
+  transform: translate(60%, -12%);   /* onto the visible disc, lower-centre of the moon */
   pointer-events: none;
   filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.55));
 }
