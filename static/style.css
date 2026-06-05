@@ -570,10 +570,10 @@ body.modal-open {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  /* keep it dark — darker at the edges, a touch of life in the middle */
+  /* light veil (~10%) so the Zuma clip stays clearly visible behind the cards */
   background:
-    radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.86) 100%),
-    linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.78));
+    radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.14) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,0.08), rgba(0,0,0,0.12));
 }
 .media-section.has-bg-video > .section-head,
 .media-section.has-bg-video > .coverflow,
