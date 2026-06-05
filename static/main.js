@@ -327,25 +327,47 @@ async function init() {
   applyTypeFilter(currentType);
 }
 
+// Mount a muted, looping background video into a section and make damn sure it plays.
+// A dynamically-created <video autoplay> frequently will NOT autostart — especially one
+// that's below the fold — so we kick .play() immediately, again on loadeddata/canplay,
+// on the first user gesture, and the moment the section scrolls into view.
+function attachSectionBg(section, src, poster) {
+  section.classList.add('has-bg-video');
+  const v = document.createElement('video');
+  v.className = 'section-bg-video';
+  v.muted = true; v.defaultMuted = true; v.loop = true;
+  v.autoplay = true; v.playsInline = true; v.preload = 'auto';
+  // attributes too (some engines only honor the attribute form for muted/playsinline)
+  v.setAttribute('muted', '');
+  v.setAttribute('playsinline', '');
+  v.setAttribute('webkit-playsinline', '');
+  v.setAttribute('aria-hidden', 'true');
+  if (poster) v.poster = poster;
+  v.innerHTML = `<source src="${src}" type="video/mp4">`;
+  const veil = document.createElement('div');
+  veil.className = 'section-bg-veil';
+  section.append(v, veil);
+
+  const kick = () => { const p = v.play(); if (p && p.catch) p.catch(() => {}); };
+  kick();
+  ['loadeddata', 'canplay'].forEach(ev => v.addEventListener(ev, kick, { once: true }));
+  ['pointerdown', 'touchstart', 'keydown', 'scroll'].forEach(ev =>
+    window.addEventListener(ev, kick, { once: true, passive: true }));
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) kick();
+    }, { threshold: 0.01 }).observe(section);
+  }
+  return v;
+}
+
 function buildSection(type, label, items, bg /* optional {src, poster} bg video */) {
   const section = document.createElement('section');
   section.className = 'media-section';
   section.dataset.type = type;
   section.id = `section-${type}`;
 
-  if (bg) {
-    section.classList.add('has-bg-video');
-    const v = document.createElement('video');
-    v.className = 'section-bg-video';
-    v.autoplay = true; v.muted = true; v.loop = true;
-    v.playsInline = true; v.preload = 'auto';
-    v.setAttribute('aria-hidden', 'true');
-    if (bg.poster) v.poster = bg.poster;
-    v.innerHTML = `<source src="${bg.src}" type="video/mp4">`;
-    const veil = document.createElement('div');
-    veil.className = 'section-bg-veil';
-    section.append(v, veil);
-  }
+  if (bg) attachSectionBg(section, bg.src, bg.poster);
 
   const head = document.createElement('div');
   head.className = 'section-head';
@@ -392,23 +414,14 @@ function railOrEmpty(items, parent) {
 // A single Music rail of Rex's songs (the old "AI Music" sub-section was removed).
 function buildMusicSection(mine /* ai, introSrc removed — AI Music section taken out */) {
   const section = document.createElement('section');
-  section.className = 'media-section has-bg-video';
+  section.className = 'media-section';
   section.dataset.type = 'music';
   section.id = 'section-music';
   section._cfs = [];
 
-  // Zuma music-video loop, fast-loading, behind everything in the music section so it
-  // reads as one dark cinematic space. Poster paints instantly; clip fades in muted.
-  const bg = document.createElement('video');
-  bg.className = 'section-bg-video';
-  bg.autoplay = true; bg.muted = true; bg.loop = true;
-  bg.playsInline = true; bg.preload = 'auto';
-  bg.setAttribute('aria-hidden', 'true');
-  bg.poster = '/static/video-thumbs/zuma.jpg';
-  bg.innerHTML = '<source src="/static/zuma-hero.mp4" type="video/mp4">';
-  const bgVeil = document.createElement('div');
-  bgVeil.className = 'section-bg-veil';
-  section.append(bg, bgVeil);
+  // Zuma music-video loop behind everything so the section reads as one dark cinematic
+  // space. Poster paints instantly; the clip is kicked into playing by attachSectionBg.
+  attachSectionBg(section, '/static/zuma-hero.mp4', '/static/video-thumbs/zuma.jpg');
 
   const head = document.createElement('div');
   head.className = 'section-head';
