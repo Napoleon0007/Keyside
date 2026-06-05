@@ -327,16 +327,16 @@ async function init() {
   applyTypeFilter(currentType);
 }
 
-// Mount a muted, looping background video into a section and make damn sure it plays.
-// A dynamically-created <video autoplay> frequently will NOT autostart — especially one
-// that's below the fold — so we kick .play() immediately, again on loadeddata/canplay,
-// on the first user gesture, and the moment the section scrolls into view.
+// Mount a muted, looping background video into a section. It does NOT fetch until the
+// section nears the viewport (preload='none' + .play() only when live) — otherwise every
+// section's bg + card videos hammer the server at once and the bg clips get starved and
+// never play. The section's viewport observer (see liveLoadSection) flips it on/off.
 function attachSectionBg(section, src, poster) {
   section.classList.add('has-bg-video');
   const v = document.createElement('video');
   v.className = 'section-bg-video';
   v.muted = true; v.defaultMuted = true; v.loop = true;
-  v.autoplay = true; v.playsInline = true; v.preload = 'auto';
+  v.playsInline = true; v.preload = 'none';   // hold off loading until the section is live
   // attributes too (some engines only honor the attribute form for muted/playsinline)
   v.setAttribute('muted', '');
   v.setAttribute('playsinline', '');
@@ -347,18 +347,46 @@ function attachSectionBg(section, src, poster) {
   const veil = document.createElement('div');
   veil.className = 'section-bg-veil';
   section.append(v, veil);
-
-  const kick = () => { const p = v.play(); if (p && p.catch) p.catch(() => {}); };
-  kick();
-  ['loadeddata', 'canplay'].forEach(ev => v.addEventListener(ev, kick, { once: true }));
-  ['pointerdown', 'touchstart', 'keydown', 'scroll'].forEach(ev =>
-    window.addEventListener(ev, kick, { once: true, passive: true }));
-  if ('IntersectionObserver' in window) {
-    new IntersectionObserver((entries) => {
-      if (entries.some(e => e.isIntersecting)) kick();
-    }, { threshold: 0.01 }).observe(section);
-  }
+  section._bgVideo = v;          // liveLoadSection drives play/pause from the viewport
   return v;
+}
+
+// Play (and thus load) a section's background video. Safe to call repeatedly.
+function kickBg(v) {
+  if (!v) return;
+  if (v.preload !== 'auto') v.preload = 'auto';
+  const p = v.play();
+  if (p && p.catch) p.catch(() => {});
+}
+
+// Watch a section: when it nears the viewport, light up its background video AND its
+// coverflow rails (load + play their videos); when it leaves, pause everything so the
+// page isn't loading a dozen clips at once. This is what makes the on-screen bg actually
+// play immediately instead of starving behind off-screen card videos.
+function liveLoadSection(section) {
+  const apply = (live) => {
+    if (live) kickBg(section._bgVideo);
+    else if (section._bgVideo) section._bgVideo.pause();
+    (section._cfs || []).forEach(cf => {
+      if (!cf || cf.el._inView === live) return;
+      cf.el._inView = live;
+      cf.layout();                                   // re-runs load/play with the new state
+    });
+    section.querySelectorAll('video.card-audio-video').forEach(c => {
+      if (live) { c.preload = 'auto'; c.play().catch(() => {}); }
+      else c.pause();
+    });
+  };
+  if (!('IntersectionObserver' in window)) { apply(true); return; }
+  new IntersectionObserver((entries) => {
+    for (const e of entries) apply(e.isIntersecting);
+  }, { rootMargin: '300px 0px', threshold: 0.01 }).observe(section);
+  // first user gesture also kicks the bg, in case autoplay is blocked outright
+  ['pointerdown', 'touchstart', 'keydown'].forEach(ev =>
+    window.addEventListener(ev, () => {
+      const r = section.getBoundingClientRect();
+      if (r.top < innerHeight && r.bottom > 0) kickBg(section._bgVideo);
+    }, { passive: true }));
 }
 
 function buildSection(type, label, items, bg /* optional {src, poster} bg video */) {
@@ -386,6 +414,7 @@ function buildSection(type, label, items, bg /* optional {src, poster} bg video 
     empty.textContent = `Nothing here yet`;
     section.appendChild(empty);
     content.appendChild(section);
+    liveLoadSection(section);                       // still drive the bg video, if any
     return;
   }
 
@@ -394,6 +423,7 @@ function buildSection(type, label, items, bg /* optional {src, poster} bg video 
   section._cfs = [cf];                            // rails to relayout on filter/resize
   content.appendChild(section);
   requestAnimationFrame(() => cf.layout());       // lay out once it has width in the DOM
+  liveLoadSection(section);                         // load/play videos only when on screen
 }
 
 // Build a rail into `parent`, or an empty-state note if there's nothing. Returns the rail (or null).
@@ -438,6 +468,7 @@ function buildMusicSection(mine /* ai, introSrc removed — AI Music section tak
   if (cf) section._cfs.push(cf);
 
   content.appendChild(section);
+  liveLoadSection(section);                         // load/play the Zuma bg only when on screen
 }
 
 // ── 3D Coverflow rail ─────────────────────────────────────────────────────────
@@ -447,6 +478,8 @@ function makeCoverflow(items) {
   const el = document.createElement('div');
   el.className = 'coverflow';
   el.tabIndex = 0;
+  el._inView = false;   // set true by the section's viewport observer; gates video loading
+                        // so off-screen rails don't starve the page's bandwidth
 
   const viewport = document.createElement('div');
   viewport.className = 'cf-viewport';
@@ -505,10 +538,10 @@ function makeCoverflow(items) {
       card.style.zIndex = String(100 - ao);
       card.style.pointerEvents = ao <= 2 ? 'auto' : 'none';
 
-      ensureLoaded(card);
+      if (el._inView) ensureLoaded(card);          // only pull video sources when on screen
       const isActive = o === 0;
       card.classList.toggle('cf-active', isActive);
-      setActiveMedia(card, isActive);
+      setActiveMedia(card, isActive && el._inView);
     });
 
     counter.textContent = `${active + 1} / ${items.length}`;
@@ -616,9 +649,8 @@ function buildCard(item, opts = {}) {
       bg.src         = item.cover;
       bg.muted       = true;
       bg.loop        = true;
-      bg.autoplay    = true;
       bg.playsInline = true;
-      bg.preload     = 'metadata';
+      bg.preload     = 'none';                         // liveLoadSection starts it when on screen
       if (item.thumb) bg.poster = item.thumb;         // show the still until the clip is ready
       bg.addEventListener('loadeddata', () => bg.play().catch(() => {}));
       media.appendChild(bg);
