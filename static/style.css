@@ -163,14 +163,17 @@ body.modal-open {
 
 /* Real-life full moon: hovers behind the lettering, spins slowly on its axis */
 .hero-moon {
+  /* one knob for the whole moon (keeps width/height/centre offset in sync).
+     Smaller than before, and noticeably smaller on phones via the lower floor. */
+  --moon-size: clamp(280px, 62vmin, 820px);
   position: absolute;
   top: 50%;
   left: 0;
   z-index: 2;                 /* above the dark overlay, behind the lettering (text is z-index 3) */
-  width: clamp(360px, 70vmin, 900px);
-  height: clamp(360px, 70vmin, 900px);
+  width: var(--moon-size);
+  height: var(--moon-size);
   /* vertically centred; pulled hard to the left so it tucks behind MEDICI */
-  margin: calc(clamp(360px, 70vmin, 900px) / -2) 0 0 calc(clamp(360px, 70vmin, 900px) * -0.42);
+  margin: calc(var(--moon-size) / -2) 0 0 calc(var(--moon-size) * -0.42);
   pointer-events: none;
   animation: moonFloat 14s ease-in-out infinite;
   /* soft real moonlight spilling off the surface */
@@ -190,6 +193,21 @@ body.modal-open {
   animation: moonSpin 120s linear infinite;   /* slow, but visibly turning on its axis */
   will-change: transform;
 }
+
+/* Black wolf howling at the moon — fixed over the visible disc, no animation.
+   Sibling of .hero-moon so it never spins/floats with it. */
+.hero-wolf {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 2;                 /* in front of the moon, behind the lettering (z-3) */
+  width: clamp(112px, 19vmin, 240px);
+  transform: translate(58%, -52%);   /* onto the visible disc, centred on the moon */
+  pointer-events: none;
+  filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.55));
+}
+.hero-wolf svg { display: block; width: 100%; height: auto; }
+.hero-wolf-body, .hero-wolf-rock { fill: #000; }
 
 @keyframes moonSpin {
   from { transform: rotate(0deg); }

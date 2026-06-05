@@ -34,7 +34,7 @@ async function boot(stage) {
 
   const scene  = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 6000);
-  camera.position.set(0, 0, 520);
+  camera.position.set(0, 0, 600);
 
   const pivot = new THREE.Group();   // subtle mouse-parallax lean
   scene.add(pivot);
@@ -134,16 +134,38 @@ async function boot(stage) {
       leaves: mediaMusic.map(v => ({ name: v.title, kind: 'modal', color: 0x6fe0ff, payload: v, mtype: 'music', thumb: v.thumb })) },
     { key: 'network',  label: 'Network',  color: 0x4dff9e,
       leaves: links.map(l => ({ name: l.name, kind: 'link', color: hexToInt(l.color, 0x4dff9e), payload: l, url: l.url })) },
+
+    // Outer neurons — the ever-growing edge of Rex's World. Empty for now: each is a
+    // dormant node waiting for a future realm of work to bloom on it. They orbit
+    // further out than the live hubs, are grabbable, and ride the tour like the rest.
+    { key: 'titan',  label: 'Titan',  color: 0xffd27f, neuron: true, leaves: [],
+      desc: 'A great ringed neuron on the far edge — a whole realm waiting to bloom.' },
+    { key: 'helios', label: 'Helios', color: 0xffae3d, neuron: true, leaves: [],
+      desc: 'The distant sun-neuron — light for work not yet made.' },
+    { key: 'aether', label: 'Aether', color: 0x6fe0ff, neuron: true, leaves: [],
+      desc: 'An outer neuron, cool and quiet — a new realm incoming.' },
+    { key: 'vesper', label: 'Vesper', color: 0xffb38a, neuron: true, leaves: [],
+      desc: 'A warm evening neuron on the rim — its content is still forming.' },
+    { key: 'cinder', label: 'Cinder', color: 0xc2c8d2, neuron: true, leaves: [],
+      desc: 'A small scorched neuron at the frontier — dormant, but ours.' },
   ];
 
   // Each category hub IS a real planet (NASA-style maps, same source as solar.js).
   const PLANETS = {
-    products: { tex: 'marsmap1k',  r: 18, dist: 180, tilt: 0.45, spin: 0.010, orbitTilt:  0.30, orbitSpeed: 0.0011, moonTilt: 0.50, moonSpeed: 0.0016 },
-    video:    { tex: 'plutomap',   r: 13, dist: 235, tilt: 0.30, spin: 0.008, orbitTilt: -0.28, orbitSpeed: 0.0008, moonTilt: 0.70, moonSpeed: 0.0013 },
-    edits:    { tex: 'neptunemap', r: 15, dist: 305, tilt: 0.22, spin: 0.009, orbitTilt:  0.18, orbitSpeed: 0.0009, moonTilt: 0.50, moonSpeed: 0.0014 },
-    images:   { tex: 'moonmap1k',  r: 12, dist: 150, tilt: 0.10, spin: 0.006, orbitTilt:  0.55, orbitSpeed: 0.0015, moonTilt: 0.30, moonSpeed: 0.0019 },
-    music:    { tex: 'jupitermap', r: 27, dist: 270, tilt: 0.05, spin: 0.014, orbitTilt:  0.12, orbitSpeed: 0.0006, ring: true, moonTilt: 0.40, moonSpeed: 0.0011 },
-    network:  { tex: 'earthmap1k', r: 19, dist: 205, tilt: 0.41, spin: 0.011, orbitTilt:  0.40, orbitSpeed: 0.0010, moonTilt: 0.45, moonSpeed: 0.0015 },
+    products: { tex: 'marsmap1k',  r: 18, dist: 220, tilt: 0.45, spin: 0.010, orbitTilt:  0.30, orbitSpeed: 0.0011, moonTilt: 0.50, moonSpeed: 0.0016 },
+    video:    { tex: 'plutomap',   r: 13, dist: 310, tilt: 0.30, spin: 0.008, orbitTilt: -0.28, orbitSpeed: 0.0008, moonTilt: 0.70, moonSpeed: 0.0013 },
+    edits:    { tex: 'neptunemap', r: 15, dist: 400, tilt: 0.22, spin: 0.009, orbitTilt:  0.18, orbitSpeed: 0.0009, moonTilt: 0.50, moonSpeed: 0.0014 },
+    images:   { tex: 'moonmap1k',  r: 12, dist: 175, tilt: 0.10, spin: 0.006, orbitTilt:  0.55, orbitSpeed: 0.0015, moonTilt: 0.30, moonSpeed: 0.0019 },
+    music:    { tex: 'jupitermap', r: 27, dist: 355, tilt: 0.05, spin: 0.014, orbitTilt:  0.12, orbitSpeed: 0.0006, ring: true, moonTilt: 0.40, moonSpeed: 0.0011 },
+    network:  { tex: 'earthmap1k', r: 19, dist: 265, tilt: 0.41, spin: 0.011, orbitTilt:  0.40, orbitSpeed: 0.0010, moonTilt: 0.45, moonSpeed: 0.0015 },
+
+    // Outer neurons — a clear shell beyond the inner hubs (305) so nothing bunches.
+    // Widely spaced, slow drift. Titan is the giant (ringed); Helios sits furthest out.
+    cinder:   { tex: 'mercurymap', r: 12, dist: 380, tilt: 0.12, spin: 0.012, orbitTilt:  0.28, orbitSpeed: 0.00080, moonTilt: 0.50, moonSpeed: 0.0013 },
+    aether:   { tex: 'uranusmap',  r: 16, dist: 450, tilt: 0.34, spin: 0.009, orbitTilt:  0.50, orbitSpeed: 0.00068, moonTilt: 0.55, moonSpeed: 0.0012 },
+    vesper:   { tex: 'venusmap',   r: 17, dist: 520, tilt: 0.20, spin: 0.008, orbitTilt: -0.36, orbitSpeed: 0.00058, moonTilt: 0.35, moonSpeed: 0.0011 },
+    titan:    { tex: 'saturnmap',  r: 34, dist: 595, tilt: 0.46, spin: 0.007, orbitTilt:  0.16, orbitSpeed: 0.00048, ring: true, moonTilt: 0.40, moonSpeed: 0.0010 },
+    helios:   { tex: 'sunmap',     r: 22, dist: 670, tilt: 0.08, spin: 0.013, orbitTilt: -0.20, orbitSpeed: 0.00040, moonTilt: 0.30, moonSpeed: 0.0009 },
   };
 
   // ── Gravity (Phase 1) ─────────────────────────────────────────────────────────
@@ -244,7 +266,7 @@ async function boot(stage) {
     if (planet.ring) holder.add(planet.ring);
     planetMeshes.push({ mesh: planet.mesh, ring: planet.ring, spin: cfg.spin });
 
-    const hubNode = { group: holder, kind: 'hub', name: hub.label, color: hub.color, count: hub.leaves.length };
+    const hubNode = { group: holder, kind: 'hub', name: hub.label, color: hub.color, count: hub.leaves.length, neuron: !!hub.neuron, desc: hub.desc };
     nodes.push(hubNode);
     labels.push(makeLabel(hubNode, 'hub'));
     edgePairs.push([core.group, holder]);      // core → planet
@@ -266,7 +288,7 @@ async function boot(stage) {
     const dirs = fibonacciSphere(hub.leaves.length, hi * 7.13 + 1);
     hub.leaves.forEach((leaf, li) => {
       const jitter = 0.6 + 0.8 * frac(Math.sin((hi + 1) * 12.9898 + (li + 1) * 78.233) * 43758.5453);
-      const lr = cfg.r + 36 + 40 * jitter;        // pushed out a touch so the bigger nodes don't crowd the planet
+      const lr = cfg.r + 10 + 12 * jitter;        // hug the planet — moons sit close to the surface
       const dead = leaf.kind === 'link' && !leaf.url;   // social not linked yet
       const node = makeNode({
         name: leaf.name, kind: leaf.kind, color: leaf.color, radius: 7,
@@ -324,7 +346,7 @@ async function boot(stage) {
   // A dark event horizon ringed by a swirling accretion disc and an orange halo,
   // sitting out beyond the planets. Hoverable ("coming soon"), not yet clickable.
   const portal = new THREE.Group();
-  portal.position.set(340, -150, -300);
+  portal.position.set(380, -168, -336);
   root.add(portal);
   const portalNode = { group: portal, kind: 'portal', name: 'Bring Your Own Universe', color: 0xff7a1a };
 
@@ -655,12 +677,12 @@ async function boot(stage) {
   // so start further back and re-frame on rotate. Declared before resize() so it
   // can use them; desktop is left at the original distance.
   const phone = window.innerWidth < 760;
-  const DEFAULT_CAMZ = 520;                          // closer default framing (was 620) — reads better on scroll-in
+  const DEFAULT_CAMZ = 600;                          // pulled back to frame the outer neuron shell without bunching
   function fitZoom() {
     const w = stage.clientWidth || window.innerWidth;
     const h = stage.clientHeight || window.innerHeight;
     const vHalf = (52 * Math.PI / 180) / 2;
-    const R = 320;                                   // frame radius (planets + inner moons) — tighter = closer
+    const R = 430;                                   // frame radius (planets + neuron shell) — wider so neurons fit
     return Math.max(500, Math.min(1300, (R / Math.tan(vHalf)) * Math.max(1, h / w)));
   }
   let camZ = DEFAULT_CAMZ, tCamZ = DEFAULT_CAMZ, userZoomed = false;
@@ -967,7 +989,10 @@ async function boot(stage) {
     const p = node.payload || {};
     if (node.kind === 'core')   return "The centre of Rex's World";
     if (node.kind === 'portal') return 'A shared cosmos — bring your own universe. Coming soon.';
-    if (node.kind === 'hub')  return `${node.count} ${node.count === 1 ? 'item' : 'items'} orbiting here`;
+    if (node.kind === 'hub') {
+      if (node.neuron) return node.desc || 'A dormant neuron of the ever-growing Hub — content incoming';
+      return `${node.count} ${node.count === 1 ? 'item' : 'items'} orbiting here`;
+    }
     if (node.kind === 'app')  return p.blurb || 'A Rex Trueform product';
     if (node.kind === 'link') {
       const cat = cap(p.category || 'network');
@@ -1019,7 +1044,7 @@ async function boot(stage) {
     if (!hoverCard) return;
     hcTitle.textContent = node.name || '';
     hcDesc.textContent  = autoDesc(node);
-    hcTag.textContent   = node.kind === 'hub' ? 'Hub'
+    hcTag.textContent   = node.kind === 'hub' ? (node.neuron ? 'Neuron' : 'Hub')
                         : node.kind === 'core' ? 'Core'
                         : node.kind === 'portal' ? 'Portal'
                         : (TAGS[node.kind === 'modal' ? node.mtype : node.kind] || '');
