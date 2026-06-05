@@ -318,7 +318,8 @@ async function init() {
 
   content.innerHTML = '';
   buildMusicSection(groups.musicMine);   // music first, up top (AI Music removed)
-  buildSection('edit', 'Short Docs', groups.edit);                // short documentaries, just below music
+  buildSection('edit', 'Short Docs', groups.edit,                 // short documentaries, just below music
+    { src: '/static/pattern-hero.mp4', poster: '/static/video-thumbs/pattern-acid.jpg' });  // Pattern Acid bg
   buildSection('video', 'Video', groups.video);
   buildSection('image', 'Images', groups.image);
 
@@ -326,11 +327,25 @@ async function init() {
   applyTypeFilter(currentType);
 }
 
-function buildSection(type, label, items) {
+function buildSection(type, label, items, bg /* optional {src, poster} bg video */) {
   const section = document.createElement('section');
   section.className = 'media-section';
   section.dataset.type = type;
   section.id = `section-${type}`;
+
+  if (bg) {
+    section.classList.add('has-bg-video');
+    const v = document.createElement('video');
+    v.className = 'section-bg-video';
+    v.autoplay = true; v.muted = true; v.loop = true;
+    v.playsInline = true; v.preload = 'auto';
+    v.setAttribute('aria-hidden', 'true');
+    if (bg.poster) v.poster = bg.poster;
+    v.innerHTML = `<source src="${bg.src}" type="video/mp4">`;
+    const veil = document.createElement('div');
+    veil.className = 'section-bg-veil';
+    section.append(v, veil);
+  }
 
   const head = document.createElement('div');
   head.className = 'section-head';
