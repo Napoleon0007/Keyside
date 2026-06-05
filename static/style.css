@@ -198,16 +198,17 @@ body.modal-open {
    Sibling of .hero-moon so it never spins/floats with it. */
 .hero-wolf {
   position: absolute;
-  top: 50%;
-  left: 0;
-  z-index: 2;                 /* in front of the moon, behind the lettering (z-3) */
-  width: clamp(120px, 20vmin, 250px);
-  transform: translate(60%, -12%);   /* onto the visible disc, lower-centre of the moon */
+  /* placed relative to the moon box → sits on the visible lower disc and scales
+     with the moon. Rides the moon's bob (shared parent) but not its spin. */
+  left: 60%;
+  top: 75%;
+  width: 27%;
+  transform: translate(-50%, -50%);
   pointer-events: none;
-  filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.5));
 }
 .hero-wolf svg { display: block; width: 100%; height: auto; }
-.hero-wolf-body, .hero-wolf-rock { fill: #000; }
+.hero-wolf-fill { fill: #000; }
 
 @keyframes moonSpin {
   from { transform: rotate(0deg); }
