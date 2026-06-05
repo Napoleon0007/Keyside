@@ -139,6 +139,22 @@ def media_src(filename: str) -> str:
     return f"/video/{filename}"
 
 
+# Small looping bg/cover clips (hero, section backgrounds, music tile covers) live in the
+# Art-Hub repo under loops/. Serve them from GitHub raw — a CDN, with ~0.4s TTFB vs
+# Railway's ~1.1s Python static — in prod; fall back to local /static in dev.
+LOOP_BASE = f"{GITHUB_RAW_BASE}/loops" if GITHUB_RAW_BASE else ""
+
+
+def loop_url(rel: str) -> str:
+    rel = rel.lstrip("/")
+    if rel.startswith("static/"):
+        rel = rel[len("static/"):]
+    if LOOP_BASE:
+        encoded = "/".join(p.replace(" ", "%20") for p in rel.split("/"))
+        return f"{LOOP_BASE}/{encoded}"
+    return f"/static/{rel}"
+
+
 def assign_orders(metadata: dict) -> dict:
     needs_order = [k for k, v in metadata.items() if "order" not in v]
     if needs_order:
@@ -150,6 +166,12 @@ def assign_orders(metadata: dict) -> dict:
 
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
+
+@app.context_processor
+def inject_loops():
+    # loop_url() for templates; LOOP_BASE so the client JS can build CDN loop URLs too
+    return {"loop_url": loop_url, "loop_base": LOOP_BASE}
+
 
 @app.route("/")
 def index():
@@ -332,7 +354,7 @@ def get_videos():
         meta = metadata.get(v["file"], {})
         v["thumb"] = thumb_for(v["file"], meta)
         if meta.get("cover"):
-            v["cover"] = media_src(meta["cover"])   # animated cover clip for a music tile
+            v["cover"] = loop_url(meta["cover"])     # compressed cover loop via CDN (prod) / static (dev)
         v["new"] = bool(meta.get("new"))            # mark a fresh drop → comets it in (Rex's World)
         if meta.get("added"):
             v["added"] = meta["added"]

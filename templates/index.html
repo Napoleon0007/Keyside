@@ -36,7 +36,7 @@
     <div class="hero">
       <video class="hero-bg-video" id="heroBgVideo" autoplay muted loop playsinline preload="auto"
              poster="{{ url_for('static', filename='video-thumbs/cotton-ball-fire.jpg') }}">
-        <source src="{{ url_for('static', filename='cotton-hero.mp4') }}" type="video/mp4">
+        <source src="{{ loop_url('cotton-hero.mp4') }}" type="video/mp4">
       </video>
       <div class="hero-overlay"></div>
       <div class="hero-moon" aria-hidden="true">
@@ -226,6 +226,7 @@
     </div>
   </div>
 
+  <script>window.LOOP_BASE = {{ loop_base|tojson }};</script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script src="{{ url_for('static', filename='effects.js') }}"></script>
   <script src="{{ url_for('static', filename='herotext.js') }}"></script>

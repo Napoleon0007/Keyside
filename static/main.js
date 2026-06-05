@@ -1,3 +1,12 @@
+// Small looping bg clips: GitHub-raw CDN in prod (window.LOOP_BASE set by the page),
+// local /static in dev. CDN TTFB ~0.4s vs Railway static ~1.1s, so the bg plays fast.
+const loopUrl = (rel) => {
+  rel = String(rel).replace(/^\/?static\//, '');
+  return window.LOOP_BASE
+    ? window.LOOP_BASE + '/' + rel.split('/').map(encodeURIComponent).join('/')
+    : '/static/' + rel;
+};
+
 const content     = document.getElementById('content');
 const galleryLoad = document.getElementById('galleryLoading');
 const modal       = document.getElementById('modal');
@@ -319,7 +328,7 @@ async function init() {
   content.innerHTML = '';
   buildMusicSection(groups.musicMine);   // music first, up top (AI Music removed)
   buildSection('edit', 'Short Docs', groups.edit,                 // short documentaries, just below music
-    { src: '/static/pattern-hero.mp4', poster: '/static/video-thumbs/pattern-acid.jpg' });  // Pattern Acid bg
+    { src: loopUrl('pattern-hero.mp4'), poster: '/static/video-thumbs/pattern-acid.jpg' });  // Pattern Acid bg
   buildSection('video', 'Video', groups.video);
   buildSection('image', 'Images', groups.image);
 
@@ -336,7 +345,7 @@ function attachSectionBg(section, src, poster) {
   const v = document.createElement('video');
   v.className = 'section-bg-video';
   v.muted = true; v.defaultMuted = true; v.loop = true;
-  v.playsInline = true; v.preload = 'none';   // hold off loading until the section is live
+  v.playsInline = true; v.preload = 'auto';   // small loop: pre-buffer now so it's ready on scroll
   // attributes too (some engines only honor the attribute form for muted/playsinline)
   v.setAttribute('muted', '');
   v.setAttribute('playsinline', '');
@@ -474,7 +483,7 @@ function buildMusicSection(mine /* ai, introSrc removed — AI Music section tak
 
   // Zuma music-video loop behind everything so the section reads as one dark cinematic
   // space. Poster paints instantly; the clip is kicked into playing by attachSectionBg.
-  attachSectionBg(section, '/static/zuma-hero.mp4', '/static/video-thumbs/zuma.jpg');
+  attachSectionBg(section, loopUrl('zuma-hero.mp4'), '/static/video-thumbs/zuma.jpg');
 
   const head = document.createElement('div');
   head.className = 'section-head';
