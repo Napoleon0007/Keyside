@@ -329,7 +329,8 @@ async function init() {
   buildMusicSection(groups.musicMine);   // music first, up top (AI Music removed)
   buildSection('edit', 'Short Docs', groups.edit,                 // short documentaries, just below music
     { src: loopUrl('pattern-hero.mp4'), poster: '/static/video-thumbs/pattern-acid.jpg' });  // Pattern Acid bg
-  buildSection('video', 'Video', groups.video);
+  buildSection('video', 'Video', groups.video,                    // Signal III bg behind the Video rail
+    { src: loopUrl('signal3-hero.mp4'), poster: '/static/video-thumbs/signal-iii.jpg' });
   buildSection('image', 'Images', groups.image);
 
   countNum.textContent = videos.length;
