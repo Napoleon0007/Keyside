@@ -165,15 +165,14 @@ body.modal-open {
 .hero-moon {
   /* one knob for the whole moon (keeps width/height/centre offset in sync).
      Smaller than before, and noticeably smaller on phones via the lower floor. */
-  --moon-size: clamp(280px, 62vmin, 820px);
+  --moon-size: clamp(240px, 42vmin, 540px);   /* smaller than before, but fully visible */
   position: absolute;
-  top: 50%;
-  left: 0;
+  top: 20%;                   /* up toward the top */
+  left: 1%;
   z-index: 2;                 /* above the dark overlay, behind the lettering (text is z-index 3) */
   width: var(--moon-size);
   height: var(--moon-size);
-  /* vertically centred; pulled hard to the left so it tucks behind MEDICI */
-  margin: calc(var(--moon-size) / -2) 0 0 calc(var(--moon-size) * -0.42);
+  margin: 0;                  /* no tuck — the whole disc shows so the wolf reads on it */
   pointer-events: none;
   animation: moonFloat 14s ease-in-out infinite;
   /* soft real moonlight spilling off the surface */
@@ -198,13 +197,13 @@ body.modal-open {
    Sibling of .hero-moon so it never spins/floats with it. */
 .hero-wolf {
   position: absolute;
-  /* behind the MEDICI title: centred on the word, its bottom resting on the orange
-     line, rising up so the howling head sits behind the lettering. */
-  left: 19%;
-  top: 64%;
-  width: 17%;
-  transform: translate(-50%, -100%);
-  z-index: 2;                 /* over the bg video + moon, behind .hero-content (z3) */
+  /* the WHOLE wolf, in front of the moon on its lower disc, howling up — sized as a
+     fraction of the moon and centred, so the full silhouette reads against it. */
+  left: 50%;
+  top: 56%;
+  width: 46%;
+  transform: translate(-50%, -50%);
+  z-index: 1;                 /* in front of the moon image */
   pointer-events: none;
   filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.55));
 }
@@ -735,26 +734,41 @@ body.modal-open {
   to   { opacity: 1; transform: scale(1)    translateY(0); }
 }
 
-.modal-close {
+/* Close + fullscreen sit over the video's top-right. Smaller now, and they fade
+   away while a clip plays (a tap/move over the modal brings them back — main.js). */
+.modal-close,
+.modal-fs {
   position: absolute;
-  top: -50px;
-  right: 0;
-  width: 38px;
-  height: 38px;
-  background: transparent;
+  top: 12px;
+  width: 30px;
+  height: 30px;
+  background: rgba(0, 0, 0, 0.5);
   border: 1px solid var(--orange);
   color: var(--orange);
-  font-size: 14px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  border-radius: 4px;
+  z-index: 6;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  transition: opacity 0.35s ease, background 0.2s, color 0.2s;
 }
+.modal-close { right: 12px; }
+.modal-fs    { right: 50px; }
 
-.modal-close:hover {
+.modal-close:hover,
+.modal-fs:hover {
   background: var(--orange);
   color: var(--black);
+}
+
+.modal.controls-hidden .modal-close,
+.modal.controls-hidden .modal-fs {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .modal-video-wrap {
@@ -856,15 +870,17 @@ body.modal-open {
     padding: 0 14px;
   }
 
-  /* Close button: tucked inside top-right of modal */
-  .modal-close {
-    top: 8px;
-    right: 8px;
-    background: rgba(0, 0, 0, 0.7);
-    border-color: var(--orange);
-    width: 44px;
-    height: 44px;
+  /* Close + fullscreen: a touch larger for tapping, still auto-hiding while playing */
+  .modal-close,
+  .modal-fs {
+    top: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
   }
+  .modal-close { right: 10px; }
+  .modal-fs    { right: 54px; }
 
   .modal-box {
     width: 96vw;

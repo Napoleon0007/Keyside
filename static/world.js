@@ -126,7 +126,7 @@ async function boot(stage) {
       leaves: products.map(p => ({ name: p.name, kind: 'app',   color: 0xff7a3d, payload: p, thumb: p.thumb })) },
     { key: 'video',    label: 'Video',    color: 0xff8a3d,
       leaves: mediaVideo.map(v => ({ name: v.title, kind: 'modal', color: 0xffae63, payload: v, mtype: 'video', thumb: v.thumb })) },
-    { key: 'edits',    label: 'Edits',    color: 0x3da5ff,
+    { key: 'edits',    label: 'Short Docs', color: 0x3da5ff,
       leaves: mediaEdit.map(v => ({ name: v.title, kind: 'modal', color: 0x7dc4ff, payload: v, mtype: 'edit', thumb: v.thumb })) },
     { key: 'images',   label: 'Images',   color: 0x8a6cff,
       leaves: mediaImage.map(v => ({ name: v.title, kind: 'modal', color: 0xa98cff, payload: v, mtype: 'image', thumb: v.src })) },

@@ -41,16 +41,15 @@
       <div class="hero-overlay"></div>
       <div class="hero-moon" aria-hidden="true">
         <img class="hero-moon-img" src="{{ url_for('static', filename='moon.jpg') }}" alt="">
-      </div>
-      <!-- Black wolf howling — sits BEHIND the MEDICI title, rising up to the orange
-           line. A direct child of .hero (behind .hero-content) so it centres on the
-           title rather than the moon. Pure black silhouette. -->
-      <div class="hero-wolf" aria-hidden="true">
-        <svg viewBox="0 0 223.24 294.42" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wolf howling at the moon">
-          <g class="hero-wolf-fill" transform="translate(-260.22 -345.13)">
-            <path d="m434.08 345.13c-0.97 0-6.14 7.04-11.47 15.62-14.36 23.1-38.51 54.1-43.69 56.09-2.49 0.96-7.43 2.01-10.97 2.32-6.51 0.57-14.52 7.47-32.31 27.81-7.69 8.79-12.88 12.1-26.1 16.66-10.16 3.49-19.04 8.38-23.09 12.71-6.03 6.45-6.31 7.48-3.37 12.41 1.76 2.96 8.93 8.5 15.93 12.28l12.72 6.88-3.19 11.28c-1.76 6.21-3.23 14.68-3.25 18.81-0.01 4.13-2.4 12.33-5.31 18.19-5.61 11.3-13.59 41.66-14.75 56.12-0.41 5.07-20.6 27.24-25.01 27.24h195.33c-0.03-7.72-1.92-18.71-2.94-19.39-2.81-1.86 0.03-30.73 3.62-36.88 4.77-8.14 3.78-22.99-2.5-37.4-4.66-10.7-5.67-16.68-5.69-34.29-0.01-13.62 1.15-23.69 3.19-27.9 1.76-3.63 4.3-13.01 5.66-20.85 2.6-15.02 11.05-32.97 18.03-38.25 7-5.28 10.65-19.47 7.25-28.25-4.01-10.34-8.31-13.84-12.47-10.15-2.41 2.14-4.45 2.19-7.91 0.22-4.08-2.34-4.6-2.02-4.12 2.59 0.3 2.89-0.81 5.8-2.5 6.44-2.39 0.9-2.78-1.05-1.78-8.72 0.71-5.43 0.15-13.45-1.22-17.84-2.42-7.78-14.58-23.75-18.09-23.75z"/>
-          </g>
-        </svg>
+        <!-- The WHOLE wolf, in silhouette, howling up at the moon — sits in front of the
+             moon on its lower disc. Inside .hero-moon (rides the moon, never spins). -->
+        <div class="hero-wolf" aria-hidden="true">
+          <svg viewBox="0 0 223.24 294.42" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wolf howling at the moon">
+            <g class="hero-wolf-fill" transform="translate(-260.22 -345.13)">
+              <path d="m434.08 345.13c-0.97 0-6.14 7.04-11.47 15.62-14.36 23.1-38.51 54.1-43.69 56.09-2.49 0.96-7.43 2.01-10.97 2.32-6.51 0.57-14.52 7.47-32.31 27.81-7.69 8.79-12.88 12.1-26.1 16.66-10.16 3.49-19.04 8.38-23.09 12.71-6.03 6.45-6.31 7.48-3.37 12.41 1.76 2.96 8.93 8.5 15.93 12.28l12.72 6.88-3.19 11.28c-1.76 6.21-3.23 14.68-3.25 18.81-0.01 4.13-2.4 12.33-5.31 18.19-5.61 11.3-13.59 41.66-14.75 56.12-0.41 5.07-20.6 27.24-25.01 27.24h195.33c-0.03-7.72-1.92-18.71-2.94-19.39-2.81-1.86 0.03-30.73 3.62-36.88 4.77-8.14 3.78-22.99-2.5-37.4-4.66-10.7-5.67-16.68-5.69-34.29-0.01-13.62 1.15-23.69 3.19-27.9 1.76-3.63 4.3-13.01 5.66-20.85 2.6-15.02 11.05-32.97 18.03-38.25 7-5.28 10.65-19.47 7.25-28.25-4.01-10.34-8.31-13.84-12.47-10.15-2.41 2.14-4.45 2.19-7.91 0.22-4.08-2.34-4.6-2.02-4.12 2.59 0.3 2.89-0.81 5.8-2.5 6.44-2.39 0.9-2.78-1.05-1.78-8.72 0.71-5.43 0.15-13.45-1.22-17.84-2.42-7.78-14.58-23.75-18.09-23.75z"/>
+            </g>
+          </svg>
+        </div>
       </div>
       <div class="hero-content">
         <h1 class="site-title"><span class="hero-letter">M</span><span class="hero-letter">E</span><span class="hero-letter side">D</span><span class="hero-letter side">I</span><span class="hero-letter side">C</span><span class="hero-letter side">I</span></h1>
@@ -66,7 +65,7 @@
       <button class="filter-btn active" data-type="all">All</button>
       <button class="filter-btn" data-type="world">World</button>
       <button class="filter-btn" data-type="video">Video</button>
-      <button class="filter-btn" data-type="edit">Edits</button>
+      <button class="filter-btn" data-type="edit">Short Docs</button>
       <button class="filter-btn" data-type="image">Images</button>
       <button class="filter-btn" data-type="music">Music</button>
       <button class="filter-btn" data-type="products">Rex Trueform Products</button>
@@ -118,6 +117,7 @@
     <div class="modal-bg" id="modalBg"></div>
     <div class="modal-box">
       <button class="modal-close" id="modalClose" aria-label="Close">&#x2715;</button>
+      <button class="modal-fs" id="modalFs" aria-label="Fullscreen" title="Fullscreen">&#x26F6;</button>
       <div class="modal-video-wrap">
         <video class="modal-video" id="modalVideo" controls muted playsinline></video>
         <img class="modal-image" id="modalImage" alt="" style="display:none">

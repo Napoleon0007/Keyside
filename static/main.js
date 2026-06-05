@@ -317,9 +317,9 @@ async function init() {
   });
 
   content.innerHTML = '';
-  buildMusicSection(groups.musicMine, groups.musicAi, aiIntro);   // music first, up top
+  buildMusicSection(groups.musicMine);   // music first, up top (AI Music removed)
+  buildSection('edit', 'Short Docs', groups.edit);                // short documentaries, just below music
   buildSection('video', 'Video', groups.video);
-  buildSection('edit', 'Edits', groups.edit);
   buildSection('image', 'Images', groups.image);
 
   countNum.textContent = videos.length;
@@ -374,10 +374,8 @@ function railOrEmpty(items, parent) {
   return cf;
 }
 
-// Music gets two sub-rails: "My Music" and a pressable "AI Music" whose heading
-// opens Rex's intro video. Drop audio into uploads/ai-music/ to fill the AI rail,
-// and a video named intro.mp4 there to wire the explainer.
-function buildMusicSection(mine, ai, introSrc) {
+// A single Music rail of Rex's songs (the old "AI Music" sub-section was removed).
+function buildMusicSection(mine /* ai, introSrc removed — AI Music section taken out */) {
   const section = document.createElement('section');
   section.className = 'media-section';
   section.dataset.type = 'music';
@@ -391,54 +389,12 @@ function buildMusicSection(mine, ai, introSrc) {
   h2.textContent = 'Music';
   const count = document.createElement('span');
   count.className = 'section-count';
-  count.textContent = mine.length + ai.length;
+  count.textContent = mine.length;
   head.append(h2, count);
   section.appendChild(head);
 
-  // ── My Music ──
-  const sub1 = document.createElement('div');
-  sub1.className = 'music-sub';
-  const sh1 = document.createElement('div');
-  sh1.className = 'sub-head';
-  sh1.innerHTML = `<h3 class="sub-title">My Music</h3><span class="sub-count">${mine.length}</span>`;
-  sub1.appendChild(sh1);
-  const cf1 = railOrEmpty(mine, sub1);
-  if (cf1) section._cfs.push(cf1);
-  section.appendChild(sub1);
-
-  // ── AI Music (pressable heading → intro video) ──
-  const sub2 = document.createElement('div');
-  sub2.className = 'music-sub';
-  const sh2 = document.createElement('div');
-  sh2.className = 'sub-head ai';
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'sub-title sub-title-btn';
-  btn.innerHTML = 'AI Music <span class="ai-info" aria-hidden="true">&#9432;</span>';
-  btn.setAttribute('aria-label', 'AI Music — play Rex\'s intro video');
-  const sc2 = document.createElement('span');
-  sc2.className = 'sub-count';
-  sc2.textContent = ai.length;
-  sh2.append(btn, sc2);
-  sub2.appendChild(sh2);
-
-  const note = document.createElement('p');
-  note.className = 'ai-note';
-  note.hidden = true;
-  sub2.appendChild(note);
-
-  btn.addEventListener('click', () => {
-    if (introSrc) {
-      openModal({ src: introSrc, title: 'AI Music — what it is', style: 'intro', type: 'video', file: null }, { sound: true });
-    } else {
-      note.hidden = false;
-      note.textContent = 'Intro video coming soon — Rex will explain the AI music here.';
-    }
-  });
-
-  const cf2 = railOrEmpty(ai, sub2);
-  if (cf2) section._cfs.push(cf2);
-  section.appendChild(sub2);
+  const cf = railOrEmpty(mine, section);
+  if (cf) section._cfs.push(cf);
 
   content.appendChild(section);
 }
@@ -741,7 +697,9 @@ function openModal(item, opts = {}) {
   }
 
   modalTitle.textContent = title;
-  modalTag.textContent   = (type === 'video') ? style : type;
+  modalTag.textContent   = (type === 'video') ? style : (type === 'edit' ? 'short doc' : type);
+  modalFs.style.display  = (type === 'image' || type === 'music') ? 'none' : 'flex';
+  modal.classList.remove('controls-hidden');   // visible on open; auto-hide kicks in once a clip plays
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
   buildDownloadOptions(type);
@@ -749,6 +707,8 @@ function openModal(item, opts = {}) {
 
 function closeModal() {
   modal.classList.remove('open');
+  modal.classList.remove('controls-hidden');
+  clearTimeout(modalCtrlsTimer);
   modal.setAttribute('aria-hidden', 'true');
   modalVideo.pause(); modalVideo.removeAttribute('src');
   modalAudio.pause(); modalAudio.removeAttribute('src');
@@ -762,6 +722,40 @@ function closeModal() {
 modalClose.addEventListener('click', closeModal);
 modalBg.addEventListener('click', closeModal);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Modal: fullscreen + auto-hiding controls while a clip plays ────────────────
+const modalFs  = document.getElementById('modalFs');
+const modalBox = modal.querySelector('.modal-box');
+let modalCtrlsTimer = null;
+
+function showModalControls() {
+  modal.classList.remove('controls-hidden');
+  clearTimeout(modalCtrlsTimer);
+  // only fade them away again while a video is actually playing
+  if (modalVideo.style.display !== 'none' && !modalVideo.paused && !modalVideo.ended) {
+    modalCtrlsTimer = setTimeout(() => modal.classList.add('controls-hidden'), 2200);
+  }
+}
+function keepModalControls() { clearTimeout(modalCtrlsTimer); modal.classList.remove('controls-hidden'); }
+
+modalVideo.addEventListener('play',  showModalControls);
+modalVideo.addEventListener('pause', keepModalControls);
+modalVideo.addEventListener('ended', keepModalControls);
+['pointermove', 'pointerdown', 'touchstart'].forEach(evt =>
+  modal.addEventListener(evt, showModalControls, { passive: true })
+);
+
+function toggleModalFullscreen() {
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fsEl) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  } else {
+    const t = (modalVideo.style.display !== 'none') ? modalVideo : modalBox;
+    const req = t.requestFullscreen || t.webkitRequestFullscreen || t.webkitEnterFullscreen;
+    if (req) req.call(t);
+  }
+}
+if (modalFs) modalFs.addEventListener('click', toggleModalFullscreen);
 
 // ── App (in-site product) modal ───────────────────────────────────────────────
 
