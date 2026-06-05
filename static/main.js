@@ -364,22 +364,45 @@ function kickBg(v) {
 // page isn't loading a dozen clips at once. This is what makes the on-screen bg actually
 // play immediately instead of starving behind off-screen card videos.
 function liveLoadSection(section) {
-  const apply = (live) => {
-    if (live) kickBg(section._bgVideo);
-    else if (section._bgVideo) section._bgVideo.pause();
+  // Start the section's secondary clips (coverflow cards + music cover tiles). These are
+  // big art clips, so we hold them back until the BACKGROUND is actually playing — the bg
+  // is the priority and must not be starved by them.
+  const startRest = () => {
     (section._cfs || []).forEach(cf => {
-      if (!cf || cf.el._inView === live) return;
-      cf.el._inView = live;
-      cf.layout();                                   // re-runs load/play with the new state
+      if (!cf || cf.el._inView) return;
+      cf.el._inView = true;
+      cf.layout();                                   // now pulls/plays the active card video
     });
     section.querySelectorAll('video.card-audio-video').forEach(c => {
-      if (live) { c.preload = 'auto'; c.play().catch(() => {}); }
-      else c.pause();
+      c.preload = 'auto'; c.play().catch(() => {});
     });
   };
-  if (!('IntersectionObserver' in window)) { apply(true); return; }
+  const pauseRest = () => {
+    (section._cfs || []).forEach(cf => {
+      if (!cf || !cf.el._inView) return;
+      cf.el._inView = false;
+      cf.layout();
+    });
+    section.querySelectorAll('video.card-audio-video').forEach(c => c.pause());
+  };
+  let restTimer = null;
+  const enter = () => {
+    const bg = section._bgVideo;
+    if (!bg) { startRest(); return; }
+    kickBg(bg);
+    if (bg.readyState >= 3 || (!bg.paused && bg.currentTime > 0)) { startRest(); return; }
+    bg.addEventListener('playing', startRest, { once: true });
+    clearTimeout(restTimer);
+    restTimer = setTimeout(startRest, 1800);         // fallback: don't strand the cards
+  };
+  const leave = () => {
+    if (section._bgVideo) section._bgVideo.pause();
+    clearTimeout(restTimer);
+    pauseRest();
+  };
+  if (!('IntersectionObserver' in window)) { enter(); return; }
   new IntersectionObserver((entries) => {
-    for (const e of entries) apply(e.isIntersecting);
+    for (const e of entries) e.isIntersecting ? enter() : leave();
   }, { rootMargin: '300px 0px', threshold: 0.01 }).observe(section);
   // first user gesture also kicks the bg, in case autoplay is blocked outright
   ['pointerdown', 'touchstart', 'keydown'].forEach(ev =>
