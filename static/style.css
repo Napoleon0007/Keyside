@@ -161,18 +161,17 @@ body.modal-open {
   background: radial-gradient(ellipse at 42% 42%, transparent 38%, rgba(0,0,0,0.62) 100%);
 }
 
-/* Real-life full moon: hovers behind the lettering, spins slowly on its axis */
+/* Real-life full moon: a small disc tucked in the top-left corner, behind the lettering */
 .hero-moon {
-  /* one knob for the whole moon (keeps width/height/centre offset in sync).
-     Smaller than before, and noticeably smaller on phones via the lower floor. */
-  --moon-size: clamp(240px, 42vmin, 540px);   /* smaller than before, but fully visible */
+  /* one knob for the whole moon (keeps width/height/centre offset in sync). */
+  --moon-size: clamp(96px, 15vmin, 190px);    /* much smaller — a corner accent */
   position: absolute;
-  top: 20%;                   /* up toward the top */
-  left: 1%;
+  top: 4%;                    /* up in the top-left corner */
+  left: 3%;
   z-index: 2;                 /* above the dark overlay, behind the lettering (text is z-index 3) */
   width: var(--moon-size);
   height: var(--moon-size);
-  margin: 0;                  /* no tuck — the whole disc shows so the wolf reads on it */
+  margin: 0;
   pointer-events: none;
   animation: moonFloat 14s ease-in-out infinite;
   /* soft real moonlight spilling off the surface */
@@ -192,23 +191,6 @@ body.modal-open {
   animation: moonSpin 120s linear infinite;   /* slow, but visibly turning on its axis */
   will-change: transform;
 }
-
-/* Black wolf howling at the moon — fixed over the visible disc, no animation.
-   Sibling of .hero-moon so it never spins/floats with it. */
-.hero-wolf {
-  position: absolute;
-  /* the WHOLE wolf, in front of the moon on its lower disc, howling up — sized as a
-     fraction of the moon and centred, so the full silhouette reads against it. */
-  left: 50%;
-  top: 56%;
-  width: 46%;
-  transform: translate(-50%, -50%);
-  z-index: 1;                 /* in front of the moon image */
-  pointer-events: none;
-  filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.55));
-}
-.hero-wolf svg { display: block; width: 100%; height: auto; }
-.hero-wolf-fill { fill: #000; }
 
 @keyframes moonSpin {
   from { transform: rotate(0deg); }
@@ -565,6 +547,41 @@ body.modal-open {
 .card-audio-note { z-index: 2; }                /* ♫ sits above everything */
 
 /* ── Media sections (Video / Images / Music) ─────────────── */
+/* A media section can carry a full-bleed background video (Music = Zuma loop). The
+   clip sits behind everything under a heavy dark veil so the section stays moody and
+   the cards/coverflow read clearly on top. */
+.media-section.has-bg-video {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.section-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+  pointer-events: none;
+}
+.section-bg-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* keep it dark — darker at the edges, a touch of life in the middle */
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.86) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.78));
+}
+.media-section.has-bg-video > .section-head,
+.media-section.has-bg-video > .coverflow,
+.media-section.has-bg-video > .card-grid,
+.media-section.has-bg-video > .section-empty {
+  position: relative;
+  z-index: 1;
+}
 .section-head {
   display: flex;
   align-items: baseline;

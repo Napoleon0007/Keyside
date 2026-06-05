@@ -377,10 +377,23 @@ function railOrEmpty(items, parent) {
 // A single Music rail of Rex's songs (the old "AI Music" sub-section was removed).
 function buildMusicSection(mine /* ai, introSrc removed — AI Music section taken out */) {
   const section = document.createElement('section');
-  section.className = 'media-section';
+  section.className = 'media-section has-bg-video';
   section.dataset.type = 'music';
   section.id = 'section-music';
   section._cfs = [];
+
+  // Zuma music-video loop, fast-loading, behind everything in the music section so it
+  // reads as one dark cinematic space. Poster paints instantly; clip fades in muted.
+  const bg = document.createElement('video');
+  bg.className = 'section-bg-video';
+  bg.autoplay = true; bg.muted = true; bg.loop = true;
+  bg.playsInline = true; bg.preload = 'auto';
+  bg.setAttribute('aria-hidden', 'true');
+  bg.poster = '/static/video-thumbs/zuma.jpg';
+  bg.innerHTML = '<source src="/static/zuma-hero.mp4" type="video/mp4">';
+  const bgVeil = document.createElement('div');
+  bgVeil.className = 'section-bg-veil';
+  section.append(bg, bgVeil);
 
   const head = document.createElement('div');
   head.className = 'section-head';
