@@ -198,14 +198,15 @@ body.modal-open {
    Sibling of .hero-moon so it never spins/floats with it. */
 .hero-wolf {
   position: absolute;
-  /* placed relative to the moon box → sits on the visible lower disc and scales
-     with the moon. Rides the moon's bob (shared parent) but not its spin. */
-  left: 60%;
-  top: 50%;
-  width: 28%;
-  transform: translate(-50%, -50%);
+  /* behind the MEDICI title: centred on the word, its bottom resting on the orange
+     line, rising up so the howling head sits behind the lettering. */
+  left: 19%;
+  top: 64%;
+  width: 17%;
+  transform: translate(-50%, -100%);
+  z-index: 2;                 /* over the bg video + moon, behind .hero-content (z3) */
   pointer-events: none;
-  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.55));
 }
 .hero-wolf svg { display: block; width: 100%; height: auto; }
 .hero-wolf-fill { fill: #000; }
