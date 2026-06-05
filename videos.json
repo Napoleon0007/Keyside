@@ -225,7 +225,7 @@
     "type": "music",
     "order": 44,
     "thumb": "/static/video-thumbs/cotton-ball-fire.jpg",
-    "cover": "Cotton ball fire.mp4"
+    "cover": "/static/covers/cotton-ball-fire.mp4"
   },
   "Sing Your Praises.mp3": {
     "title": "Sing Your Praises",
@@ -233,7 +233,7 @@
     "type": "music",
     "order": 45,
     "thumb": "/static/video-thumbs/hovering-men.jpg",
-    "cover": "Hovering men.mp4"
+    "cover": "/static/covers/hovering-men.mp4"
   },
   "Breaking Down The Door.mp3": {
     "title": "Breaking Down The Door",
@@ -241,7 +241,7 @@
     "type": "music",
     "order": 46,
     "thumb": "/static/video-thumbs/mercury-acid-trip.jpg",
-    "cover": "Mercury acid trip.mp4"
+    "cover": "/static/covers/mercury-acid-trip.mp4"
   },
   "edits/Zuma.mp4": {
     "title": "Zuma",

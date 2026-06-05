@@ -129,7 +129,10 @@ def thumb_for(filename: str, meta: dict):
 
 def media_src(filename: str) -> str:
     """Playable URL for a plain media filename — GitHub raw in prod, local /video route
-    in dev. Lets a music card point its animated cover at one of Rex's art clips."""
+    in dev. Lets a music card point its animated cover at one of Rex's art clips.
+    A value that's already a path/URL (e.g. a compressed /static loop) is used as-is."""
+    if filename.startswith(("/", "http://", "https://")):
+        return filename
     if GITHUB_RAW_BASE:
         encoded = "/".join(p.replace(" ", "%20") for p in filename.split("/"))
         return f"{GITHUB_RAW_BASE}/{encoded}"

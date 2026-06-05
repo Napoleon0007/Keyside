@@ -403,7 +403,7 @@ function liveLoadSection(section) {
   if (!('IntersectionObserver' in window)) { enter(); return; }
   new IntersectionObserver((entries) => {
     for (const e of entries) e.isIntersecting ? enter() : leave();
-  }, { rootMargin: '300px 0px', threshold: 0.01 }).observe(section);
+  }, { rootMargin: '60px 0px', threshold: 0.01 }).observe(section);
   // first user gesture also kicks the bg, in case autoplay is blocked outright
   ['pointerdown', 'touchstart', 'keydown'].forEach(ev =>
     window.addEventListener(ev, () => {
