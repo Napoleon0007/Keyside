@@ -938,6 +938,33 @@ function buildProductCard(p) {
   return card;
 }
 
+// ── The Order of the Skull — secret manifesto (nav skull → old manuscript) ────
+const skullBtn   = document.getElementById('skullBtn');
+const skullModal = document.getElementById('skullModal');
+const skullClose = document.getElementById('skullClose');
+const skullBg    = document.getElementById('skullModalBg');
+
+function openSkull() {
+  if (!skullModal) return;
+  scrollY = window.scrollY;
+  document.body.style.top = `-${scrollY}px`;
+  document.body.classList.add('modal-open');
+  skullModal.classList.add('open');
+  skullModal.setAttribute('aria-hidden', 'false');
+}
+function closeSkull() {
+  if (!skullModal || !skullModal.classList.contains('open')) return;
+  skullModal.classList.remove('open');
+  skullModal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('modal-open');
+  document.body.style.top = '';
+  window.scrollTo(0, scrollY);
+}
+if (skullBtn)   skullBtn.addEventListener('click', openSkull);
+if (skullClose) skullClose.addEventListener('click', closeSkull);
+if (skullBg)    skullBg.addEventListener('click', closeSkull);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSkull(); });
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 
 checkAuth();

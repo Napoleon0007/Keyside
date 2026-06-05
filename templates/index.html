@@ -6,7 +6,7 @@
   <title>Medici</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,600;1,300;1,400&family=Space+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,300;1,400;1,500&family=Space+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script type="importmap">
   {
@@ -27,7 +27,9 @@
         <span class="nav-label">Rex Trueform Arts Hub</span>
       </div>
       <div class="nav-right">
-        <img class="nav-skull" src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/orange%20skull.png" alt="">
+        <button class="nav-skull-btn" id="skullBtn" type="button" aria-label="The Order of the Skull" title="The Order of the Skull — enter">
+          <img class="nav-skull" src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/orange%20skull.png" alt="">
+        </button>
 <div id="navRight"></div>
       </div>
     </div>
@@ -194,6 +196,41 @@
       <button class="auth-submit" id="uploadSubmit" disabled>Upload</button>
       <div class="upload-progress" id="uploadProgress" style="display:none">
         <div class="upload-bar" id="uploadBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- The Order of the Skull — secret manifesto, opened by the nav skull -->
+  <div class="skull-modal" id="skullModal" aria-hidden="true" role="dialog" aria-label="The Order of the Skull">
+    <div class="skull-modal-bg" id="skullModalBg"></div>
+    <div class="manuscript" role="document">
+      <button class="skull-close" id="skullClose" aria-label="Close">&#x2715;</button>
+      <div class="manuscript-scroll">
+        <div class="ms-crest" aria-hidden="true">&#9760;</div>
+        <h2 class="ms-title">The Order of the Skull</h2>
+        <p class="ms-sub">est. in shadow &middot; sworn in silence &middot; the Council of Four Hundred</p>
+        <div class="ms-rule"></div>
+
+        <p class="ms-welcome"><span class="ms-drop">Y</span>ou found the skull. The skull found you. From this night you are no longer one of the many — you belong to the few. Welcome to the <strong>Skulls</strong>. Speak of it to no one. Carry it in everything.</p>
+
+        <h3 class="ms-commandments-title">The Ten Commandments</h3>
+        <ol class="ms-commandments">
+          <li>Tell no one of the Order; the skull keeps its own.</li>
+          <li>Build something every day, or be forgotten by the circle.</li>
+          <li>What you make, you own. What you copy, owns you.</li>
+          <li>Trust few. Test many. Fear none.</li>
+          <li>Leave every room — and every soul — richer than you found it.</li>
+          <li>The night is for visions; the day is for the hammer. Honour both.</li>
+          <li>Money is a tool. Bend it, never bow to it.</li>
+          <li>Guard the secret, but share the fire.</li>
+          <li>When they laugh at the dream, smile — they are already behind you.</li>
+          <li>Beneath every face waits a skull. You are mortal — so build something that is not.</li>
+        </ol>
+
+        <div class="ms-rule"></div>
+        <p class="ms-charge">Now go. Somewhere in Rex&rsquo;s World a door waits in the dark. Find it, and say nothing.</p>
+        <div class="ms-seal" aria-hidden="true"><span>&#9760;</span></div>
+        <p class="ms-sign">Sealed in obsidian &mdash; <em>The Council</em></p>
       </div>
     </div>
   </div>

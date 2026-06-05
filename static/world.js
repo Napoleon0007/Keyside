@@ -138,12 +138,12 @@ async function boot(stage) {
     // Outer neurons — the ever-growing edge of Rex's World. Empty for now: each is a
     // dormant node waiting for a future realm of work to bloom on it. They orbit
     // further out than the live hubs, are grabbable, and ride the tour like the rest.
-    { key: 'titan',  label: 'Titan',  color: 0xffd27f, neuron: true, leaves: [],
-      desc: 'A great ringed neuron on the far edge — a whole realm waiting to bloom.' },
+    { key: 'goals',  label: 'Goals',  color: 0xffcf5e, neuron: true, leaves: [],
+      desc: "Rex's goals — the big ringed targets that pull everything else into orbit." },
     { key: 'brain', label: 'Obsidian Brain', color: 0x9d7bff, neuron: true, leaves: [],
       desc: "Rex's living knowledge vault — an Obsidian brain tended by AI (raw → wiki → outputs)." },
-    { key: 'aether', label: 'Aether', color: 0x6fe0ff, neuron: true, leaves: [],
-      desc: 'An outer neuron, cool and quiet — a new realm incoming.' },
+    { key: 'crypto', label: 'Crypto', color: 0xf7931a, neuron: true, leaves: [],
+      desc: "Crypto — Rex's market frontier, where the paper-trading bots churn." },
     { key: 'vesper', label: 'Vesper', color: 0xffb38a, neuron: true, leaves: [],
       desc: 'A warm evening neuron on the rim — its content is still forming.' },
     { key: 'cinder', label: 'Cinder', color: 0xc2c8d2, neuron: true, leaves: [],
@@ -163,9 +163,9 @@ async function boot(stage) {
     // so nothing bunches. Widely spaced, slow drift. Titan is the giant (ringed);
     // Helios sits furthest out.
     cinder:   { tex: 'mercurymap', r: 12, dist: 470, tilt: 0.12, spin: 0.012, orbitTilt:  0.28, orbitSpeed: 0.00072, moonTilt: 0.50, moonSpeed: 0.0013 },
-    aether:   { tex: 'uranusmap',  r: 16, dist: 545, tilt: 0.34, spin: 0.009, orbitTilt:  0.50, orbitSpeed: 0.00060, moonTilt: 0.55, moonSpeed: 0.0012 },
+    crypto:   { tex: 'uranusmap',  r: 16, dist: 545, tilt: 0.34, spin: 0.009, orbitTilt:  0.50, orbitSpeed: 0.00060, moonTilt: 0.55, moonSpeed: 0.0012 },
     vesper:   { tex: 'venusmap',   r: 17, dist: 620, tilt: 0.20, spin: 0.008, orbitTilt: -0.36, orbitSpeed: 0.00052, moonTilt: 0.35, moonSpeed: 0.0011 },
-    titan:    { tex: 'saturnmap',  r: 34, dist: 700, tilt: 0.46, spin: 0.007, orbitTilt:  0.16, orbitSpeed: 0.00044, ring: true, moonTilt: 0.40, moonSpeed: 0.0010 },
+    goals:    { tex: 'saturnmap',  r: 34, dist: 700, tilt: 0.46, spin: 0.007, orbitTilt:  0.16, orbitSpeed: 0.00044, ring: true, moonTilt: 0.40, moonSpeed: 0.0010 },
     brain:    { tex: 'sunmap',     r: 25, dist: 785, tilt: 0.08, spin: 0.006, orbitTilt: -0.20, orbitSpeed: 0.00038, tint: 0x171720, moonTilt: 0.30, moonSpeed: 0.0009 },
   };
 
@@ -804,7 +804,7 @@ async function boot(stage) {
     // so pinch-to-zoom and two-finger scroll both work natively.
     const factor = e.ctrlKey ? 7 : 0.5;
     userZoomed = true;
-    tCamZ = clamp(tCamZ + e.deltaY * factor, 180, 1500);
+    tCamZ = clamp(tCamZ + e.deltaY * factor, 180, 1750);   // zoom out far enough to see the whole outer shell
   }, { passive: false });
 
   function pointerSpread() {
@@ -813,7 +813,7 @@ async function boot(stage) {
   }
   function handlePinch() {
     const d = pointerSpread();
-    if (pinchDist) { userZoomed = true; tCamZ = clamp(tCamZ + (pinchDist - d) * 1.5, 230, 1300); }
+    if (pinchDist) { userZoomed = true; tCamZ = clamp(tCamZ + (pinchDist - d) * 1.5, 230, 1750); }   // pinch out to the full shell
     pinchDist = d;
   }
 
