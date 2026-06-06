@@ -1275,20 +1275,20 @@ function makeRexStar() {
         float fil = smoothstep(0.45, 1.0, n) * smoothstep(1.05, 0.3, r);
         col += uMid * fil * 0.55;
         float alpha = clamp(plasma + coreHot*0.85, 0.0, 1.0) * uIntensity;
-        alpha *= smoothstep(0.92, 0.25, r);          // tight fade — glow hugs the surface, no big halo
+        alpha *= smoothstep(1.02, 0.22, r);          // hugs the surface, with a little glow coming off it
         gl_FragColor = vec4(col, alpha);
       }
     `,
   });
   const corona = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), coronaMat);
-  corona.scale.setScalar(168);                       // hugs the logo — the surface glows, no big halo
+  corona.scale.setScalar(220);                       // hugs the logo, with a little glow coming off the surface
   corona.renderOrder = 2;
   group.add(corona);
 
-  // One thin surface bloom — just a soft rim of light on the body (no big outer heat).
+  // A soft surface bloom — a gentle glow of light off the body (still no big outer halo).
   const glowTex = makeGlowTexture();
-  const glowA = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff7a20, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
-  glowA.scale.setScalar(150); glowA.renderOrder = 1; group.add(glowA);
+  const glowA = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff7a20, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glowA.scale.setScalar(205); glowA.renderOrder = 1; group.add(glowA);
 
   // Small solar licks right at the rim — subtle, not big eruptions.
   const flareTex = makeFlareTexture();
@@ -1304,26 +1304,26 @@ function makeRexStar() {
     if (!f) return;
     f.ang = Math.random() * Math.PI * 2;
     f.dur = 1.1 + Math.random() * 0.9;
-    f.len = 26 + Math.random() * 26;
+    f.len = 34 + Math.random() * 30;
     f.t0  = now;
   }
 
   function update(t, reduced) {
     coronaMat.uniforms.uTime.value = reduced ? 0 : t;
     const pulse = 1 + Math.sin(t * 1.7) * 0.04;
-    glowA.scale.setScalar(150 * pulse);
-    glowA.material.opacity = 0.2 + Math.sin(t * 1.7) * 0.05;
+    glowA.scale.setScalar(205 * pulse);
+    glowA.material.opacity = 0.32 + Math.sin(t * 1.7) * 0.06;
     if (reduced) return;
-    if (t >= nextFlare) { igniteFlare(t); nextFlare = t + 2.6 + Math.random() * 3.0; }
+    if (t >= nextFlare) { igniteFlare(t); nextFlare = t + 2.4 + Math.random() * 2.8; }
     for (const f of flares) {
       const k = f.dur > 0 ? (t - f.t0) / f.dur : 2;
       if (k >= 0 && k <= 1) {
         const env = Math.sin(k * Math.PI);                  // 0 → 1 → 0
-        const reach = 78 + f.len * (0.3 + 0.5 * k);          // sit just off the surface
+        const reach = 95 + f.len * (0.3 + 0.5 * k);          // sit just off the surface
         f.s.position.set(Math.cos(f.ang) * reach, Math.sin(f.ang) * reach, 0);
         f.s.material.rotation = f.ang - Math.PI / 2;         // lick points radially outward
-        f.s.scale.set(16 * (0.6 + env * 0.5), f.len * (0.6 + 0.6 * k), 1);
-        f.s.material.opacity = env * 0.4;
+        f.s.scale.set(18 * (0.6 + env * 0.5), f.len * (0.7 + 0.6 * k), 1);
+        f.s.material.opacity = env * 0.5;
       } else {
         f.s.material.opacity = 0;
       }
