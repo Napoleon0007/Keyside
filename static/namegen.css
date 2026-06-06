@@ -1,20 +1,21 @@
 /* ============================================================
-   Keyside — The Name Forge (band / rapper / crew name generator)
-   Vanilla, additive section. Matches the Rex Trueform palette.
+   Keyside — The Name Forge (compact, 3D).
+   Tight widget: band / rapper / crew, 10 options, perspective tilt.
    ============================================================ */
 .namegen {
   position: relative;
   width: 100%;
-  padding: 72px 22px 88px;
+  padding: 46px 18px 56px;
   background:
-    radial-gradient(120% 80% at 50% 0%, rgba(255,85,0,.06) 0%, rgba(0,0,0,0) 60%),
+    radial-gradient(90% 70% at 50% 0%, rgba(255,85,0,.07) 0%, rgba(0,0,0,0) 60%),
     #050302;
   border-bottom: 1px solid var(--border, #151515);
+  perspective: 1100px;            /* 3D space for the panel + chips */
 }
-.namegen-head { text-align: center; margin-bottom: 34px; }
+.namegen-head { text-align: center; margin-bottom: 20px; }
 .namegen-title {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(2rem, 6vmin, 3.4rem);
+  font-size: clamp(1.5rem, 5vmin, 2.2rem);
   letter-spacing: .07em;
   text-transform: uppercase;
   color: var(--off-white, #f0ede8);
@@ -22,119 +23,142 @@
 .namegen-title .orange { color: var(--orange, #ff5500); }
 .namegen-sub {
   font-family: 'Space Mono', monospace;
-  font-size: .8rem;
+  font-size: .62rem;
   letter-spacing: .18em;
   text-transform: uppercase;
-  color: rgba(240,237,232,.5);
-  margin-top: 8px;
+  color: rgba(240,237,232,.45);
+  margin-top: 6px;
 }
 
+/* tight 3D plaque */
 .namegen-panel {
-  max-width: 620px;
+  width: 340px;
+  max-width: 92vw;
   margin: 0 auto;
-  background: rgba(12,10,9,.7);
-  border: 1px solid rgba(255,85,0,.2);
-  border-radius: 16px;
-  padding: 26px 24px 28px;
-  box-shadow: 0 18px 60px rgba(0,0,0,.55);
+  padding: 16px 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(18,15,13,.92), rgba(10,8,7,.92));
+  border: 1px solid rgba(255,85,0,.28);
+  box-shadow: 0 26px 50px rgba(0,0,0,.6), 0 2px 0 rgba(255,85,0,.12);
+  transform-style: preserve-3d;
+  transform: rotateX(7deg);
+  transition: transform .25s ease;
+  will-change: transform;
 }
 
-.ng-types { display: flex; gap: 8px; margin-bottom: 20px; }
+.ng-types { display: flex; gap: 6px; margin-bottom: 12px; }
 .ng-type {
   flex: 1;
   font-family: 'Space Mono', monospace;
-  font-size: .72rem;
-  letter-spacing: .12em;
+  font-size: .58rem;
+  letter-spacing: .08em;
   text-transform: uppercase;
   color: rgba(240,237,232,.7);
   background: transparent;
   border: 1px solid var(--border, #151515);
-  border-radius: 10px;
-  padding: 11px 6px;
+  border-radius: 8px;
+  padding: 7px 3px;
   cursor: pointer;
-  transition: all .2s ease;
+  transition: all .18s ease;
 }
 .ng-type:hover { border-color: rgba(255,85,0,.5); color: #fff; }
-.ng-type.active {
-  background: var(--orange, #ff5500);
-  border-color: var(--orange, #ff5500);
-  color: #000;
-}
+.ng-type.active { background: var(--orange, #ff5500); border-color: var(--orange, #ff5500); color: #000; }
 
-.ng-fields { display: grid; gap: 14px; margin-bottom: 20px; }
+.ng-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
 .ng-fields label {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   font-family: 'Space Mono', monospace;
-  font-size: .68rem;
-  letter-spacing: .14em;
+  font-size: .54rem;
+  letter-spacing: .1em;
   text-transform: uppercase;
-  color: rgba(240,237,232,.55);
+  color: rgba(240,237,232,.5);
 }
+.ng-fields label.ng-wide { grid-column: 1 / -1; }
 .ng-fields input {
   font-family: 'Space Mono', monospace;
-  font-size: .95rem;
+  font-size: .82rem;
   color: #fff;
   background: #0c0a09;
   border: 1px solid var(--border, #151515);
-  border-radius: 9px;
-  padding: 11px 13px;
+  border-radius: 7px;
+  padding: 8px 9px;
   outline: none;
-  transition: border-color .2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color .18s ease;
 }
 .ng-fields input:focus { border-color: var(--orange, #ff5500); }
-.ng-fields input::placeholder { color: rgba(240,237,232,.28); }
+.ng-fields input::placeholder { color: rgba(240,237,232,.26); }
 
 .ng-go {
   width: 100%;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: #000;
   background: var(--orange, #ff5500);
   border: none;
-  border-radius: 10px;
-  padding: 13px;
+  border-radius: 8px;
+  padding: 10px;
   cursor: pointer;
-  transition: opacity .2s ease, transform .1s ease;
+  transition: opacity .18s ease, transform .1s ease;
 }
 .ng-go:hover { opacity: .9; }
 .ng-go:active { transform: translateY(1px); }
 
-.ng-results { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 10px; }
+/* 10 options — tight 2-col grid of 3D chips */
+.ng-results {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  transform-style: preserve-3d;
+}
 .ng-results li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.5rem;
-  letter-spacing: .04em;
+  font-size: 1.02rem;
+  letter-spacing: .03em;
   color: #fff;
-  background: #0c0a09;
+  background: #100c0a;
   border: 1px solid var(--border, #151515);
-  border-left: 3px solid var(--orange, #ff5500);
-  border-radius: 8px;
-  padding: 12px 16px;
+  border-left: 2px solid var(--orange, #ff5500);
+  border-radius: 6px;
+  padding: 8px 9px;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateZ(0);
   opacity: 0;
-  transform: translateY(8px);
-  animation: ngIn .4s ease forwards;
-  transition: border-color .2s ease, background .2s ease;
+  animation: ngFlip .42s cubic-bezier(.2,.8,.2,1) forwards;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
 }
-.ng-results li:hover { background: #140f0c; border-color: rgba(255,85,0,.5); }
-.ng-results li .ng-copy {
-  font-family: 'Space Mono', monospace;
-  font-size: .58rem;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: rgba(240,237,232,.4);
+.ng-results li:hover {
+  background: #1a120d;
+  border-color: rgba(255,85,0,.5);
+  transform: translateZ(16px);
+  box-shadow: 0 10px 22px rgba(0,0,0,.5);
 }
-.ng-results li.copied .ng-copy { color: var(--orange, #ff5500); }
-@keyframes ngIn { to { opacity: 1; transform: translateY(0); } }
+.ng-results li.copied {
+  border-color: var(--orange, #ff5500);
+  color: var(--orange, #ff5500);
+}
+@keyframes ngFlip {
+  from { opacity: 0; transform: rotateX(-55deg) translateZ(-24px); }
+  to   { opacity: 1; transform: rotateX(0) translateZ(0); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ng-results li { animation: none; opacity: 1; transform: none; }
+  .namegen-panel { transition: none; }
 }

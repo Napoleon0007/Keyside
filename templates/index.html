@@ -39,6 +39,7 @@
       <video class="hero-bg-loop" autoplay muted loop playsinline preload="auto" aria-hidden="true">
         <source src="{{ url_for('static', filename='zuma-bg.mp4') }}" type="video/mp4">
       </video>
+      <div class="hero-holo" aria-hidden="true"></div>
       <div class="hero-scrim" aria-hidden="true"></div>
       <canvas id="heroSky" class="disc-sky"></canvas>
       <div class="hero-orbit-stage disc-stage">
@@ -47,6 +48,7 @@
         </video>
         <div class="disc-ring disc-ring--wheel" id="heroRing"></div>
       </div>
+      <div class="hero-emblem" aria-hidden="true"><span class="hero-emblem-frame"></span></div>
       <div class="hero-content">
         <h1 class="site-title title-rex"><span class="hero-word"><span class="hero-letter">R</span><span class="hero-letter">E</span><span class="hero-letter">X</span></span> <span class="hero-word"><span class="hero-letter side">T</span><span class="hero-letter side">R</span><span class="hero-letter side">U</span><span class="hero-letter side">E</span><span class="hero-letter side">F</span><span class="hero-letter side">O</span><span class="hero-letter side">R</span><span class="hero-letter side">M</span></span></h1>
         <p class="site-sub-name">The <span class="orange floaty">Medici</span> Art Hub</p>
@@ -118,9 +120,9 @@
         <button class="ng-type" type="button" data-type="crew">Crew / DJ</button>
       </div>
       <div class="ng-fields">
-        <label>Your name <input id="ngName" type="text" placeholder="e.g. Luke" maxlength="24" autocomplete="off"></label>
-        <label>Favourite colour <input id="ngColor" type="text" placeholder="e.g. crimson" maxlength="20" autocomplete="off"></label>
-        <label>A vibe word <input id="ngVibe" type="text" placeholder="e.g. midnight" maxlength="20" autocomplete="off"></label>
+        <label class="ng-wide">Name <input id="ngName" type="text" placeholder="e.g. Luke" maxlength="24" autocomplete="off"></label>
+        <label>Colour <input id="ngColor" type="text" placeholder="crimson" maxlength="20" autocomplete="off"></label>
+        <label>Vibe <input id="ngVibe" type="text" placeholder="midnight" maxlength="20" autocomplete="off"></label>
       </div>
       <button class="ng-go" id="ngGo" type="button">Forge names</button>
       <ul class="ng-results" id="ngResults"></ul>

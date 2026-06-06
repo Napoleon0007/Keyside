@@ -99,7 +99,7 @@
     var name = nameEl.value, color = colorEl.value, vibe = vibeEl.value;
     var gen = GEN[type] || genBand;
     var out = [], guard = 0;
-    while (out.length < 5 && guard < 60) {
+    while (out.length < 10 && guard < 160) {
       var n = gen(name, color, vibe).trim();
       if (out.indexOf(n) === -1) out.push(n);
       guard++;
@@ -107,8 +107,9 @@
     resultsEl.innerHTML = "";
     out.forEach(function (n, i) {
       var li = document.createElement("li");
-      li.style.animationDelay = (i * 0.05) + "s";
-      li.innerHTML = "<span>" + n + "</span><span class=\"ng-copy\">tap to copy</span>";
+      li.style.animationDelay = (i * 0.04) + "s";
+      li.title = n + " — tap to copy";
+      li.textContent = n;
       li.addEventListener("click", function () { copy(n, li); });
       resultsEl.appendChild(li);
     });
@@ -116,15 +117,36 @@
 
   function copy(text, li) {
     var done = function () {
+      if (li.dataset.busy) return;
+      li.dataset.busy = "1";
+      var prev = li.textContent;
       li.classList.add("copied");
-      var tag = li.querySelector(".ng-copy");
-      if (tag) tag.textContent = "copied ✓";
+      li.textContent = "Copied ✓";
+      setTimeout(function () {
+        li.textContent = prev;
+        li.classList.remove("copied");
+        delete li.dataset.busy;
+      }, 1100);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(done, done);
     } else {
       done();
     }
+  }
+
+  /* ---- 3D mouse-tilt on the panel (desktop only) -------------------- */
+  var panel = section.querySelector(".namegen-panel");
+  if (panel && window.matchMedia("(hover: hover)").matches) {
+    section.addEventListener("mousemove", function (e) {
+      var r = panel.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width - 0.5;
+      var py = (e.clientY - r.top) / r.height - 0.5;
+      panel.style.transform = "rotateX(" + (7 - py * 9).toFixed(1) + "deg) rotateY(" + (px * 12).toFixed(1) + "deg)";
+    });
+    section.addEventListener("mouseleave", function () {
+      panel.style.transform = "rotateX(7deg)";
+    });
   }
 
   /* ---- Wire --------------------------------------------------------- */
