@@ -256,26 +256,6 @@
   pointer-events: none;
   background: radial-gradient(ellipse 70% 68% at 50% 46%, rgba(6,3,2,.74), rgba(6,3,2,.42) 52%, rgba(6,3,2,0) 100%);
 }
-.hero-emblem-frame {
-  position: absolute;
-  left: 50%; top: 48%;
-  transform: translate(-50%, -50%);
-  width: min(78vw, 520px);
-  height: clamp(168px, 30vh, 290px);
-  border: 1px solid rgba(255,85,0,.38);
-  border-radius: 20px;
-  box-shadow: 0 0 42px rgba(255,85,0,.13), inset 0 0 26px rgba(255,85,0,.05);
-}
-.hero-emblem-frame::before,
-.hero-emblem-frame::after {
-  content: "";
-  position: absolute;
-  width: 22px; height: 22px;
-  border: 2px solid var(--orange, #ff5500);
-}
-.hero-emblem-frame::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; border-radius: 7px 0 0 0; }
-.hero-emblem-frame::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; border-radius: 0 0 7px 0; }
-
 .hero-orbit .disc-sky { position: absolute; inset: 0; z-index: 3; }
 
 .hero-orbit-stage {
