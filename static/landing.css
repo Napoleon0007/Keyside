@@ -82,12 +82,6 @@
 }
 .disc-ring:active { cursor: grabbing; }
 
-/* Hero "Möbius wheel" — tilted on two axes + pushed back, behind the logo.
-   Reads as a rotating ring / infinity loop rather than an upright carousel. */
-.disc-ring--wheel {
-  transform: translateY(12%) rotateZ(-11deg) rotateX(-44deg) rotateY(var(--spin, 0deg)) scale(.82);
-}
-
 .disc-card {
   position: absolute;
   inset: 0;
