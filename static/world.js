@@ -226,9 +226,16 @@ async function boot(stage) {
     map: logoTex, alphaMap: makeDiscMask(), transparent: true, depthTest: true, depthWrite: false,
   }));
   logoSprite.scale.setScalar(92);                 // the central "sun" — biggest body, depth-sorted
+  logoSprite.renderOrder = 12;                    // logo always rides on top of the star's corona
   core.group.add(logoSprite);
   const htmlLogo = document.getElementById('worldLogo');
   if (htmlLogo) htmlLogo.style.display = 'none';  // replaced by the 3D logo above
+
+  // The Rex core as a REAL star — churning plasma corona, solar flares, and a faint
+  // gravitational-lensing photon ring. Sits at the world origin (camera is fixed, the
+  // graph rotates), so the flat corona always faces the viewer with the logo on top.
+  const rexStar = makeRexStar();
+  scene.add(rexStar.group);
 
   HUBS.forEach((hub, hi) => {
     const cfg = PLANETS[hub.key];
@@ -1181,6 +1188,7 @@ async function boot(stage) {
     const pulse = 1 + Math.sin(t * 1.6) * 0.06;
     core.glow.scale.setScalar(core.radius * 4.0 * pulse);
     core.mesh.material.emissiveIntensity = 1.3 + Math.sin(t * 1.6) * 0.25;
+    rexStar.update(t, reduced);                     // animate the central star (corona/flares/ring)
     stars.rotation.y += 0.0002;
     portalDisc.rotation.z += reduced ? 0 : 0.0035;                 // accretion swirl
     portalHalo.material.opacity = 0.4 + Math.sin(t * 1.1) * 0.12;  // breathing halo
@@ -1218,6 +1226,154 @@ function makeGlowTexture() {
   grad.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = grad;
   g.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// ── #8 — the Rex core as a real star ──────────────────────────────────────────
+// Churning plasma corona (procedural fbm sun shader), pulsing bloom haloes,
+// erupting solar flares, and a faint gravitational-lensing photon ring. Returns
+// { group, update(t, reduced) }; lives at the world origin facing the fixed camera.
+function makeRexStar() {
+  const group = new THREE.Group();
+
+  // Plasma corona — a flat disc shader (the camera never turns, so a +Z plane faces it).
+  const coronaMat = new THREE.ShaderMaterial({
+    transparent: true, depthTest: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTime: { value: 0 },
+      uHot:  { value: new THREE.Color(0xfff0cf) },
+      uMid:  { value: new THREE.Color(0xff6a12) },
+      uEdge: { value: new THREE.Color(0x7c1400) },
+      uIntensity: { value: 1.0 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+    `,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform float uTime, uIntensity;
+      uniform vec3 uHot, uMid, uEdge;
+      float hash(vec2 p){ p = fract(p*vec2(123.34,345.45)); p += dot(p,p+34.345); return fract(p.x*p.y); }
+      float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+        float a=hash(i), b=hash(i+vec2(1.,0.)), c=hash(i+vec2(0.,1.)), d=hash(i+vec2(1.,1.));
+        return mix(mix(a,b,f.x), mix(c,d,f.x), f.y); }
+      float fbm(vec2 p){ float v=0.0, a=0.5; for(int i=0;i<5;i++){ v+=a*noise(p); p*=2.02; a*=0.5; } return v; }
+      void main(){
+        vec2 uv = vUv - 0.5;
+        float r = length(uv) * 2.0;
+        vec2 q = uv * 3.2;
+        float warp = fbm(q + uTime*0.13);
+        float n = fbm(q + warp + vec2(uTime*0.07, -uTime*0.05));
+        float coreHot = smoothstep(0.55, 0.0, r);
+        float body = smoothstep(1.05, 0.12, r);
+        float plasma = body * (0.5 + 0.65*n);
+        vec3 col = mix(uEdge, uMid, smoothstep(0.0, 0.6, plasma));
+        col = mix(col, uHot, coreHot*0.92);
+        float fil = smoothstep(0.45, 1.0, n) * smoothstep(1.05, 0.3, r);
+        col += uMid * fil * 0.55;
+        float alpha = clamp(plasma + coreHot*0.85, 0.0, 1.0) * uIntensity;
+        alpha *= smoothstep(1.25, 0.18, r);
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+  });
+  const corona = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), coronaMat);
+  corona.scale.setScalar(360);
+  corona.renderOrder = 2;
+  group.add(corona);
+
+  // Bloom haloes — luminous additive atmosphere around the disc.
+  const glowTex = makeGlowTexture();
+  const glowA = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff7a20, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glowA.scale.setScalar(330); glowA.renderOrder = 1; group.add(glowA);
+  const glowB = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff3a00, transparent: true, opacity: 0.30, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glowB.scale.setScalar(560); glowB.renderOrder = 0; group.add(glowB);
+
+  // Gravitational-lensing photon ring — a faint cool ring of bent light.
+  const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeRingTexture(), color: 0xbcd2ff, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+  ring.scale.setScalar(440); ring.renderOrder = 1; group.add(ring);
+
+  // Solar flares / prominences — streaks that erupt from the rim now and then.
+  const flareTex = makeFlareTexture();
+  const flares = [];
+  for (let i = 0; i < 5; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex, color: 0xff8c2a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+    s.renderOrder = 3; group.add(s);
+    flares.push({ s, t0: -10, dur: 0, ang: 0, len: 0 });
+  }
+  let nextFlare = 1.5;
+  function igniteFlare(now) {
+    const f = flares.find(fl => now - fl.t0 > fl.dur);
+    if (!f) return;
+    f.ang = Math.random() * Math.PI * 2;
+    f.dur = 1.2 + Math.random() * 1.1;
+    f.len = 150 + Math.random() * 130;
+    f.t0  = now;
+  }
+
+  function update(t, reduced) {
+    coronaMat.uniforms.uTime.value = reduced ? 0 : t;
+    const pulse = 1 + Math.sin(t * 1.7) * 0.05;
+    glowA.scale.setScalar(330 * pulse);
+    glowA.material.opacity = 0.5 + Math.sin(t * 1.7) * 0.08;
+    glowB.material.opacity = 0.28 + Math.sin(t * 1.1 + 1.0) * 0.06;
+    ring.material.rotation += 0.0015;
+    ring.material.opacity = 0.18 + Math.sin(t * 0.7) * 0.06;
+    if (reduced) return;
+    if (t >= nextFlare) { igniteFlare(t); nextFlare = t + 1.6 + Math.random() * 2.6; }
+    for (const f of flares) {
+      const k = f.dur > 0 ? (t - f.t0) / f.dur : 2;
+      if (k >= 0 && k <= 1) {
+        const env = Math.sin(k * Math.PI);                  // 0 → 1 → 0
+        const reach = 165 + f.len * (0.4 + 0.6 * k);
+        f.s.position.set(Math.cos(f.ang) * reach, Math.sin(f.ang) * reach, 0);
+        f.s.material.rotation = f.ang - Math.PI / 2;         // streak points radially outward
+        f.s.scale.set(46 * (0.6 + env * 0.6), f.len * (0.5 + 0.7 * k), 1);
+        f.s.material.opacity = env * 0.7;
+      } else {
+        f.s.material.opacity = 0;
+      }
+    }
+  }
+
+  return { group, update };
+}
+
+// A narrow vertical plume for solar flares (rotated radially at the rim).
+function makeFlareTexture() {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 64, 1, 32, 64, 64);
+  grad.addColorStop(0.0, 'rgba(255,255,255,0.95)');
+  grad.addColorStop(0.3, 'rgba(255,170,80,0.55)');
+  grad.addColorStop(1.0, 'rgba(255,120,40,0)');
+  g.fillStyle = grad;
+  g.save(); g.translate(32, 0); g.scale(0.4, 1); g.translate(-32, 0);
+  g.fillRect(0, 0, 64, 128); g.restore();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// A thin bright ring (the lensing photon ring).
+function makeRingTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  grad.addColorStop(0.00, 'rgba(0,0,0,0)');
+  grad.addColorStop(0.42, 'rgba(120,160,255,0)');
+  grad.addColorStop(0.47, 'rgba(190,210,255,0.85)');
+  grad.addColorStop(0.50, 'rgba(255,255,255,0.95)');
+  grad.addColorStop(0.53, 'rgba(190,210,255,0.7)');
+  grad.addColorStop(0.60, 'rgba(120,160,255,0)');
+  grad.addColorStop(1.00, 'rgba(0,0,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 256, 256);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
