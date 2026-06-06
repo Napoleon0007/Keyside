@@ -1572,30 +1572,29 @@ function makeFlybys() {
   const group = new THREE.Group();
   const glowTex = makeGlowTexture();
 
-  // ── Anunnaki saucer ──────────────────────────────────────────────────────────
+  // ── Silver saucer ────────────────────────────────────────────────────────────
+  // A real, polished metallic disc — high metalness + a space env-map so it actually
+  // reflects the cosmos (silver metal renders black without something to reflect).
+  const env = spaceEnvTexture();
   const ufo = new THREE.Group();
-  const disc = new THREE.Mesh(
-    new THREE.SphereGeometry(34, 28, 18),
-    new THREE.MeshStandardMaterial({ color: 0x222831, metalness: 0.92, roughness: 0.3, emissive: 0x090c10, emissiveIntensity: 0.5 }));
-  disc.scale.set(1, 0.26, 1); ufo.add(disc);
-  const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(15, 22, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: 0xaef0ff, metalness: 0.2, roughness: 0.08, emissive: 0x39b6d6, emissiveIntensity: 0.9, transparent: true, opacity: 0.9 }));
-  dome.position.y = 5.5; ufo.add(dome);
-  const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(30, 2.1, 10, 44),
-    new THREE.MeshStandardMaterial({ color: 0xffd070, emissive: 0xffb020, emissiveIntensity: 1.7 }));
-  rim.rotation.x = Math.PI / 2; ufo.add(rim);
-  const lights = [];
-  for (let i = 0; i < 9; i++) {
-    const b = new THREE.Mesh(new THREE.SphereGeometry(2.3, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfff0b0 }));
-    const a = (i / 9) * Math.PI * 2; b.position.set(Math.cos(a) * 30, 0, Math.sin(a) * 30);
-    ufo.add(b); lights.push(b);
-  }
-  const beam = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x66ffcc, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-  beam.scale.set(64, 64, 1); beam.position.y = -10; ufo.add(beam);
-  const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x8ad8ff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }));
-  aura.scale.setScalar(150); ufo.add(aura);
+  const profile = [
+    new THREE.Vector2(0.0,  8.5), new THREE.Vector2(7, 7.2), new THREE.Vector2(15, 4.6),
+    new THREE.Vector2(26, 1.6),   new THREE.Vector2(34, 0.0),                       // rim edge
+    new THREE.Vector2(26, -1.4),  new THREE.Vector2(14, -3.2), new THREE.Vector2(5, -4.4),
+    new THREE.Vector2(0, -4.7),
+  ];
+  const body = new THREE.Mesh(new THREE.LatheGeometry(profile, 72),
+    new THREE.MeshStandardMaterial({ color: 0xd7dce3, metalness: 1.0, roughness: 0.16, envMap: env, envMapIntensity: 1.3 }));
+  ufo.add(body);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(11, 28, 18, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0x2b3543, metalness: 1.0, roughness: 0.07, envMap: env, envMapIntensity: 1.5 }));
+  dome.position.y = 8.0; ufo.add(dome);
+  const seam = new THREE.Mesh(new THREE.TorusGeometry(33.4, 0.7, 8, 80),
+    new THREE.MeshStandardMaterial({ color: 0x8b9098, metalness: 1.0, roughness: 0.42, envMap: env }));
+  seam.rotation.x = Math.PI / 2; ufo.add(seam);
+  // a whisper of rim light so the disc doesn't vanish against pure black (not a glow-UFO)
+  const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xc6d0db, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  aura.scale.setScalar(115); ufo.add(aura);
   ufo.visible = false; group.add(ufo);
   let ufoOn = false, uT0 = 0, uDur = 11, uNext = 9;
   const uP0 = new THREE.Vector3(), uP1 = new THREE.Vector3();
@@ -1648,11 +1647,9 @@ function makeFlybys() {
         else {
           ufo.position.lerpVectors(uP0, uP1, k);
           const goingRight = uP1.x > uP0.x;
-          ufo.rotation.set((goingRight ? 1 : -1) * 0.12, ufo.rotation.y + 0.03, (goingRight ? -1 : 1) * 0.16 + Math.sin(t * 1.4) * 0.04);
-          const env = Math.sin(k * Math.PI);
-          aura.material.opacity = 0.18 + 0.3 * env;
-          beam.material.opacity = 0.35 * env * (0.5 + 0.5 * Math.sin(t * 5));
-          for (let i = 0; i < lights.length; i++) lights[i].material.color.setHSL((t * 0.45 + i / lights.length) % 1, 0.7, 0.62);
+          ufo.rotation.set((goingRight ? 1 : -1) * 0.12, ufo.rotation.y + 0.02, (goingRight ? -1 : 1) * 0.15 + Math.sin(t * 1.3) * 0.03);
+          const vis = Math.sin(k * Math.PI);
+          aura.material.opacity = 0.06 + 0.1 * vis;          // subtle — the metal/reflections carry it
         }
       }
 
@@ -1674,6 +1671,29 @@ function makeFlybys() {
       }
     },
   };
+}
+
+// A small equirectangular "space" image used as a reflection map so polished metal
+// (the silver saucer) reflects the cosmos — a warm core glow, a cool key, faint stars.
+function spaceEnvTexture() {
+  const w = 512, h = 256, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  const base = g.createLinearGradient(0, 0, 0, h);
+  base.addColorStop(0, '#0a0e1a'); base.addColorStop(0.5, '#11141f'); base.addColorStop(1, '#06070d');
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  let rg = g.createRadialGradient(w * 0.5, h * 0.58, 0, w * 0.5, h * 0.58, w * 0.20);
+  rg.addColorStop(0, 'rgba(255,150,60,0.9)'); rg.addColorStop(1, 'rgba(255,120,40,0)');   // central star
+  g.fillStyle = rg; g.fillRect(0, 0, w, h);
+  rg = g.createRadialGradient(w * 0.16, h * 0.28, 0, w * 0.16, h * 0.28, w * 0.15);
+  rg.addColorStop(0, 'rgba(205,228,255,0.85)'); rg.addColorStop(1, 'rgba(205,228,255,0)'); // cool key highlight
+  g.fillStyle = rg; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#ffffff';
+  for (let i = 0; i < 150; i++) { g.globalAlpha = 0.25 + Math.random() * 0.6; const x = Math.random() * w, y = Math.random() * h, s = Math.random() * 1.4; g.fillRect(x, y, s, s); }
+  g.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 // A pulsar — a tiny, intensely bright neutron star with two opposed polar jets that
