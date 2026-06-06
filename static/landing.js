@@ -92,7 +92,12 @@
       idleTimer = setTimeout(function () { idleActive = true; }, cfg.autoRevolve ? 2200 : 3500);
     }
 
-    function onDown(e) { dragging = true; vel = 0; lastX = (e.touches ? e.touches[0].clientX : e.clientX); wake(); }
+    function onDown(e) {
+      dragging = true; vel = 0;
+      lastX = (e.touches ? e.touches[0].clientX : e.clientX);
+      if (ring.setPointerCapture && e.pointerId != null) { try { ring.setPointerCapture(e.pointerId); } catch (_) {} }
+      wake();
+    }
     function onMove(e) {
       if (!dragging) return;
       var x = (e.touches ? e.touches[0].clientX : e.clientX);
@@ -132,7 +137,7 @@
     /* ---- Deep-space backdrop --------------------------------------- */
     var skyRaf = null, skyOn = false, skyDraw = null;
     function startSky() {
-      if (!sky) return;
+      if (!sky || window.innerWidth < 760) return;   // skip the canvas on phones (perf)
       var ctx = sky.getContext("2d");
       var w, h, stars, t = 0;
       function size() {
@@ -199,6 +204,6 @@
   }
 
   /* ---- Mounts ------------------------------------------------------- */
-  createDisc({ section: "#hero", ring: "#heroRing", sky: "#heroSky", autoRevolve: true, cardW: 230, spread: 1.7 });
+  createDisc({ section: "#hero", ring: "#heroRing", sky: "#heroSky", autoRevolve: true, cardW: 200, spread: 1.35 });
   createDisc({ section: "#section-disc", ring: "#discRing", sky: "#discSky", autoRevolve: false });
 })();

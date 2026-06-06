@@ -77,6 +77,15 @@
   transform-style: preserve-3d;
   transform: translateY(-2%) rotateX(-7deg) rotateY(var(--spin, 0deg));
   will-change: transform;
+  touch-action: none;       /* let the wheel own the gesture — fixes sticky drag on mobile */
+  cursor: grab;
+}
+.disc-ring:active { cursor: grabbing; }
+
+/* Hero "Möbius wheel" — tilted on two axes + pushed back, behind the logo.
+   Reads as a rotating ring / infinity loop rather than an upright carousel. */
+.disc-ring--wheel {
+  transform: translateY(12%) rotateZ(-11deg) rotateX(-44deg) rotateY(var(--spin, 0deg)) scale(.82);
 }
 
 .disc-card {
