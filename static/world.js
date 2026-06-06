@@ -1275,64 +1275,55 @@ function makeRexStar() {
         float fil = smoothstep(0.45, 1.0, n) * smoothstep(1.05, 0.3, r);
         col += uMid * fil * 0.55;
         float alpha = clamp(plasma + coreHot*0.85, 0.0, 1.0) * uIntensity;
-        alpha *= smoothstep(1.25, 0.18, r);
+        alpha *= smoothstep(0.92, 0.25, r);          // tight fade — glow hugs the surface, no big halo
         gl_FragColor = vec4(col, alpha);
       }
     `,
   });
   const corona = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), coronaMat);
-  corona.scale.setScalar(360);
+  corona.scale.setScalar(168);                       // hugs the logo — the surface glows, no big halo
   corona.renderOrder = 2;
   group.add(corona);
 
-  // Bloom haloes — luminous additive atmosphere around the disc.
+  // One thin surface bloom — just a soft rim of light on the body (no big outer heat).
   const glowTex = makeGlowTexture();
-  const glowA = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff7a20, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
-  glowA.scale.setScalar(330); glowA.renderOrder = 1; group.add(glowA);
-  const glowB = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff3a00, transparent: true, opacity: 0.30, blending: THREE.AdditiveBlending, depthWrite: false }));
-  glowB.scale.setScalar(560); glowB.renderOrder = 0; group.add(glowB);
+  const glowA = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff7a20, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glowA.scale.setScalar(150); glowA.renderOrder = 1; group.add(glowA);
 
-  // Gravitational-lensing photon ring — a faint cool ring of bent light.
-  const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeRingTexture(), color: 0xbcd2ff, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
-  ring.scale.setScalar(440); ring.renderOrder = 1; group.add(ring);
-
-  // Solar flares / prominences — streaks that erupt from the rim now and then.
+  // Small solar licks right at the rim — subtle, not big eruptions.
   const flareTex = makeFlareTexture();
   const flares = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 4; i++) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex, color: 0xff8c2a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
     s.renderOrder = 3; group.add(s);
     flares.push({ s, t0: -10, dur: 0, ang: 0, len: 0 });
   }
-  let nextFlare = 1.5;
+  let nextFlare = 2.5;
   function igniteFlare(now) {
     const f = flares.find(fl => now - fl.t0 > fl.dur);
     if (!f) return;
     f.ang = Math.random() * Math.PI * 2;
-    f.dur = 1.2 + Math.random() * 1.1;
-    f.len = 150 + Math.random() * 130;
+    f.dur = 1.1 + Math.random() * 0.9;
+    f.len = 26 + Math.random() * 26;
     f.t0  = now;
   }
 
   function update(t, reduced) {
     coronaMat.uniforms.uTime.value = reduced ? 0 : t;
-    const pulse = 1 + Math.sin(t * 1.7) * 0.05;
-    glowA.scale.setScalar(330 * pulse);
-    glowA.material.opacity = 0.5 + Math.sin(t * 1.7) * 0.08;
-    glowB.material.opacity = 0.28 + Math.sin(t * 1.1 + 1.0) * 0.06;
-    ring.material.rotation += 0.0015;
-    ring.material.opacity = 0.18 + Math.sin(t * 0.7) * 0.06;
+    const pulse = 1 + Math.sin(t * 1.7) * 0.04;
+    glowA.scale.setScalar(150 * pulse);
+    glowA.material.opacity = 0.2 + Math.sin(t * 1.7) * 0.05;
     if (reduced) return;
-    if (t >= nextFlare) { igniteFlare(t); nextFlare = t + 1.6 + Math.random() * 2.6; }
+    if (t >= nextFlare) { igniteFlare(t); nextFlare = t + 2.6 + Math.random() * 3.0; }
     for (const f of flares) {
       const k = f.dur > 0 ? (t - f.t0) / f.dur : 2;
       if (k >= 0 && k <= 1) {
         const env = Math.sin(k * Math.PI);                  // 0 → 1 → 0
-        const reach = 165 + f.len * (0.4 + 0.6 * k);
+        const reach = 78 + f.len * (0.3 + 0.5 * k);          // sit just off the surface
         f.s.position.set(Math.cos(f.ang) * reach, Math.sin(f.ang) * reach, 0);
-        f.s.material.rotation = f.ang - Math.PI / 2;         // streak points radially outward
-        f.s.scale.set(46 * (0.6 + env * 0.6), f.len * (0.5 + 0.7 * k), 1);
-        f.s.material.opacity = env * 0.7;
+        f.s.material.rotation = f.ang - Math.PI / 2;         // lick points radially outward
+        f.s.scale.set(16 * (0.6 + env * 0.5), f.len * (0.6 + 0.6 * k), 1);
+        f.s.material.opacity = env * 0.4;
       } else {
         f.s.material.opacity = 0;
       }
