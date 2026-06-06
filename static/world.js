@@ -61,6 +61,12 @@ async function boot(stage) {
   scene.add(galaxies.group);
   const meteors = makeMeteors();
   scene.add(meteors.group);
+  const flybys = makeFlybys();              // Anunnaki UFO + huge 3I/ATLAS-style rock
+  scene.add(flybys.group);
+  const pulsar = makePulsar();             // a fast-spinning neutron star, far in the back
+  pulsar.group.position.set(-1180, 470, -1520);
+  pulsar.group.scale.setScalar(0.8);
+  scene.add(pulsar.group);
 
   // ── Living sky (Phase 3) — shift the cosmos by the visitor's real local time ──
   const worldEl = document.querySelector('.world');
@@ -1170,6 +1176,8 @@ async function boot(stage) {
     stepPhysics();
     galaxies.update(0.016);
     meteors.update(t);
+    flybys.update(t, reduced);
+    pulsar.update(t, reduced);
     comets.update(t);
     for (let i = cometQueue.length - 1; i >= 0; i--) {        // launch queued comets when due
       if (t >= cometQueue[i].at) {
@@ -1556,6 +1564,163 @@ function accretionTexture() {
     g.stroke();
   }
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+
+// Flybys: an Anunnaki UFO that cruises past now and then, and a huge interstellar
+// rock (à la 3I/ATLAS) with a glowing coma + tail that streaks across ~every 20s.
+function makeFlybys() {
+  const group = new THREE.Group();
+  const glowTex = makeGlowTexture();
+
+  // ── Anunnaki saucer ──────────────────────────────────────────────────────────
+  const ufo = new THREE.Group();
+  const disc = new THREE.Mesh(
+    new THREE.SphereGeometry(34, 28, 18),
+    new THREE.MeshStandardMaterial({ color: 0x222831, metalness: 0.92, roughness: 0.3, emissive: 0x090c10, emissiveIntensity: 0.5 }));
+  disc.scale.set(1, 0.26, 1); ufo.add(disc);
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(15, 22, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0xaef0ff, metalness: 0.2, roughness: 0.08, emissive: 0x39b6d6, emissiveIntensity: 0.9, transparent: true, opacity: 0.9 }));
+  dome.position.y = 5.5; ufo.add(dome);
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(30, 2.1, 10, 44),
+    new THREE.MeshStandardMaterial({ color: 0xffd070, emissive: 0xffb020, emissiveIntensity: 1.7 }));
+  rim.rotation.x = Math.PI / 2; ufo.add(rim);
+  const lights = [];
+  for (let i = 0; i < 9; i++) {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(2.3, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfff0b0 }));
+    const a = (i / 9) * Math.PI * 2; b.position.set(Math.cos(a) * 30, 0, Math.sin(a) * 30);
+    ufo.add(b); lights.push(b);
+  }
+  const beam = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x66ffcc, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  beam.scale.set(64, 64, 1); beam.position.y = -10; ufo.add(beam);
+  const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x8ad8ff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }));
+  aura.scale.setScalar(150); ufo.add(aura);
+  ufo.visible = false; group.add(ufo);
+  let ufoOn = false, uT0 = 0, uDur = 11, uNext = 9;
+  const uP0 = new THREE.Vector3(), uP1 = new THREE.Vector3();
+  function spawnUFO(t) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const y = -220 + Math.random() * 480, z = -350 + Math.random() * 450;
+    uP0.set(-side * 1550, y, z);
+    uP1.set(side * 1550, y + (Math.random() * 2 - 1) * 240, z + (Math.random() * 2 - 1) * 260);
+    uDur = 10 + Math.random() * 5; uT0 = t; ufoOn = true; ufo.visible = true;
+  }
+
+  // ── Interstellar rock 3I/ATLAS ───────────────────────────────────────────────
+  const rock = new THREE.Group();
+  const rockGeo = new THREE.IcosahedronGeometry(50, 2);
+  const rp = rockGeo.attributes.position, rv = new THREE.Vector3();
+  for (let i = 0; i < rp.count; i++) {
+    rv.fromBufferAttribute(rp, i);
+    const f = 0.78 + 0.34 * Math.abs(Math.sin(rv.x * 0.28 + rv.y * 0.19 + rv.z * 0.12))
+                   + 0.12 * Math.sin(rv.y * 0.5);
+    rv.multiplyScalar(f); rp.setXYZ(i, rv.x, rv.y, rv.z);
+  }
+  rockGeo.computeVertexNormals();
+  const rockMesh = new THREE.Mesh(rockGeo, new THREE.MeshStandardMaterial({ color: 0x6d5c49, metalness: 0.08, roughness: 0.95, emissive: 0x140d07, emissiveIntensity: 0.35, flatShading: true }));
+  rock.add(rockMesh);
+  const coma = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x9bffc4, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  coma.scale.setScalar(200); rock.add(coma);
+  const tail = new THREE.Sprite(new THREE.SpriteMaterial({ map: meteorTexture(), color: 0xa8ffd0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+  tail.scale.set(560, 130, 1); rock.add(tail);
+  rock.visible = false; group.add(rock);
+  let rockOn = false, rT0 = 0, rDur = 8, rNext = 5;
+  const rP0 = new THREE.Vector3(), rP1 = new THREE.Vector3();
+  function spawnRock(t) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const y = -320 + Math.random() * 680, z = -650 + Math.random() * 450;
+    rP0.set(-side * 1850, y, z);
+    rP1.set(side * 1850, y + (Math.random() * 2 - 1) * 300, z + (Math.random() * 2 - 1) * 280);
+    rDur = 8 + Math.random() * 3; rT0 = t; rockOn = true; rock.visible = true;
+  }
+
+  return {
+    group,
+    update(t, reduced) {
+      if (reduced) { ufo.visible = false; rock.visible = false; return; }
+
+      // UFO — occasional cruise-by
+      if (!ufoOn) { if (t >= uNext) spawnUFO(t); }
+      else {
+        const k = (t - uT0) / uDur;
+        if (k >= 1) { ufoOn = false; ufo.visible = false; uNext = t + 32 + Math.random() * 26; }
+        else {
+          ufo.position.lerpVectors(uP0, uP1, k);
+          const goingRight = uP1.x > uP0.x;
+          ufo.rotation.set((goingRight ? 1 : -1) * 0.12, ufo.rotation.y + 0.03, (goingRight ? -1 : 1) * 0.16 + Math.sin(t * 1.4) * 0.04);
+          const env = Math.sin(k * Math.PI);
+          aura.material.opacity = 0.18 + 0.3 * env;
+          beam.material.opacity = 0.35 * env * (0.5 + 0.5 * Math.sin(t * 5));
+          for (let i = 0; i < lights.length; i++) lights[i].material.color.setHSL((t * 0.45 + i / lights.length) % 1, 0.7, 0.62);
+        }
+      }
+
+      // Rock — huge interstellar visitor, ~every 20s
+      if (!rockOn) { if (t >= rNext) spawnRock(t); }
+      else {
+        const k = (t - rT0) / rDur;
+        if (k >= 1) { rockOn = false; rock.visible = false; rNext = rT0 + 19 + Math.random() * 4; }
+        else {
+          rock.position.lerpVectors(rP0, rP1, k);
+          rockMesh.rotation.x += 0.006; rockMesh.rotation.y += 0.009;
+          const env = Math.sin(k * Math.PI);
+          coma.material.opacity = 0.75 * env;
+          tail.material.opacity = 0.5 * env;
+          const ang = Math.atan2(rP1.y - rP0.y, rP1.x - rP0.x);
+          tail.material.rotation = ang + Math.PI;                 // tail trails behind the head
+          tail.position.set(-Math.cos(ang) * 280, -Math.sin(ang) * 280, 0);
+        }
+      }
+    },
+  };
+}
+
+// A pulsar — a tiny, intensely bright neutron star with two opposed polar jets that
+// sweep like a lighthouse as it spins on a tilted axis, strobing as a beam crosses us.
+// (Real pulsars spin ~100×/s — that would just read as a flicker/blur, so this spins
+//  fast-but-visible; tune `rps` for faster/slower.)
+function makePulsar() {
+  const group = new THREE.Group();
+  const NEON = 0x2ad4ff;                            // electric pulsar blue
+
+  // Blinding blue-white core + halo.
+  const core = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 12), new THREE.MeshBasicMaterial({ color: 0xeaf4ff }));
+  group.add(core);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), color: 0x6ec8ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glow.scale.setScalar(56); group.add(glow);
+
+  // Spin axis (vertical) ≠ magnetic axis (tilted) → the polar beams sweep like a lighthouse.
+  const spin = new THREE.Group(); group.add(spin);
+  const mag  = new THREE.Group(); mag.rotation.z = 0.55; spin.add(mag);
+
+  // Searchlight cones: apex AT the star, flaring outward (the classic pulsar jets).
+  function coneGeo(R, H) { const g = new THREE.ConeGeometry(R, H, 26, 1, true); g.rotateX(Math.PI); g.translate(0, H / 2, 0); return g; }
+  const innerG = coneGeo(15, 470), outerG = coneGeo(34, 440);
+  const mkBeam = (geo, op) => new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: NEON, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, side: THREE.DoubleSide }));
+  const beams = [];
+  for (const dir of [0, Math.PI]) {                 // two opposed poles
+    const outer = mkBeam(outerG, 0.26), inner = mkBeam(innerG, 0.7);
+    outer.rotation.x = dir; inner.rotation.x = dir;
+    mag.add(outer, inner); beams.push({ m: outer, base: 0.26 }, { m: inner, base: 0.7 });
+  }
+
+  // Faint equatorial ring of charged plasma around the magnetic equator.
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(40, 2.0, 8, 48), new THREE.MeshBasicMaterial({ color: 0x4aa6ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ring.rotation.x = Math.PI / 2; mag.add(ring);
+
+  return {
+    group,
+    update(t, reduced) {
+      const rps = reduced ? 0 : 0.9;                // visible lighthouse sweep (real pulsars ~100/s = a blur)
+      const theta = t * rps * Math.PI * 2;
+      spin.rotation.y = theta;
+      const beat = 0.5 + 0.5 * Math.pow(Math.abs(Math.sin(theta)), 4);   // brightens as a beam faces us
+      core.scale.setScalar(1 + (beat - 0.5) * 1.2);
+      glow.material.opacity = 0.5 + 0.5 * beat;
+      for (const b of beams) b.m.material.opacity = b.base * (0.5 + 0.65 * beat);
+    },
+  };
 }
 
 // One shooting star at a time, streaking from a fresh random spot every ~10s.
