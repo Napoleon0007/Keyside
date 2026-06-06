@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,300;1,400;1,500&family=Space+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='namegen.css') }}">
   <script type="importmap">
   {
     "imports": {
@@ -33,21 +35,25 @@
 <div id="navRight"></div>
       </div>
     </div>
-    <div class="hero">
-      <video class="hero-bg-video" id="heroBgVideo" autoplay muted loop playsinline preload="auto"
-             poster="{{ url_for('static', filename='video-thumbs/cotton-ball-fire.jpg') }}">
-        <source src="{{ loop_url('cotton-hero.mp4') }}" type="video/mp4">
+    <div class="hero hero-orbit" id="hero">
+      <video class="hero-bg-loop" autoplay muted loop playsinline preload="auto" aria-hidden="true">
+        <source src="{{ url_for('static', filename='zuma-bg.mp4') }}" type="video/mp4">
       </video>
-      <div class="hero-overlay"></div>
-      <div class="hero-moon" aria-hidden="true">
-        <img class="hero-moon-img" src="{{ url_for('static', filename='moon.jpg') }}" alt="">
+      <div class="hero-scrim" aria-hidden="true"></div>
+      <canvas id="heroSky" class="disc-sky"></canvas>
+      <div class="hero-orbit-stage disc-stage">
+        <video class="orbit-logo" autoplay muted loop playsinline preload="auto" aria-hidden="true">
+          <source src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/Rex%20trueform%20logo.MP4" type="video/mp4">
+        </video>
+        <div class="disc-ring" id="heroRing"></div>
       </div>
       <div class="hero-content">
-        <h1 class="site-title"><span class="hero-letter">M</span><span class="hero-letter">E</span><span class="hero-letter side">D</span><span class="hero-letter side">I</span><span class="hero-letter side">C</span><span class="hero-letter side">I</span></h1>
-        <p class="site-sub-name">Rex <span class="orange floaty">True</span>form <span class="orange floaty">ART</span>s Hub</p>
+        <h1 class="site-title title-rex"><span class="hero-word"><span class="hero-letter">R</span><span class="hero-letter">E</span><span class="hero-letter">X</span></span> <span class="hero-word"><span class="hero-letter side">T</span><span class="hero-letter side">R</span><span class="hero-letter side">U</span><span class="hero-letter side">E</span><span class="hero-letter side">F</span><span class="hero-letter side">O</span><span class="hero-letter side">R</span><span class="hero-letter side">M</span></span></h1>
+        <p class="site-sub-name">The <span class="orange floaty">Medici</span> Art Hub</p>
         <div class="title-underline"></div>
         <p class="site-sub">fuck that shit.. I just wanna <span class="orange floaty">BAN</span>G!!</p>
       </div>
+      <div class="hero-scroll-cue" aria-hidden="true">scroll &#9662;</div>
     </div>
   </header>
 
@@ -84,6 +90,41 @@
       <span>Your browser can't render the 3D world.</span>
     </div>
     <p class="world-hint">drag to orbit &middot; grab a planet &middot; click art to open &middot; &#x25B6; tour</p>
+  </section>
+
+  <!-- Rolling 3D disc — navigator into the collections -->
+  <section class="disc-section" id="section-disc" data-type="disc" aria-label="Explore the collections">
+    <div class="disc-head">
+      <h2 class="disc-title">Explore <span class="orange">Rex's</span> Collections</h2>
+    </div>
+    <canvas id="discSky" class="disc-sky"></canvas>
+    <div class="disc-stage">
+      <div class="disc-floor"></div>
+      <div class="disc-ring" id="discRing"></div>
+    </div>
+    <p class="disc-hint">drag to spin &middot; click a panel to enter</p>
+  </section>
+
+  <!-- The Name Forge — band / rapper / crew name generator -->
+  <section class="namegen" id="section-namegen" aria-label="Name generator">
+    <div class="namegen-head">
+      <h2 class="namegen-title">The <span class="orange">Name</span> Forge</h2>
+      <p class="namegen-sub">Band &middot; Rapper &middot; Crew &mdash; forged from you</p>
+    </div>
+    <div class="namegen-panel">
+      <div class="ng-types" id="ngTypes">
+        <button class="ng-type active" type="button" data-type="band">Band</button>
+        <button class="ng-type" type="button" data-type="rapper">Rapper</button>
+        <button class="ng-type" type="button" data-type="crew">Crew / DJ</button>
+      </div>
+      <div class="ng-fields">
+        <label>Your name <input id="ngName" type="text" placeholder="e.g. Luke" maxlength="24" autocomplete="off"></label>
+        <label>Favourite colour <input id="ngColor" type="text" placeholder="e.g. crimson" maxlength="20" autocomplete="off"></label>
+        <label>A vibe word <input id="ngVibe" type="text" placeholder="e.g. midnight" maxlength="20" autocomplete="off"></label>
+      </div>
+      <button class="ng-go" id="ngGo" type="button">Forge names</button>
+      <ul class="ng-results" id="ngResults"></ul>
+    </div>
   </section>
 
   <main class="content" id="content">
@@ -231,5 +272,7 @@
   <script src="{{ url_for('static', filename='effects.js') }}"></script>
   <script src="{{ url_for('static', filename='herotext.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='world.js') }}"></script>
+  <script src="{{ url_for('static', filename='landing.js') }}"></script>
+  <script src="{{ url_for('static', filename='namegen.js') }}"></script>
 </body>
 </html>

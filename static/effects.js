@@ -80,8 +80,10 @@
     // Background: drifts WITH the cursor + breathes + parallax-scrolls down.
     const bgX = cmx * 26 + floatX;
     const bgY = cmy * 26 + floatY + scrollY * 0.35;
-    heroVideo.style.transform =
-      `translate3d(${bgX.toFixed(2)}px, ${bgY.toFixed(2)}px, 0) scale(1.16)`;
+    if (heroVideo) {
+      heroVideo.style.transform =
+        `translate3d(${bgX.toFixed(2)}px, ${bgY.toFixed(2)}px, 0) scale(1.16)`;
+    }
 
     // Foreground title: drifts AGAINST the cursor → parallax depth, fades on scroll.
     if (heroContent) {

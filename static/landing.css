@@ -1,0 +1,266 @@
+/* ============================================================
+   Keyside — rolling 3D disc, inline section under Rex's World.
+   Additive. Does NOT touch Rex's World (world.js / #section-world).
+   ============================================================ */
+
+.disc-section {
+  position: relative;
+  width: 100%;
+  min-height: 88vh;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border, #151515);
+  background:
+    radial-gradient(120% 90% at 50% 40%, rgba(10,4,6,0.55) 0%, rgba(8,3,2,0.7) 55%, rgba(0,0,0,0.92) 100%),
+    #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+}
+
+.disc-sky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+}
+
+.disc-head {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 4;
+  padding: 30px 26px 0;
+  text-align: center;
+  pointer-events: none;
+}
+.disc-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.7rem, 4.5vmin, 2.8rem);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--off-white, #f0ede8);
+}
+.disc-title .orange { color: var(--orange, #ff5500); }
+
+.disc-hint {
+  position: absolute;
+  bottom: 26px; left: 0; right: 0;
+  z-index: 4;
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-size: .72rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(240,237,232,.45);
+  pointer-events: none;
+}
+
+/* ---- Rolling 3D disc ------------------------------------------------ */
+.disc-stage {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1500px;
+  perspective-origin: 50% 47%;
+}
+.disc-ring {
+  position: relative;
+  width: var(--card-w, 250px);
+  height: var(--card-h, 355px);
+  transform-style: preserve-3d;
+  transform: translateY(-2%) rotateX(-7deg) rotateY(var(--spin, 0deg));
+  will-change: transform;
+}
+
+.disc-card {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #0c0a09 center/cover no-repeat;
+  border: 1px solid rgba(255,85,0,.22);
+  box-shadow: 0 18px 50px rgba(0,0,0,.6);
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  transition: box-shadow .35s ease, border-color .35s ease, filter .45s ease;
+  filter: brightness(.5) saturate(.85);
+}
+.disc-card::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.1) 0%, rgba(0,0,0,.15) 45%, rgba(5,3,2,.9) 100%);
+}
+.disc-card::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(125deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 38%);
+  mix-blend-mode: screen;
+  opacity: .55;
+}
+.disc-card.is-music {
+  background: linear-gradient(135deg, #1a0a02 0%, #3a1402 55%, #ff5500 220%);
+}
+
+.disc-card .card-label {
+  position: absolute;
+  left: 18px; right: 18px; bottom: 20px;
+  z-index: 2;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.7rem;
+  line-height: 1;
+  letter-spacing: .05em;
+  color: #fff;
+  text-transform: uppercase;
+  text-shadow: 0 2px 14px rgba(0,0,0,.7);
+}
+.disc-card .card-kicker {
+  display: block;
+  font-family: 'Space Mono', monospace;
+  font-size: .6rem;
+  letter-spacing: .26em;
+  color: var(--orange, #ff5500);
+  margin-bottom: 7px;
+}
+.disc-card .card-enter {
+  position: absolute;
+  top: 16px; left: 16px;
+  z-index: 2;
+  font-family: 'Space Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: #000;
+  background: var(--orange, #ff5500);
+  padding: 5px 10px;
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+
+.disc-card.active {
+  filter: brightness(1.05) saturate(1.1);
+  border-color: var(--orange, #ff5500);
+  box-shadow: 0 0 0 1px rgba(255,85,0,.5),
+              0 22px 60px rgba(0,0,0,.7),
+              0 0 60px rgba(255,85,0,.35);
+}
+.disc-card.active .card-enter { opacity: 1; transform: translateY(0); }
+
+.disc-floor {
+  position: absolute;
+  z-index: 2;
+  bottom: 14%;
+  left: 50%;
+  width: min(70vw, 720px);
+  height: 120px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(255,85,0,.22) 0%, rgba(255,85,0,0) 70%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+/* "REX TRUEFORM" title — longer than MEDICI, so size to fit and keep
+   each word unbreakable (wraps cleanly between words on narrow screens). */
+.site-title.title-rex { font-size: clamp(46px, 9.5vw, 132px); }
+.hero-word { display: inline-block; white-space: nowrap; }
+
+/* ---- Orbit hero (top "first page") --------------------------------- */
+.hero-orbit {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 90% at 50% 42%, rgba(10,4,6,0.5) 0%, rgba(8,3,2,0.72) 55%, rgba(0,0,0,0.95) 100%),
+    #000;
+}
+/* Zuma video — deepest layer, behind everything */
+.hero-bg-loop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+/* legibility scrim over the video (darker top & bottom, video peeks centre) */
+.hero-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    rgba(0,0,0,.55) 0%, rgba(0,0,0,.22) 32%, rgba(0,0,0,.28) 68%, rgba(0,0,0,.68) 100%);
+}
+.hero-orbit .disc-sky { position: absolute; inset: 0; z-index: 2; }
+
+.hero-orbit-stage {
+  position: relative;
+  z-index: 3;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1600px;
+  perspective-origin: 50% 50%;
+}
+
+/* Rex Trueform logo medallion the panels revolve around */
+.orbit-logo {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: clamp(120px, 18vmin, 190px);
+  height: clamp(120px, 18vmin, 190px);
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  border-radius: 50%;
+  z-index: 1;                       /* behind the ring; visible front cards pass over it */
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255,85,0,.3), 0 0 70px rgba(255,85,0,.5);
+}
+
+/* MEDICI + names overlaid near the top; never blocks the drag */
+.hero-orbit .hero-content {
+  position: absolute;
+  top: 12%;
+  left: 0; right: 0;
+  z-index: 5;
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 4px 26px rgba(0,0,0,.8);
+}
+
+.hero-scroll-cue {
+  position: absolute;
+  bottom: 24px; left: 0; right: 0;
+  z-index: 5;
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-size: .72rem;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: rgba(240,237,232,.5);
+  pointer-events: none;
+  animation: heroCueBob 2.4s ease-in-out infinite;
+}
+@keyframes heroCueBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+
+@media (max-width: 760px) {
+  .disc-section { min-height: 76vh; }
+  .disc-stage { perspective: 1100px; }
+  .disc-card .card-label { font-size: 1.4rem; }
+  .hero-orbit .hero-content { top: 9%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .disc-card { transition: none; }
+}
