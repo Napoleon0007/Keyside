@@ -331,7 +331,8 @@ async function init() {
     { src: loopUrl('pattern-hero.mp4'), poster: '/static/video-thumbs/pattern-acid.jpg' });  // Pattern Acid bg
   buildSection('video', 'Video', groups.video,                    // Signal III bg behind the Video rail
     { src: loopUrl('signal3-hero.mp4'), poster: '/static/video-thumbs/signal-iii.jpg' });
-  buildSection('image', 'Images', groups.image);
+  buildSection('image', 'Images', groups.image,                   // Clouds bg behind the Images rail
+    { src: loopUrl('clouds-hero.mp4'), poster: '/static/video-thumbs/clouds.jpg' });
 
   countNum.textContent = videos.length;
   applyTypeFilter(currentType);
