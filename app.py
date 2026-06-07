@@ -178,6 +178,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/three-body")
+def three_body():
+    return render_template("three_body.html")
+
+
 @app.route("/admin")
 def admin():
     if not session.get("is_admin"):

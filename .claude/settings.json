@@ -55,7 +55,13 @@
       "Bash(cp /tmp/rex-solid.png static/rex-logo.png)",
       "Bash(rm -f static/rex-logo.mp4)",
       "Bash(ls -la static/*.png static/*.mp4)",
-      "Bash(lsof -ti:5180 -sTCP:LISTEN)"
+      "Bash(lsof -ti:5180 -sTCP:LISTEN)",
+      "WebFetch(domain:borealishpc.com)",
+      "Bash(awk '/function makePlanet/{f=1} f{print NR\": \"$0} /^  }/{if\\(f && NR>0\\){c++; if\\(c>0 && /^  }$/\\){}}}' static/world.js)",
+      "Bash(perl -0pi -e 's/camOrbit\\\\.radius = 7;/camOrbit.radius = 6;/g' static/threebody.js)",
+      "Bash(cat Procfile)",
+      "Bash(ls railway.json nixpacks.toml Dockerfile)",
+      "Bash(cat requirements.txt)"
     ]
   }
 }

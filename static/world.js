@@ -150,8 +150,8 @@ async function boot(stage) {
       desc: "Rex's living knowledge vault — an Obsidian brain tended by AI (raw → wiki → outputs)." },
     { key: 'crypto', label: 'Crypto', color: 0xf7931a, neuron: true, leaves: [],
       desc: "Crypto — Rex's market frontier, where the paper-trading bots churn." },
-    { key: 'vesper', label: 'Vesper', color: 0xffb38a, neuron: true, leaves: [],
-      desc: 'A warm evening neuron on the rim — its content is still forming.' },
+    { key: 'vesper', label: 'Skills', color: 0xffb38a, neuron: true, leaves: [],
+      desc: "Skills — Rex's growing arsenal of craft and capability." },
     { key: 'cinder', label: 'Cinder', color: 0xc2c8d2, neuron: true, leaves: [],
       desc: 'A small scorched neuron at the frontier — dormant, but ours.' },
   ];
@@ -169,10 +169,10 @@ async function boot(stage) {
     // so nothing bunches. Widely spaced, slow drift. Titan is the giant (ringed);
     // Helios sits furthest out.
     cinder:   { tex: 'mercurymap', r: 12, dist: 470, tilt: 0.12, spin: 0.012, orbitTilt:  0.28, orbitSpeed: 0.00072, moonTilt: 0.50, moonSpeed: 0.0013 },
-    crypto:   { tex: 'uranusmap',  r: 16, dist: 545, tilt: 0.34, spin: 0.009, orbitTilt:  0.50, orbitSpeed: 0.00060, moonTilt: 0.55, moonSpeed: 0.0012 },
+    crypto:   { tex: 'uranusmap',  r: 16, dist: 545, tilt: 0.34, spin: 0.009, orbitTilt:  0.50, orbitSpeed: 0.00060, moonTilt: 0.55, moonSpeed: 0.0012, tint: 0x1a1206, icon: '/static/world-icons/bitcoin.png' },
     vesper:   { tex: 'venusmap',   r: 17, dist: 620, tilt: 0.20, spin: 0.008, orbitTilt: -0.36, orbitSpeed: 0.00052, moonTilt: 0.35, moonSpeed: 0.0011 },
     goals:    { tex: 'saturnmap',  r: 34, dist: 700, tilt: 0.46, spin: 0.007, orbitTilt:  0.16, orbitSpeed: 0.00044, ring: true, moonTilt: 0.40, moonSpeed: 0.0010 },
-    brain:    { tex: 'sunmap',     r: 25, dist: 785, tilt: 0.08, spin: 0.006, orbitTilt: -0.20, orbitSpeed: 0.00038, tint: 0x171720, moonTilt: 0.30, moonSpeed: 0.0009 },
+    brain:    { tex: 'sunmap',     r: 25, dist: 785, tilt: 0.08, spin: 0.006, orbitTilt: -0.20, orbitSpeed: 0.00038, tint: 0x171720, moonTilt: 0.30, moonSpeed: 0.0009, icon: '/static/world-icons/obsidian.png' },
   };
 
   // ── Gravity (Phase 1) ─────────────────────────────────────────────────────────
@@ -279,6 +279,16 @@ async function boot(stage) {
     holder.add(planet.mesh);
     if (planet.ring) holder.add(planet.ring);
     planetMeshes.push({ mesh: planet.mesh, ring: planet.ring, spin: cfg.spin });
+
+    // Camera-facing logo badge (Crypto = Bitcoin, Obsidian Brain = Obsidian icon).
+    if (cfg.icon) {
+      const badge = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: iconDiscTexture(cfg.icon, hub.color), transparent: true, depthTest: true, depthWrite: false,
+      }));
+      badge.scale.setScalar(cfg.r * 2.4);
+      badge.renderOrder = 11;
+      holder.add(badge);
+    }
 
     const hubNode = { group: holder, kind: 'hub', name: hub.label, color: hub.color, count: hub.leaves.length, neuron: !!hub.neuron, desc: hub.desc };
     nodes.push(hubNode);
@@ -609,6 +619,33 @@ async function boot(stage) {
       tex.needsUpdate = true;
     };
     img.onerror = () => {};
+    img.src = url;
+    return tex;
+  }
+  // A logo on a dark cyberpunk disc with a neon ring — used to badge a planet
+  // (Crypto = Bitcoin, Obsidian Brain = Obsidian) with a clean, camera-facing icon.
+  function iconDiscTexture(url, ringInt) {
+    const size = 256, c = document.createElement('canvas'); c.width = c.height = size;
+    const g = c.getContext('2d');
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const ring = '#' + new THREE.Color(ringInt).getHexString();
+    const grad = g.createRadialGradient(size / 2, size / 2, 8, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, '#0c111d'); grad.addColorStop(1, '#04060c');
+    g.beginPath(); g.arc(size / 2, size / 2, size / 2 - 6, 0, Math.PI * 2); g.fillStyle = grad; g.fill();
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      g.save();
+      g.beginPath(); g.arc(size / 2, size / 2, size / 2 - 8, 0, Math.PI * 2); g.clip();
+      const box = size * 0.6, iw = img.width || 512, ih = img.height || 512;
+      const s = Math.min(box / iw, box / ih), w = iw * s, h = ih * s;
+      g.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      g.restore();
+      g.lineWidth = 9; g.strokeStyle = ring; g.shadowColor = ring; g.shadowBlur = 20;
+      g.beginPath(); g.arc(size / 2, size / 2, size / 2 - 8, 0, Math.PI * 2); g.stroke();
+      tex.needsUpdate = true;
+    };
+    img.onerror = () => { tex.needsUpdate = true; };
     img.src = url;
     return tex;
   }

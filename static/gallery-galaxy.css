@@ -1,0 +1,107 @@
+/* gallery-galaxy.css — the Media Galaxy view-mode (toggle + 3D stage + overlays).
+   Self-contained: delete this file, gallery-galaxy.js and their tags to remove. */
+
+/* Toggle button in the filter bar */
+.galaxy-toggle {
+  margin-left: auto;
+  align-self: center;
+  white-space: nowrap;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #cfe8ff;
+  background: rgba(10, 16, 28, 0.6);
+  border: 1px solid rgba(94, 234, 255, 0.45);
+  border-radius: 999px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background 0.25s ease, box-shadow 0.25s ease, color 0.25s ease;
+  -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+}
+.galaxy-toggle:hover {
+  box-shadow: 0 0 18px rgba(94, 234, 255, 0.4);
+  color: #fff;
+}
+.galaxy-toggle.on {
+  color: #061018;
+  background: linear-gradient(180deg, #7fe9ff, #36a8ff);
+  border-color: transparent;
+  box-shadow: 0 0 22px rgba(58, 160, 255, 0.55);
+}
+
+/* The 3D stage */
+#section-galaxy {
+  position: relative;
+  width: 100%;
+  height: 88vh;
+  min-height: 520px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 100% at 50% 35%, rgba(20, 30, 56, 0.45) 0%, rgba(3, 5, 10, 0.9) 70%, #03040a 100%);
+}
+#galaxyCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+#galaxyCanvas:active { cursor: grabbing; }
+
+#galaxyLabels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.galaxy-label {
+  position: absolute;
+  transform: translate(14px, -50%);
+  max-width: 260px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: rgba(6, 10, 18, 0.82);
+  border: 1px solid rgba(94, 234, 255, 0.6);
+  border-radius: 6px;
+  padding: 6px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.6);
+}
+
+.galaxy-hint {
+  position: absolute;
+  left: 0; right: 0; bottom: 18px;
+  text-align: center;
+  z-index: 3;
+  pointer-events: none;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(207, 232, 255, 0.55);
+}
+.galaxy-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(127, 233, 255, 0.8);
+}
+
+@media (max-width: 640px) {
+  #section-galaxy { height: 80vh; }
+  .galaxy-toggle { margin-left: 8px; }
+}

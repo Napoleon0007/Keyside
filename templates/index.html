@@ -9,7 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,300;1,400;1,500&family=Space+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='namegen.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='gallery-fx.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='gallery-galaxy.css') }}">
   <script type="importmap">
   {
     "imports": {
@@ -20,15 +21,24 @@
 </head>
 <body>
 
+  <div class="page-bg" aria-hidden="true">
+    <video class="page-bg-video" autoplay muted loop playsinline preload="auto">
+      <source src="{{ url_for('static', filename='zuma-bg.mp4') }}" type="video/mp4">
+    </video>
+  </div>
+
   <header class="site-header">
     <div class="top-bar">
       <div class="nav-left">
-        <video class="nav-logo" autoplay muted loop playsinline>
-          <source src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/Rex%20trueform%20logo.MP4" type="video/mp4">
-        </video>
+        <span class="nav-logo-wrap">
+          <video class="nav-logo" autoplay muted loop playsinline>
+            <source src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/Rex%20trueform%20logo.MP4" type="video/mp4">
+          </video>
+        </span>
         <span class="nav-label">Rex Trueform Arts Hub</span>
       </div>
       <div class="nav-right">
+        <a class="nav-link" href="/three-body" title="The Three-Body Problem — gravity sandbox">&#10022; Three-Body</a>
         <button class="nav-skull-btn" id="skullBtn" type="button" aria-label="The Order of the Skull" title="The Order of the Skull — enter">
           <img class="nav-skull" src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/orange%20skull.png" alt="">
         </button>
@@ -36,10 +46,6 @@
       </div>
     </div>
     <div class="hero hero-orbit" id="hero">
-      <video class="hero-bg-loop" autoplay muted loop playsinline preload="auto" aria-hidden="true">
-        <source src="{{ url_for('static', filename='zuma-bg.mp4') }}" type="video/mp4">
-      </video>
-      <div class="hero-holo" aria-hidden="true"></div>
       <div class="hero-scrim" aria-hidden="true"></div>
       <canvas id="heroSky" class="disc-sky"></canvas>
       <div class="hero-orbit-stage disc-stage">
@@ -49,6 +55,7 @@
         <div class="disc-ring" id="heroRing"></div>
       </div>
       <div class="hero-emblem" aria-hidden="true"></div>
+      <canvas id="globeCanvas" class="hero-globe" aria-hidden="true"></canvas>
       <div class="hero-content">
         <h1 class="site-title title-rex"><span class="hero-word"><span class="hero-letter">R</span><span class="hero-letter">E</span><span class="hero-letter">X</span></span> <span class="hero-word"><span class="hero-letter side">T</span><span class="hero-letter side">R</span><span class="hero-letter side">U</span><span class="hero-letter side">E</span><span class="hero-letter side">F</span><span class="hero-letter side">O</span><span class="hero-letter side">R</span><span class="hero-letter side">M</span></span></h1>
         <p class="site-sub-name">The <span class="orange floaty">Medici</span> Art Hub</p>
@@ -105,28 +112,6 @@
       <div class="disc-ring" id="discRing"></div>
     </div>
     <p class="disc-hint">drag to spin &middot; click a panel to enter</p>
-  </section>
-
-  <!-- The Name Forge — band / rapper / crew name generator -->
-  <section class="namegen" id="section-namegen" aria-label="Name generator">
-    <div class="namegen-head">
-      <h2 class="namegen-title">The <span class="orange">Name</span> Forge</h2>
-      <p class="namegen-sub">Band &middot; Rapper &middot; Crew &mdash; forged from you</p>
-    </div>
-    <div class="namegen-panel">
-      <div class="ng-types" id="ngTypes">
-        <button class="ng-type active" type="button" data-type="band">Band</button>
-        <button class="ng-type" type="button" data-type="rapper">Rapper</button>
-        <button class="ng-type" type="button" data-type="crew">Crew / DJ</button>
-      </div>
-      <div class="ng-fields">
-        <label class="ng-wide">Name <input id="ngName" type="text" placeholder="e.g. Luke" maxlength="24" autocomplete="off"></label>
-        <label>Colour <input id="ngColor" type="text" placeholder="crimson" maxlength="20" autocomplete="off"></label>
-        <label>Vibe <input id="ngVibe" type="text" placeholder="midnight" maxlength="20" autocomplete="off"></label>
-      </div>
-      <button class="ng-go" id="ngGo" type="button">Forge names</button>
-      <ul class="ng-results" id="ngResults"></ul>
-    </div>
   </section>
 
   <main class="content" id="content">
@@ -274,7 +259,8 @@
   <script src="{{ url_for('static', filename='effects.js') }}"></script>
   <script src="{{ url_for('static', filename='herotext.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='world.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='globe.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='gallery-galaxy.js') }}"></script>
   <script src="{{ url_for('static', filename='landing.js') }}"></script>
-  <script src="{{ url_for('static', filename='namegen.js') }}"></script>
 </body>
 </html>
