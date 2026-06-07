@@ -14,7 +14,12 @@
 </head>
 <body>
   <canvas id="sim"></canvas>
-  <div id="glfail" class="tb-glfail" hidden>This page needs WebGL — try a modern browser.</div>
+  <div id="glfail" class="tb-glfail" hidden>
+    <div style="max-width:420px;text-align:center;line-height:1.6">
+      <p style="font-size:15px;color:#eaf2ff;margin:0 0 10px">This page needs WebGL, and your browser couldn't start it.</p>
+      <p style="font-size:12px;color:#9fc4e8;margin:0">Turn on <b>hardware acceleration</b> in your browser settings (Chrome: Settings → System → "Use graphics acceleration when available", then relaunch), or open this page in Chrome. Then reload.</p>
+    </div>
+  </div>
 
   <header class="tb-top">
     <a class="tb-back" href="/">&#8592; Rex Trueform</a>
@@ -67,6 +72,7 @@
     <label class="tb-slider"><span>Gravity G <b id="gravVal">1.00</b></span>
       <input id="grav" type="range" min="0.2" max="3" step="0.05" value="1"></label>
     <label class="tb-check"><input id="trails" type="checkbox" checked> Show trails</label>
+    <label class="tb-check"><input id="grid" type="checkbox" checked> Spacetime grid</label>
     <button id="clear" class="tb-btn tb-wide" type="button">Clear trails</button>
   </div>
 

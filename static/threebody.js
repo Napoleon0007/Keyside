@@ -9,15 +9,28 @@ import * as THREE from 'three';
 const COLORS = [0xff5500, 0x33b6ff, 0xb06bff];
 const NAMES  = ['Body I', 'Body II', 'Body III'];
 
-const canvas = document.getElementById('sim');
-let renderer;
-try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-} catch (e) {
-  document.getElementById('glfail')?.removeAttribute('hidden');
+// Create the renderer robustly: try a few option sets, each on a FRESH canvas
+// (a canvas caches a failed context, so retrying needs a new one). The
+// 'high-performance' GPU request fails on some Macs even when plain WebGL works.
+const slot = document.getElementById('sim');
+let renderer = null, canvas = slot;
+for (const o of [
+  { antialias: true, powerPreference: 'high-performance' },
+  { antialias: true, powerPreference: 'default' },
+  { antialias: true },
+  { antialias: false },
+  {},
+]) {
+  try { renderer = new THREE.WebGLRenderer(o); break; } catch (e) { renderer = null; }
 }
-
-if (renderer) boot();
+if (!renderer) {
+  document.getElementById('glfail')?.removeAttribute('hidden');
+} else {
+  canvas = renderer.domElement;          // use the renderer's own working canvas
+  canvas.id = 'sim';
+  if (slot && slot.parentNode) slot.parentNode.replaceChild(canvas, slot);
+  boot();
+}
 
 function boot() {
   'use strict';
@@ -64,15 +77,31 @@ function boot() {
   let manualEdited = false;               // user moved/resized a planet → auto-orbit on Run
   const TRAIL_MAX = 700;
   const glowTex = makeGlowTexture();
+  const texLoader = new THREE.TextureLoader();
+  const loadTex = (n) => { const t = texLoader.load(`/static/textures/${n}.jpg`); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const PLANET_TEX = [loadTex('marsmap1k'), loadTex('earthmap1k'), loadTex('jupitermap')];
+  const SUN_TEX = loadTex('sunmap');
+  const STAR_MASS = 5.5;                 // a body this heavy (or heavier) ignites into a star
 
   function visRadius(m) { return Math.max(0.18, Math.cbrt(m) * 0.2); }
 
+  // Fresnel atmosphere shell — soft rim-glow halo in the body's colour.
+  function atmosphere(colorInt) {
+    return new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.ShaderMaterial({
+      transparent: true, blending: THREE.AdditiveBlending, side: THREE.BackSide, depthWrite: false,
+      uniforms: { uColor: { value: new THREE.Color(colorInt) } },
+      vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vP=mv.xyz; gl_Position=projectionMatrix*mv; }',
+      fragmentShader: 'varying vec3 vN; varying vec3 vP; uniform vec3 uColor; void main(){ float f=pow(1.0-abs(dot(normalize(vN),normalize(-vP))),2.4); gl_FragColor=vec4(uColor, f*0.9); }',
+    }));
+  }
+
   function makeBody(x, y, z, vx, vy, vz, m, i) {
     const color = COLORS[i];
-    const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.6, roughness: 0.45, metalness: 0.1 });
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), mat);
+    const mat = new THREE.MeshStandardMaterial({ map: PLANET_TEX[i], emissive: color, emissiveIntensity: 0.45, roughness: 0.9, metalness: 0.05 });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 40), mat);
+    const atmo = atmosphere(color); scene.add(atmo);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-    const light = new THREE.PointLight(color, 1.5, 60, 2);
+    const light = new THREE.PointLight(color, 1.2, 80, 2);
     mesh.add(light);
     scene.add(mesh); scene.add(glow);
 
@@ -84,16 +113,64 @@ function boot() {
     const hit = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 12), new THREE.MeshBasicMaterial({ visible: false }));
     scene.add(hit);
 
-    return { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), m, color: new THREE.Color(color), name: NAMES[i], mesh, glow, line, hit, trail: [] };
+    return { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), m, idx: i, color: new THREE.Color(color), name: NAMES[i], mesh, mat, atmo, glow, line, light, hit, trail: [], star: null };
   }
 
-  function clearBodies() { bodies.forEach(b => { scene.remove(b.mesh, b.glow, b.line, b.hit); }); bodies = []; }
+  function clearBodies() { bodies.forEach(b => scene.remove(b.mesh, b.atmo, b.glow, b.line, b.hit)); bodies = []; }
 
   function applyVisual(b) {
     const r = visRadius(b.m);
+    const isStar = b.m >= STAR_MASS;
+    if (isStar !== b.star) {               // swap planet⇄star look only when it flips
+      b.star = isStar;
+      b.mat.map = isStar ? SUN_TEX : PLANET_TEX[b.idx];
+      b.mat.emissive.set(isStar ? 0xffb060 : b.color.getHex());
+      b.mat.needsUpdate = true;
+      b.glow.material.color.set(isStar ? 0xffc070 : b.color.getHex());
+    }
+    b.mat.emissiveIntensity = isStar ? 1.7 : 0.45;
+    b.light.intensity = isStar ? 5.0 : 0.9;
+    b.light.distance = isStar ? 160 : 70;
     b.mesh.position.copy(b.pos); b.mesh.scale.setScalar(r);
-    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * 7);
+    b.atmo.position.copy(b.pos); b.atmo.scale.setScalar(r * (isStar ? 1.55 : 1.28));
+    b.atmo.material.uniforms.uColor.value.set(isStar ? 0xffcc66 : b.color.getHex());
+    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (isStar ? 12 : 6.5));
+    b.glow.material.opacity = isStar ? 0.92 : 0.6;
     b.hit.position.copy(b.pos); b.hit.scale.setScalar(Math.max(r * 2.8, 0.55));
+  }
+
+  // ── spacetime curvature grid (the rubber-sheet that dimples under each mass) ──
+  let showGrid = true;
+  const grid = makeGrid(15, 74, -2.8);
+  scene.add(grid.lines);
+  function makeGrid(half, seg, y0) {
+    const N = seg + 1, base = new Float32Array(N * N * 3), col = new Float32Array(N * N * 3);
+    const c = new THREE.Color(0x2f6bff);
+    for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
+      const v = j * N + k, x = (k / (N - 1) * 2 - 1) * half, z = (j / (N - 1) * 2 - 1) * half;
+      base[v * 3] = x; base[v * 3 + 1] = 0; base[v * 3 + 2] = z;
+      const edge = Math.pow(1 - Math.min(1, Math.hypot(x, z) / half), 1.4);  // fade to dark at the rim
+      col[v * 3] = c.r * edge; col[v * 3 + 1] = c.g * edge; col[v * 3 + 2] = c.b * edge;
+    }
+    const idx = [];
+    for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
+      const a = j * N + k; if (k < N - 1) idx.push(a, a + 1); if (j < N - 1) idx.push(a, a + N);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(base.slice(), 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setIndex(idx);
+    const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const arr = geo.attributes.position.array;
+    function update(bs) {
+      for (let v = 0; v < N * N; v++) {
+        const x = base[v * 3], z = base[v * 3 + 2]; let d = 0;
+        for (const b of bs) { const dx = x - b.pos.x, dz = z - b.pos.z; d += 1.4 * b.m / (dx * dx + dz * dz + 0.35); }
+        arr[v * 3 + 1] = y0 - Math.min(d, 6);
+      }
+      geo.attributes.position.needsUpdate = true;
+    }
+    return { lines, update };
   }
 
   // ── presets: the infinite symmetric family + free-form ──────────────────────
@@ -228,7 +305,9 @@ function boot() {
       for (let s = 0; s < sub; s++) integrate(dt);
       for (const b of bodies) { b.trail.push(b.pos.clone()); if (b.trail.length > TRAIL_MAX) b.trail.shift(); }
     }
-    bodies.forEach(b => { applyVisual(b); updateTrail(b); });
+    bodies.forEach(b => { applyVisual(b); updateTrail(b); b.mesh.rotation.y += 0.0025; });
+    grid.lines.visible = showGrid;
+    if (showGrid) grid.update(bodies);
     updateCamera();
     ambient.rotation.y += 0.00018;          // whole cosmos drifts → floaty parallax
     dust.rotation.x += 0.0001;
@@ -315,6 +394,7 @@ function boot() {
   $('speed').addEventListener('input', (e) => { speed = +e.target.value; $('speedVal').textContent = speed.toFixed(1) + '×'; });
   $('grav').addEventListener('input', (e) => { G = +e.target.value; $('gravVal').textContent = G.toFixed(2); });
   $('trails').addEventListener('change', (e) => { showTrails = e.target.checked; });
+  $('grid') && $('grid').addEventListener('change', (e) => { showGrid = e.target.checked; });
 
   document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));

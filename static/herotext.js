@@ -32,24 +32,28 @@
   // Each letter gets a wave phase based on its position (so the wave travels across
   // the word) plus a touch of randomness so it never looks mechanical.
   const rand = (a, b) => a + Math.random() * (b - a);
-  letters.forEach((el, i) => {
+  // Each letter drifts on its OWN slow clock with a fully random phase — no shared
+  // wave, so they hover independently and barely move (just-perceptible float).
+  letters.forEach((el) => {
     el._p = {
-      phase: i * 0.55 + rand(-0.15, 0.15), // travelling-wave offset per letter
-      bob:   rand(7, 10),                   // vertical bob amplitude (px)
-      depth: rand(10, 16),                  // subtle forward/back drift (px)
-      rock:  rand(1.8, 3.0),                // gentle rotation (deg)
+      phase:  rand(0, Math.PI * 2),
+      phase2: rand(0, Math.PI * 2),
+      speed:  rand(0.16, 0.30),     // slow, and different per letter
+      bob:    rand(1.8, 3.0),       // tiny vertical hover (px)
+      depth:  rand(1.2, 2.6),       // faint forward/back drift (px)
+      rock:   rand(0.25, 0.6),      // barely-there rotation (deg)
     };
   });
 
-  // Accent words (True / ART / BAN) — each hovers on its own clock, never in sync.
+  // Accent words (Medici …) — each hovers on its own clock, never in sync.
   const floaties = [...document.querySelectorAll('.floaty')];
   floaties.forEach((el) => {
     el._f = {
       phase: rand(0, Math.PI * 2),  // random start → all at different times
-      speed: rand(0.55, 1.05),      // different rhythms
-      bob:   rand(5, 9),            // gentle vertical hover (px)
-      drift: rand(0.35, 0.8),       // slow secondary swell
-      rock:  rand(1.2, 2.6),        // slight rotation (deg)
+      speed: rand(0.18, 0.34),      // slow, different rhythms
+      bob:   rand(2.0, 3.2),        // gentle vertical hover (px)
+      drift: rand(0.12, 0.3),       // slow secondary swell
+      rock:  rand(0.4, 0.9),        // slight rotation (deg)
     };
   });
 
@@ -78,18 +82,18 @@
 
     mx += (tmx - mx) * 0.05;
     my += (tmy - my) * 0.05;
-    title.style.transform = `rotateX(${-my * 4}deg) rotateY(${mx * 5}deg)`;
+    title.style.transform = `rotateX(${-my * 2.5}deg) rotateY(${mx * 3}deg)`;
 
     for (const el of letters) {
       const p = el._p;
 
-      // Two overlapping sine waves = an organic, water-like bob (not a perfect loop).
-      const ty = (Math.sin(t * 1.1 + p.phase) * p.bob
-               + Math.sin(t * 0.47 + p.phase * 0.6) * (p.bob * 0.4))
+      // Per-letter slow clock → independent, barely-there hover (no shared wave).
+      const ty = (Math.sin(t * p.speed + p.phase) * p.bob
+               + Math.sin(t * p.speed * 0.5 + p.phase2) * (p.bob * 0.4))
                + (1 - intro) * 22;                 // gentle rise as it fades in
-      const tz = Math.sin(t * 0.7 + p.phase) * p.depth;
-      const rz = Math.sin(t * 0.9 + p.phase) * p.rock;
-      const rx = Math.sin(t * 0.6 + p.phase) * (p.rock * 0.7);
+      const tz = Math.sin(t * p.speed * 0.8 + p.phase) * p.depth;
+      const rz = Math.sin(t * p.speed * 0.9 + p.phase2) * p.rock;
+      const rx = Math.sin(t * p.speed * 0.7 + p.phase) * (p.rock * 0.7);
 
       el.style.opacity = String(intro);
       el.style.transform =
