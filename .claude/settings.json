@@ -61,7 +61,8 @@
       "Bash(perl -0pi -e 's/camOrbit\\\\.radius = 7;/camOrbit.radius = 6;/g' static/threebody.js)",
       "Bash(cat Procfile)",
       "Bash(ls railway.json nixpacks.toml Dockerfile)",
-      "Bash(cat requirements.txt)"
+      "Bash(cat requirements.txt)",
+      "Bash(osascript -e 'tell application \"Safari\" to activate')"
     ]
   }
 }
