@@ -101,7 +101,20 @@
 
   <p class="tb-hint" id="hint">Drag the planets anywhere &middot; press <b>&#9654; Run</b> &middot; they orbit automatically. Drag empty space to rotate &middot; scroll to zoom.</p>
 
-  <script type="module" src="{{ url_for('static', filename='threebody.js') }}"></script>
+  <script>
+    // Pick the renderer: WebGL 3D if the browser can actually start it, else a
+    // plain Canvas2D version so it always works.
+    (function () {
+      function webglOK() {
+        try { var c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl'))); }
+        catch (e) { return false; }
+      }
+      var s = document.createElement('script');
+      if (webglOK()) { s.type = 'module'; s.src = "{{ url_for('static', filename='threebody.js') }}"; }
+      else { s.src = "{{ url_for('static', filename='threebody2d.js') }}"; }
+      document.body.appendChild(s);
+    })();
+  </script>
   <script>
     (function () {
       function popover(btnId, popId) {
