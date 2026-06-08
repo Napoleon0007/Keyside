@@ -8,10 +8,6 @@
 // tags in index.html and the .hero-mobius / .mobius-labels rules in landing.css.
 
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 // The six navigator panels — mirrors the hero card ring (label, kicker, art, action).
 const PANELS = [
@@ -45,7 +41,7 @@ const PANELS = [
   const SEG_U = 240;       // segments around the loop (smoothness)
   const SEG_V = 18;        // segments across the ribbon
 
-  let renderer, scene, camera, root, spinner, band, edge, raycaster, ndc, composer, bloom;
+  let renderer, scene, camera, root, spinner, band, edge, raycaster, ndc;
   let inited = false, running = false, raf = 0;
 
   function init() {
@@ -78,17 +74,6 @@ const PANELS = [
 
     buildBand();
     buildEdge();
-
-    // Bloom post-processing — the neon edge + bright thumbnails bleed light.
-    // Falls back to a plain render if the addon pipeline can't initialise.
-    try {
-      composer = new EffectComposer(renderer);
-      composer.setPixelRatio(renderer.getPixelRatio());
-      composer.addPass(new RenderPass(scene, camera));
-      bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.5, 0.2); // strength, radius, threshold
-      composer.addPass(bloom);
-      composer.addPass(new OutputPass());
-    } catch (e) { composer = null; }
 
     bindControls();
     resize();
@@ -313,8 +298,12 @@ const PANELS = [
       if (Math.abs(vel) > 0.0002) { spinner.rotation.z += vel; vel *= 0.94; }
       else if (idleActive && !reduced) { spinner.rotation.z += 0.0016; }
     }
-    if (composer) composer.render();
-    else renderer.render(scene, camera);
+    if (band && !reduced) {
+      // thumbnails stream around the loop like a film reel feeding the twist
+      const m = band.material.map;
+      m.offset.x = (m.offset.x + 0.0007) % 1;
+    }
+    renderer.render(scene, camera);
   }
 
   function resize() {
@@ -322,7 +311,6 @@ const PANELS = [
     const h = hero.clientHeight || Math.round(window.innerHeight * 0.9);
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
-    if (composer) composer.setSize(w, h);
   }
 
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
