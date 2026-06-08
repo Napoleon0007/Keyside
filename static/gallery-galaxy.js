@@ -36,7 +36,7 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
   section.innerHTML =
     '<canvas id="galaxyCanvas"></canvas>' +
     '<div id="galaxyLabels"></div>' +
-    '<div class="galaxy-hint">drag to orbit · scroll to zoom · click a panel to open</div>' +
+    '<div class="galaxy-hint">drag to orbit · pinch / scroll to pull the galaxy into a planet · tap a panel to open</div>' +
     '<div class="galaxy-loading">summoning the galaxy…</div>';
   content.parentNode.insertBefore(section, content.nextSibling);
 
@@ -46,6 +46,14 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
 
   let active = false, inited = false, raf = 0, running = false;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const IS_MOBILE = window.matchMedia('(max-width: 768px)').matches;
+
+  // Zoom drives a morph between two layouts: a tight image-planet (spread→0, camera close)
+  // and a wide dispersed galaxy (spread→1, camera far). You control how far they fly out.
+  const PLANET_R = 120;          // radius of the clustered image-planet
+  const PLANET_Z = 235;          // camera distance fully zoomed in (planet fills the view)
+  const GALAXY_Z = 1020;         // camera distance fully zoomed out (whole galaxy in view)
+  let spread = 0.82, spreadTarget = 0.82;   // start mostly-galaxy
 
   toggle.addEventListener('click', () => setActive(!active));
 
@@ -73,13 +81,13 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
     try {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
     } catch (e) { fail(); return; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearAlpha(0);
 
     scene  = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(50, 1, 0.1, 5000);
-    camera.position.set(0, 0, 460);
+    camera.position.set(0, 0, PLANET_Z + (GALAXY_Z - PLANET_Z) * spread);
     root = new THREE.Group();
     scene.add(root);
 
@@ -112,17 +120,25 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
   function buildNodes(items) {
     const N = Math.max(items.length, 1);
     const golden = Math.PI * (3 - Math.sqrt(5));
-    const R = 200 + Math.min(N, 80) * 1.4;          // shell grows a little with count
     items.forEach((item, i) => {
-      const yy = 1 - (i / Math.max(N - 1, 1)) * 2;
+      // even direction on a sphere (fibonacci) — shared by both layouts
+      const yy = 1 - (i / Math.max(N - 1, 1)) * 2;            // -1 … 1
       const rr = Math.sqrt(Math.max(0, 1 - yy * yy));
       const th = golden * i;
-      const jitter = (n) => (Math.sin(i * 97.13 + n) * 0.5) * 26;
-      const pos = new THREE.Vector3(
-        Math.cos(th) * rr * R + jitter(1),
-        yy * R * 0.82 + jitter(2),
-        Math.sin(th) * rr * R + jitter(3),
+      const dir = new THREE.Vector3(Math.cos(th) * rr, yy, Math.sin(th) * rr);
+
+      // PLANET: tight uniform sphere — zoomed in, all the images form one ball
+      const planetPos = dir.clone().multiplyScalar(PLANET_R);
+
+      // GALAXY: thrown out to its own slot — varied radius + jitter, flattened into a disc
+      const rad = 360 + (Math.sin(i * 12.9898) * 0.5 + 0.5) * 560;   // 360 … 920, each its own distance
+      const jit = (n) => Math.sin(i * 97.13 + n) * 64;
+      const galaxyPos = new THREE.Vector3(
+        dir.x * rad + jit(1),
+        dir.y * rad * 0.5 + jit(2),                          // squash Y → galaxy-disc feel
+        dir.z * rad + jit(3),
       );
+
       const color = TYPE_COLOR[item.type] || '#5eeaff';
       const thumb = item.thumb || (item.type === 'image' ? item.src : '');
       const glyph = item.type === 'music' ? '♫' : '';
@@ -131,25 +147,35 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
       });
       const sp = new THREE.Sprite(mat);
       const S = 52;
-      sp.scale.set(S * 1.78, S, 1);
-      sp.position.copy(pos);
-      sp.userData = { item, base: S, color, home: pos.clone(), hover: 0, targetOpacity: 1 };
+      sp.position.copy(galaxyPos);                            // start spread out as a galaxy
+      sp.userData = { item, base: S, color, planetPos, galaxyPos, hover: 0, targetOpacity: 1 };
       root.add(sp);
       sprites.push(sp);
     });
   }
 
-  // ── Controls: drag-orbit + inertia + idle spin + wheel zoom ──────────────────
+  // ── Controls: drag-orbit + inertia + idle spin + scroll/pinch zoom-morph ─────
   let dragging = false, lastX = 0, lastY = 0, velX = 0, velY = 0, downX = 0, downY = 0, moved = false;
-  let focusing = null, opened = false, zoomTarget = 460, restore = false;
+  let focusing = null, opened = false, restore = false;
+  const pointers = new Map();           // active touches, for pinch
+  let pinchPrev = 0;
 
   function bindControls() {
     canvas.addEventListener('pointerdown', (e) => {
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size >= 2) { dragging = false; pinchPrev = pointerSpread(); return; }
       dragging = true; moved = false;
       lastX = downX = e.clientX; lastY = downY = e.clientY;
       try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
     });
     canvas.addEventListener('pointermove', (e) => {
+      if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size >= 2) {                       // pinch → morph planet↔galaxy
+        const d = pointerSpread();
+        if (pinchPrev) spreadTarget = clamp(spreadTarget - (d - pinchPrev) * 0.004, 0, 1);  // fingers apart → zoom in → planet
+        pinchPrev = d;
+        return;
+      }
       if (dragging) {
         const dx = e.clientX - lastX, dy = e.clientY - lastY;
         lastX = e.clientX; lastY = e.clientY;
@@ -162,17 +188,26 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
       }
     });
     const release = (e) => {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinchPrev = 0;
       if (!dragging) return;
       dragging = false;
       try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
       if (!moved) clickAt(e);     // a tap, not a drag → select
     };
     canvas.addEventListener('pointerup', release);
-    canvas.addEventListener('pointerleave', () => { dragging = false; clearHover(); });
+    canvas.addEventListener('pointercancel', release);
+    canvas.addEventListener('pointerleave', (e) => { pointers.delete(e.pointerId); dragging = false; clearHover(); });
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      zoomTarget = clamp(zoomTarget + e.deltaY * 0.4, 150, 1000);
+      spreadTarget = clamp(spreadTarget + e.deltaY * 0.0011, 0, 1);   // scroll out → galaxy, in → planet
     }, { passive: false });
+  }
+
+  function pointerSpread() {
+    const pts = [...pointers.values()];
+    if (pts.length < 2) return 0;
+    return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
   }
 
   function setNDC(e) {
@@ -220,13 +255,12 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
     const to = new THREE.Vector3(0, 0, 1);                  // toward the camera
     const qDelta = new THREE.Quaternion().setFromUnitVectors(from, to);
     focusing = { sp, quat: qDelta.multiply(root.quaternion.clone()) };
-    zoomTarget = 250;
     opened = false; restore = false;
     sprites.forEach(s => s.userData.targetOpacity = (s === sp ? 1 : 0.12));
   }
 
   function resetFocus() {
-    focusing = null; restore = true; zoomTarget = 460;
+    focusing = null; restore = true;
     sprites.forEach(s => s.userData.targetOpacity = 1);
   }
 
@@ -253,19 +287,25 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
     }
     restore = false;
 
-    camera.position.z += (zoomTarget - camera.position.z) * 0.08;
+    // zoom morph: spread 0 = clustered planet (camera close), 1 = dispersed galaxy (far)
+    spread += (spreadTarget - spread) * 0.09;
+    camera.position.z = PLANET_Z + (GALAXY_Z - PLANET_Z) * spread;
+    const planetK = 0.55, galaxyK = 1.0;                 // panels are smaller when packed into the ball
 
-    // per-sprite hover pop + opacity ease
+    // morph each panel between its planet slot and its galaxy slot; fold in hover pop
     sprites.forEach(s => {
       const u = s.userData;
+      _morph.copy(u.planetPos).lerp(u.galaxyPos, spread);
+      s.position.copy(_morph);
       u.hover += (((s === hovered) ? 1 : 0) - u.hover) * 0.2;
-      const k = 1 + u.hover * 0.28;
+      const k = (planetK + (galaxyK - planetK) * spread) * (1 + u.hover * 0.28);
       s.scale.set(u.base * 1.78 * k, u.base * k, 1);
       s.material.opacity += (u.targetOpacity - s.material.opacity) * 0.12;
     });
 
     renderer.render(scene, camera);
   }
+  const _morph = new THREE.Vector3();
 
   function resize() {
     const w = section.clientWidth || window.innerWidth;
@@ -304,7 +344,7 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
 
   // A 16:9 neon panel: thumbnail (cover) inside a glowing rounded border + corner ticks.
   function panelTexture(url, color, glyph) {
-    const W = 512, H = 288, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const W = IS_MOBILE ? 320 : 512, H = IS_MOBILE ? 180 : 288, c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d');
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
     const paint = (img) => {
