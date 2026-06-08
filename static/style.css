@@ -207,7 +207,7 @@ body.modal-open {
 .skull-float {
   position: fixed;
   right: 33px;              /* 50px wide → right:33 keeps it centred on the 64px orb's column */
-  bottom: 164px;            /* TOP of the stack (above the Three-Body button) */
+  bottom: 226px;            /* TOP of the stack (above Gargantua + the Three-Body button) */
   width: 50px;
   height: 50px;
   padding: 0;
@@ -228,7 +228,48 @@ body.modal-open {
 }
 /* match the REX orb's mobile column; skull is the TOP of the stack */
 @media (max-width: 520px) {
-  .skull-float { right: 23px; bottom: 154px; }
+  .skull-float { right: 23px; bottom: 216px; }
+}
+
+/* Gargantua — the black-hole orb, directly above the Three-Body button (same column) */
+.gg-float {
+  position: fixed;
+  right: 33px;
+  bottom: 164px;           /* between Three-Body (102) and the Skull (226) */
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  text-decoration: none;
+  background: radial-gradient(circle at 50% 38%, rgba(22,12,6,.92), rgba(6,4,9,.96));
+  border: 1px solid rgba(255,85,0,.5);
+  box-shadow: 0 0 16px rgba(255,85,0,.32), inset 0 0 12px rgba(255,85,0,.1);
+  z-index: 99997;
+  animation: skullFloat 3.6s ease-in-out infinite;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.gg-float:hover { transform: scale(1.1); box-shadow: 0 0 24px rgba(255,85,0,.65), inset 0 0 12px rgba(255,85,0,.16); }
+/* the disc itself: black event-horizon core ringed by a glowing orange accretion edge */
+.gg-disc {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+    #000 0 33%, #ffb070 39%, #ff5500 47%, rgba(255,85,0,.55) 55%, rgba(255,85,0,0) 70%);
+  box-shadow: 0 0 9px rgba(255,85,0,.85);
+  position: relative;
+}
+/* a faint lensed highlight arc across the top, hinting the warped disk */
+.gg-disc::after {
+  content: ''; position: absolute; left: 50%; top: 7%;
+  width: 78%; height: 40%; transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255,210,170,.0) 40%, rgba(255,210,170,.55) 70%, rgba(255,210,170,0) 100%);
+  filter: blur(0.3px); pointer-events: none;
+}
+@media (max-width: 520px) {
+  .gg-float { right: 23px; bottom: 154px; }
 }
 
 /* Three-Body — sits directly above the REX orb (middle of the stack), same column */

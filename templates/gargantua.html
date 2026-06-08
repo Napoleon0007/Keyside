@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gargantua — Rex Trueform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='gargantua.css') }}">
+  <script type="importmap">
+  { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="hole"></canvas>
+
+  <!-- static fallback — shown only if WebGL can't start or the framerate collapses -->
+  <div id="ggFallback" class="gg-fallback" hidden>
+    <img src="{{ url_for('static', filename='blackhole.jpg') }}" alt="A black hole" class="gg-fallback-img">
+    <div class="gg-fallback-veil"></div>
+  </div>
+
+  <header class="gg-top">
+    <a class="gg-back" href="/">&#8592; Rex Trueform</a>
+    <span class="gg-brand">GARGANTUA</span>
+  </header>
+
+  <p class="gg-oracle">Cross the horizon. Nothing returns the same.</p>
+
+  <div class="gg-dock">
+    <button id="fallBtn" class="gg-btn" type="button">&#8600; Fall in</button>
+  </div>
+
+  <p class="gg-hint" id="hint">Drag to orbit &middot; scroll or pinch to approach the horizon</p>
+
+  <script>
+    // Only spin up the WebGL engine if the browser can actually start a context;
+    // otherwise reveal the static fallback straight away (no module load).
+    (function () {
+      function webglOK() {
+        try {
+          var c = document.createElement('canvas');
+          return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl')));
+        } catch (e) { return false; }
+      }
+      if (webglOK()) {
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = "{{ url_for('static', filename='gargantua.js') }}";
+        document.body.appendChild(s);
+      } else {
+        var fb = document.getElementById('ggFallback');
+        if (fb) fb.hidden = false;
+      }
+    })();
+  </script>
+</body>
+</html>

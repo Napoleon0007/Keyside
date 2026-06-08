@@ -301,6 +301,11 @@ def three_body():
     return render_template("three_body.html")
 
 
+@app.route("/gargantua")
+def gargantua():
+    return render_template("gargantua.html")
+
+
 # ── REX chat API ────────────────────────────────────────────────────────────────
 
 def _openrouter_headers():
