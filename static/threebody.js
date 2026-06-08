@@ -479,81 +479,23 @@ function boot() {
     if (eclipseHud) eclipseHud.style.opacity = (eclipseStrength * 0.92).toFixed(3);
   }
 
-  // ── collision & slingshot FX (#4): sparks on close passes, a flash + shockwave on
-  //    impact, and bodies that merge (momentum-conserving) and can ignite a star. ──
-  const MAX_SPARKS = 360;
-  const sparkGeo = new THREE.BufferGeometry();
-  const sparkPos = new Float32Array(MAX_SPARKS * 3).fill(9999), sparkCol = new Float32Array(MAX_SPARKS * 3);
-  sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
-  sparkGeo.setAttribute('color', new THREE.BufferAttribute(sparkCol, 3));
-  const sparkPts = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ size: 0.14, map: starTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
-  sparkPts.frustumCulled = false; scene.add(sparkPts);
-  const sparkVel = [], sparkLife = new Float32Array(MAX_SPARKS), sparkMax = new Float32Array(MAX_SPARKS);
-  for (let i = 0; i < MAX_SPARKS; i++) sparkVel.push(new THREE.Vector3());
-  let sparkHead = 0;
-  function emitSparks(p, color, count, speed) {
-    for (let i = 0; i < count; i++) {
-      const k = sparkHead % MAX_SPARKS; sparkHead++;
-      sparkPos[k * 3] = p.x; sparkPos[k * 3 + 1] = p.y; sparkPos[k * 3 + 2] = p.z;
-      sparkVel[k].set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize().multiplyScalar(speed * (0.4 + Math.random()));
-      const life = 0.5 + Math.random() * 0.7; sparkLife[k] = life; sparkMax[k] = life;
-      sparkCol[k * 3] = color.r * 1.6; sparkCol[k * 3 + 1] = color.g * 1.6; sparkCol[k * 3 + 2] = color.b * 1.6;
-    }
-  }
-  const rings = [];
-  for (let i = 0; i < 8; i++) {
-    const m = new THREE.Mesh(new THREE.RingGeometry(0.82, 1.0, 56), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
-    m.visible = false; scene.add(m); rings.push({ mesh: m, active: false, t: 0, dur: 0.7, maxR: 1 });
-  }
-  function spawnRing(p, colorInt, maxR) {
-    const r = rings.find(x => !x.active) || rings[0];
-    r.active = true; r.t = 0; r.dur = 0.55 + Math.random() * 0.25; r.maxR = maxR;
-    r.mesh.position.copy(p); r.mesh.material.color.set(colorInt); r.mesh.visible = true;
-  }
-  function updateFX(dt) {
-    for (let k = 0; k < MAX_SPARKS; k++) {
-      if (sparkLife[k] <= 0) continue;
-      sparkLife[k] -= dt;
-      sparkPos[k * 3] += sparkVel[k].x * dt; sparkPos[k * 3 + 1] += sparkVel[k].y * dt; sparkPos[k * 3 + 2] += sparkVel[k].z * dt;
-      sparkCol[k * 3] *= 0.95; sparkCol[k * 3 + 1] *= 0.95; sparkCol[k * 3 + 2] *= 0.95;   // additive → dim = gone
-      if (sparkLife[k] <= 0) { sparkPos[k * 3] = sparkPos[k * 3 + 1] = sparkPos[k * 3 + 2] = 9999; }
-    }
-    sparkGeo.attributes.position.needsUpdate = true; sparkGeo.attributes.color.needsUpdate = true;
-    for (const r of rings) {
-      if (!r.active) continue;
-      r.t += dt; const k = r.t / r.dur;
-      if (k >= 1) { r.active = false; r.mesh.visible = false; continue; }
-      r.mesh.scale.setScalar(0.2 + r.maxR * k); r.mesh.material.opacity = (1 - k) * 0.9; r.mesh.lookAt(camera.position);
-    }
-  }
-  function removeBody(b) { scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit); const i = bodies.indexOf(b); if (i >= 0) bodies.splice(i, 1); }
-  function checkMerge() {                              // runs every substep so fast head-on passes can't tunnel
+  // ── collisions: bodies ricochet off each other (fully elastic) — they never merge.
+  //    Checked every substep so a fast head-on can't tunnel through. ───────────────
+  const _cn = new THREE.Vector3(), _crv = new THREE.Vector3();
+  function resolveCollisions() {
     for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
       const A = bodies[i], B = bodies[j];
-      if (A.pos.distanceTo(B.pos) < (visRadius(A.m) + visRadius(B.m)) * 0.8) {   // impact → merge (conserve momentum)
-        const big = A.m >= B.m ? A : B, small = big === A ? B : A, M = A.m + B.m;
-        const mid = A.pos.clone().multiplyScalar(A.m).addScaledVector(B.pos, B.m).multiplyScalar(1 / M);
-        const v = A.vel.clone().multiplyScalar(A.m).addScaledVector(B.vel, B.m).multiplyScalar(1 / M);
-        emitSparks(mid, A.color.clone().lerp(B.color, 0.5), 70, 3.2); spawnRing(mid, 0xffffff, visRadius(M) * 7);
-        const wasStar = big.star; big.m = M; big.pos.copy(mid); big.vel.copy(v);
-        removeBody(small); applyVisual(big);
-        if (!wasStar && M >= STAR_MASS) { spawnRing(mid, 0xffd27a, visRadius(M) * 11); emitSparks(mid, new THREE.Color(0xffd27a), 55, 4.2); }   // ignition
-        return true;                                   // bodies changed — bail the substep loop
+      _cn.subVectors(B.pos, A.pos); const d = _cn.length(), rs = visRadius(A.m) + visRadius(B.m);
+      if (d >= rs || d < 1e-6) continue;
+      _cn.multiplyScalar(1 / d);                                   // unit contact normal A→B
+      const vrel = _crv.subVectors(B.vel, A.vel).dot(_cn);
+      if (vrel < 0) {                                              // approaching → elastic impulse (restitution 1)
+        const jimp = -2 * vrel / (1 / A.m + 1 / B.m);
+        A.vel.addScaledVector(_cn, -jimp / A.m);
+        B.vel.addScaledVector(_cn, jimp / B.m);
       }
-    }
-    return false;
-  }
-  function grazeSparks() {                             // once per frame: sparks fly off near misses
-    for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
-      const A = bodies[i], B = bodies[j];
-      const d = A.pos.distanceTo(B.pos), rs = visRadius(A.m) + visRadius(B.m);
-      if (d >= rs * 0.8 && d < rs * 2.6) {
-        const sep = B.pos.clone().sub(A.pos), relv = B.vel.clone().sub(A.vel);
-        if (relv.dot(sep) < 0) {
-          const n = Math.min(4, Math.floor((1 - (d - rs * 0.8) / (rs * 1.8)) * relv.length() * 3));
-          if (n > 0) emitSparks(A.pos.clone().add(B.pos).multiplyScalar(0.5), A.color.clone().lerp(B.color, 0.5), n, 1.0 + relv.length());
-        }
-      }
+      const overlap = (rs - d) * 0.5;                              // separate so they don't stick / re-trigger
+      A.pos.addScaledVector(_cn, -overlap); B.pos.addScaledVector(_cn, overlap);
     }
   }
 
@@ -562,11 +504,9 @@ function boot() {
     updateEclipse();
     if (mode === 'running') {
       const dt = 0.001, sub = Math.max(1, Math.round(speed * 12));
-      for (let s = 0; s < sub; s++) { integrate(dt * timeScale); if (checkMerge()) break; }
+      for (let s = 0; s < sub; s++) { integrate(dt * timeScale); resolveCollisions(); }
       for (const b of bodies) { b.trail.push(b.pos.clone()); if (b.trail.length > TRAIL_MAX) b.trail.shift(); }
-      grazeSparks();
     }
-    updateFX(0.016);
     if (lensflare) { const s = bodies.find(b => b.star); if (s) { lensflare.position.copy(s.pos); lensflare.visible = true; } else lensflare.visible = false; }
     starUniforms.uTime.value += 0.016;      // boil the plasma + flicker the corona
     bodies.forEach(b => { applyVisual(b); updateTrail(b); b.mesh.rotation.y += 0.0025; });
@@ -613,17 +553,34 @@ function boot() {
     previewLine.geometry.setFromPoints(pts); previewLine.visible = true;
   }
 
+  // Multi-touch aware: 1 finger orbits / drags a planet, 2 fingers pinch-to-zoom.
+  const pointers = new Map();
+  let pinching = false, pinchStartDist = 0, pinchStartRadius = 0;
+  const pinchDist = () => { const p = [...pointers.values()]; return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); };
+
   canvas.addEventListener('pointerdown', (e) => {
-    const b = pickBody(e);                       // grab a planet anytime
-    if (b) {
-      if (mode === 'running') { mode = 'paused'; updateRun(); }   // grabbing pauses, so you can rearrange
-      dragBody = b; manualEdited = true; flickVel.set(0, 0, 0);
-      const n = camera.getWorldDirection(new THREE.Vector3()).negate();
-      dragPlane.setFromNormalAndCoplanarPoint(n, b.pos);
-    } else { orbiting = true; lastX = e.clientX; lastY = e.clientY; }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {                     // second finger → pinch-zoom; drop any orbit/drag
+      pinching = true; pinchStartDist = Math.max(1, pinchDist()); pinchStartRadius = camOrbit.radius;
+      dragBody = null; orbiting = false; aimArrow.visible = false; previewLine.visible = false; flickVel.set(0, 0, 0);
+    } else if (pointers.size === 1) {
+      const b = pickBody(e);                       // grab a planet anytime
+      if (b) {
+        if (mode === 'running') { mode = 'paused'; updateRun(); }   // grabbing pauses, so you can rearrange
+        dragBody = b; manualEdited = true; flickVel.set(0, 0, 0);
+        const n = camera.getWorldDirection(new THREE.Vector3()).negate();
+        dragPlane.setFromNormalAndCoplanarPoint(n, b.pos);
+      } else { orbiting = true; lastX = e.clientX; lastY = e.clientY; }
+    }
     try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (pointers.has(e.pointerId)) { const p = pointers.get(e.pointerId); p.x = e.clientX; p.y = e.clientY; }
+    if (pinching && pointers.size >= 2) {          // gentle pinch-zoom (exponent < 1 = less sensitive)
+      const dist = Math.max(1, pinchDist());
+      camOrbit.radius = Math.max(1.2, Math.min(120, pinchStartRadius * Math.pow(pinchStartDist / dist, 0.7)));
+      return;
+    }
     if (dragBody) {
       setNDC(e); raycaster.setFromCamera(ndc, camera);
       const hit = new THREE.Vector3();
@@ -643,15 +600,25 @@ function boot() {
     }
   });
   function endPointer(e) {
-    if (dragBody) {
+    const wasPinching = pinching;
+    pointers.delete(e.pointerId);
+    if (wasPinching) {
+      if (pointers.size < 2) {
+        pinching = false;
+        if (pointers.size === 1) {                 // one finger left → resume orbit from it, no jump
+          const rem = [...pointers.values()][0]; orbiting = true; lastX = rem.x; lastY = rem.y; velTheta = velPhi = 0;
+        }
+      }
+    } else if (dragBody) {
       const launch = flickVel.clone().multiplyScalar(THROW_GAIN); launch.clampLength(0, THROW_MAX);
-      if (launch.length() > THROW_MIN) {                 // a real flick → throw it and let it fly
+      if (launch.length() > THROW_MIN) {           // a real flick → throw it and let it fly
         dragBody.vel.copy(launch); manualEdited = false;
         if (mode !== 'running') { mode = 'running'; updateRun(); }
-      } else { dragBody.vel.set(0, 0, 0); }              // gentle drop → just placed
+      } else { dragBody.vel.set(0, 0, 0); }        // gentle drop → just placed
     }
+    if (pointers.size === 0) { dragBody = null; orbiting = false; }
     aimArrow.visible = false; previewLine.visible = false; flickVel.set(0, 0, 0);
-    dragBody = null; orbiting = false; canvas.style.cursor = 'default';
+    canvas.style.cursor = 'default';
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
   }
   canvas.addEventListener('pointerup', endPointer);
