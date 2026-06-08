@@ -163,25 +163,41 @@ function boot() {
       varying vec3 vPos; uniform float uTime;
       void main(){
         vec3 p=normalize(vPos);
-        float g = fbm(p*4.0 + vec3(0.0,0.0,uTime*0.15))*0.7 + fbm(p*9.0 - vec3(uTime*0.22))*0.4;
-        vec3 cool=vec3(0.85,0.20,0.02), hot=vec3(1.0,0.86,0.46);
-        vec3 col=mix(cool,hot, smoothstep(0.32,0.95,g));
-        col += pow(max(g-0.72,0.0),2.0)*vec3(1.3,0.95,0.55)*4.0;   // white-hot granule flecks
-        gl_FragColor=vec4(col*1.5, 1.0);
+        float g = fbm(p*4.5 + vec3(0.0,0.0,uTime*0.12))*0.72 + fbm(p*11.0 - vec3(uTime*0.2))*0.32;
+        g += (fbm(p*24.0 + vec3(uTime*0.3)) - 0.5) * 0.22;          // fine granulation cells
+        float spot = smoothstep(0.30, 0.18, fbm(p*2.6 + vec3(13.0)));  // darker sunspots → texture, not a smooth glow
+        vec3 deep=vec3(0.5,0.10,0.005), mid=vec3(1.0,0.42,0.06), hot=vec3(1.0,0.82,0.42);
+        vec3 col=mix(deep, mid, smoothstep(0.20,0.55,g));
+        col=mix(col, hot, smoothstep(0.6,0.96,g));
+        col += pow(max(g-0.8,0.0),2.0)*vec3(1.4,1.0,0.55)*5.0;      // white-hot active regions
+        col *= (1.0 - spot*0.72);
+        gl_FragColor=vec4(col*1.2, 1.0);
       }`,
   });
   const coronaMat = new THREE.ShaderMaterial({
-    uniforms: starUniforms, transparent: true, blending: THREE.AdditiveBlending, side: THREE.BackSide, depthWrite: false,
-    vertexShader: `varying vec3 vN; varying vec3 vP; varying vec3 vPos; void main(){ vN=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vP=mv.xyz; vPos=position; gl_Position=projectionMatrix*mv; }`,
-    fragmentShader: NOISE_GLSL + `
-      varying vec3 vN; varying vec3 vP; varying vec3 vPos; uniform float uTime;
+    uniforms: starUniforms, transparent: true, side: THREE.BackSide, depthWrite: false,   // normal blend → solid orange fire, not a washed-out additive glow
+    vertexShader: NOISE_GLSL + `
+      varying vec3 vN; varying vec3 vP; varying float vD; uniform float uTime;
       void main(){
-        float fres=pow(1.0-abs(dot(normalize(vN),normalize(-vP))),1.8);
-        vec3 p=normalize(vPos);
-        float flame=fbm(p*5.0 + vec3(0.0,uTime*0.6,0.0));   // flames lick upward over time
-        float a=fres*(0.35+0.85*flame);
-        vec3 col=mix(vec3(1.0,0.35,0.04), vec3(1.0,0.72,0.30), flame);
-        gl_FragColor=vec4(col, a*0.95);
+        vN=normalize(normalMatrix*normal);
+        vec3 n=normalize(position);
+        float w=fbm(n*3.0 + vec3(0.0,uTime*0.55,0.0));
+        float d=fbm(n*6.0 + vec3(w*1.9, uTime*1.15, w));   // flame height in this direction, flowing/flickering
+        vD=d;
+        vec3 pos = position + normal * pow(clamp(d,0.0,1.0),1.5) * 0.38;   // push the surface out into tongues
+        vec4 mv=modelViewMatrix*vec4(pos,1.0); vP=mv.xyz;
+        gl_Position=projectionMatrix*mv;
+      }`,
+    fragmentShader: `
+      varying vec3 vN; varying vec3 vP; varying float vD; uniform float uTime;
+      void main(){
+        vec3 N=normalize(vN), V=normalize(-vP);
+        float fres=pow(1.0-abs(dot(N,V)),1.2);
+        float flame=pow(clamp(vD,0.0,1.0), 2.0);
+        float a=smoothstep(0.2, 0.62, flame);                            // gaps between tongues → reads as flames, not a cloud
+        vec3 col=mix(vec3(0.72,0.07,0.0), vec3(1.0,0.42,0.04), flame);   // deep red ember → orange fire
+        col=mix(col, vec3(1.0,0.74,0.2), pow(flame,3.0)*0.5);            // a lick of yellow at the hottest tips
+        gl_FragColor=vec4(col, a);
       }`,
   });
 
@@ -283,7 +299,7 @@ function boot() {
     let cloud = null, ring = null;
     if (hasCloud) { cloud = cloudShell(); mesh.add(cloud); }                    // Earth → drifting clouds
     if (hasRing) { ring = ringSystem(); mesh.add(ring); }                       // ringed giant → ring system
-    const corona = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48), coronaMat);   // flames, shown only when this body is a star
+    const corona = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 96), coronaMat);   // flames (displaced), shown only when this body is a star
     corona.visible = false; scene.add(corona);
     const atmo = atmosphere(color); scene.add(atmo);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -328,7 +344,7 @@ function boot() {
     b.light.intensity = b.neutron ? 5.0 : (isStar ? (solarMode ? 3.0 : 6.5) : 0.45);   // softer Sun in solar mode; neutron is a hot blue key
     b.light.distance = (isStar || b.neutron) ? 160 : 70;
     b.mesh.position.copy(b.pos); b.mesh.scale.setScalar(r);
-    b.corona.position.copy(b.pos); b.corona.scale.setScalar(r * 1.42);
+    b.corona.position.copy(b.pos); b.corona.scale.setScalar(r * 1.62);   // flames lick further off the surface
     b.atmo.position.copy(b.pos); b.atmo.scale.setScalar(r * (b.photoreal ? 1.34 : 1.26));
     // light direction toward the dominant source (a star if present, else the key light), in view space
     _sunWorld.set(24, 20, 16);
@@ -342,8 +358,8 @@ function boot() {
     } else {
       b.atmo.material.uniforms.uColor.value.set(b.color.getHex());
     }
-    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (b.neutron ? 9 : (isStar ? (solarMode ? 2.8 : 4.6) : 6.5)));   // small star halo; neutron is a tight intense point
-    b.glow.material.opacity = b.neutron ? 0.5 : (isStar ? (solarMode ? 0.26 : 0.4) : 0.6);
+    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (b.neutron ? 9 : (isStar ? (solarMode ? 2.0 : 3.2) : 6.5)));   // smaller Sun halo → flames read, not glow
+    b.glow.material.opacity = b.neutron ? 0.5 : (isStar ? (solarMode ? 0.16 : 0.26) : 0.6);
     if (b.beams) { b.beams.position.copy(b.pos); b.beams.visible = true; }
     b.hit.position.copy(b.pos); b.hit.scale.setScalar(Math.max(r * 2.8, 0.55));
   }
