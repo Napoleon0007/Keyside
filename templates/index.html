@@ -273,6 +273,8 @@
   <script src="{{ url_for('static', filename='landing.js') }}"></script>
 
   <!-- REX — the AI oracle of the Rex Trueform world (self-contained widget) -->
+  <!-- Keep only the bottom-right orb; no launcher button in the top banner. -->
+  <script>window.REX_BOT_CONFIG = { navMount: null };</script>
   <script src="{{ url_for('static', filename='rex-bot.js') }}" defer></script>
 </body>
 </html>

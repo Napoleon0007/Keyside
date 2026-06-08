@@ -398,16 +398,17 @@ const PANELS = [
     renderer.setSize(w, h, false);
     const aspect = w / h;
     camera.aspect = aspect;
-    // On narrow / portrait screens (phones) the wide band overflows the screen —
-    // pull the camera back so the whole loop fits and reads smaller. Desktop
-    // (wide aspect) is unchanged.
-    let z = 385;
+    const tanHalf = Math.tan((camera.fov * Math.PI / 180) / 2);
+    const outerR = R + WIDTH;
     if (aspect < 1.05) {
-      const tanHalf = Math.tan((camera.fov * Math.PI / 180) / 2);
-      const outerR = R + WIDTH;
-      z = Math.max(z, (outerR * 1.12) / (aspect * tanHalf));
+      // phone / portrait: make it BIG — fill the width (a little side-spill is fine)
+      // and lift it so REX TRUEFORM sits in the loop's gap (~a third down the screen).
+      camera.position.z = outerR / (1.2 * aspect * tanHalf);
+      root.position.y = 0.34 * tanHalf * camera.position.z;
+    } else {
+      camera.position.z = 385;     // desktop unchanged
+      root.position.y = 46;
     }
-    camera.position.z = z;
     camera.updateProjectionMatrix();
   }
 
