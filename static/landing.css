@@ -112,19 +112,6 @@
   background: linear-gradient(135deg, #1a0a02 0%, #3a1402 55%, #ff5500 220%);
 }
 
-/* ---- Möbius mode (hero ring only) -------------------------------- */
-/* The band twists onto its own back, so the underside of every card must
-   stay visible as it turns edge-on; a faint orange rim keeps the ribbon
-   reading as one continuous twisting strip rather than floating tiles. */
-.disc-ring.mobius .disc-card {
-  backface-visibility: visible;
-  filter: brightness(.72) saturate(.95);
-  box-shadow: 0 0 0 1px rgba(255,85,0,.18), 0 18px 50px rgba(0,0,0,.55);
-}
-.disc-ring.mobius .disc-card.active {
-  filter: brightness(1.08) saturate(1.12);
-}
-
 .disc-card .card-label {
   position: absolute;
   left: 18px; right: 18px; bottom: 20px;
@@ -306,6 +293,61 @@
   z-index: 1;                       /* behind the ring; visible front cards pass over it */
   pointer-events: none;
   box-shadow: 0 0 0 1px rgba(255,85,0,.3), 0 0 70px rgba(255,85,0,.5);
+}
+
+/* ---- Möbius band (WebGL) — replaces the CSS card ring in the hero ---- */
+.hero-mobius {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;                /* loops over the logo medallion (z-index 1) */
+  display: block;
+  touch-action: pan-y;       /* vertical swipes scroll the page; drag spins the band */
+  cursor: grab;
+}
+.hero-mobius:active { cursor: grabbing; }
+.hero-mobius.is-grabbing { cursor: grabbing; }
+
+.mobius-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 5;                /* above the band, below the title */
+  pointer-events: none;
+}
+.mobius-label {
+  position: absolute;
+  transform: translate(-50%, -130%);
+  padding: 9px 16px;
+  border: 1px solid var(--orange, #ff5500);
+  border-radius: 999px;
+  background: rgba(8, 4, 2, .82);
+  box-shadow: 0 0 26px rgba(255, 85, 0, .45), inset 0 0 14px rgba(255, 85, 0, .12);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #fff;
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+.mobius-label.show { opacity: 1; }
+.mobius-label .kicker {
+  display: block;
+  font-family: 'Space Mono', monospace;
+  font-size: .56rem;
+  letter-spacing: .24em;
+  color: var(--orange, #ff5500);
+  margin-bottom: 3px;
+}
+.mobius-label .enter {
+  font-family: 'Space Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .14em;
+  color: var(--orange, #ff5500);
+  margin-left: 8px;
 }
 
 /* MEDICI + names overlaid near the top; never blocks the drag */

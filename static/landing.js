@@ -30,8 +30,6 @@
     var N = PANELS.length, STEP = 360 / N, cards = [];
     var drift = cfg.autoRevolve ? -0.10 : -0.04;   // camera-orbit speed when idle
 
-    if (cfg.mobius) ring.classList.add("mobius");
-
     function buildRing() {
       PANELS.forEach(function (p, i) {
         var card = document.createElement("div");
@@ -55,16 +53,7 @@
       ring.style.setProperty("--card-w", w + "px");
       ring.style.setProperty("--card-h", h + "px");
       cards.forEach(function (card, i) {
-        var u = i * STEP;
-        if (cfg.mobius) {
-          // Möbius band: each card sits on the loop (rotateY/translateZ) AND
-          // twists about its own tangent axis by half its angular position —
-          // 0°→180° across the loop, so the ribbon closes onto its own back.
-          card.style.transform =
-            "rotateY(" + u + "deg) translateZ(" + radius + "px) rotateX(" + (u / 2) + "deg)";
-        } else {
-          card.style.transform = "rotateY(" + u + "deg) translateZ(" + radius + "px)";
-        }
+        card.style.transform = "rotateY(" + (i * STEP) + "deg) translateZ(" + radius + "px)";
       });
     }
 
@@ -215,6 +204,6 @@
   }
 
   /* ---- Mounts ------------------------------------------------------- */
-  createDisc({ section: "#hero", ring: "#heroRing", sky: "#heroSky", autoRevolve: true, cardW: 230, spread: 1.7, mobius: true });
+  createDisc({ section: "#hero", ring: "#heroRing", sky: "#heroSky", autoRevolve: true, cardW: 230, spread: 1.7 });
   createDisc({ section: "#section-disc", ring: "#discRing", sky: "#discSky", autoRevolve: false });
 })();
