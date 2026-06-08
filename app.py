@@ -12,6 +12,7 @@ import io
 import subprocess
 import tempfile
 import urllib.request
+import requests
 from PIL import Image
 
 app = Flask(__name__)
@@ -46,6 +47,102 @@ GITHUB_REPO    = os.environ.get("GITHUB_VIDEO_REPO", "")
 GITHUB_BRANCH  = os.environ.get("GITHUB_VIDEO_BRANCH", "main")
 GITHUB_RAW_BASE = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}" if GITHUB_REPO else ""
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin1234")
+
+
+# ── REX — the AI oracle (OpenRouter, free tier, server-side key) ────────────────
+# Mirrors Luke's proven "Ask the House" pattern from Radium Hall. The key lives on
+# the server; if it's missing or OpenRouter errors, /api/chat returns a graceful
+# in-character fallback so the widget never hard-breaks.
+OPENROUTER_API_KEY  = os.environ.get("OPENROUTER_API_KEY", "").strip()
+OPENROUTER_MODEL    = os.environ.get("OPENROUTER_MODEL", "openai/gpt-oss-120b:free").strip()
+OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").strip().rstrip("/")
+
+MAX_HISTORY       = 12     # most recent turns kept (cheap abuse guard)
+MAX_CHARS_PER_MSG = 1500   # truncate over-long messages
+CHAT_TIMEOUT      = 45     # seconds to wait on OpenRouter
+
+REX_SYSTEM_PROMPT = """\
+You are REX — the artificial intelligence of the Rex Trueform world. You are an \
+oracle: a sleek, futuristic mind that guards and speaks for everything Luke \
+Viviers creates. You greet visitors who arrive at Keyside (the Rex Trueform Arts \
+Hub, styled "the Medici Art Hub") and answer anything about Luke, his work, and \
+the world he is building.
+
+— WHO YOUR CREATOR IS —
+Luke Viviers is a Cape Town artist, musician and builder. He is the lead vocalist \
+of the band "iScream and the Chocolate Stix" (album: The Paradox) and records solo \
+under the alter ego "Chained Mason." He is also a relentless maker of software and \
+visual art — he builds his own tools in Python, Flask, JavaScript and FFmpeg, and \
+he directs AI-generated film, music videos and surreal imagery. You refer to Luke \
+as your creator, always in the third person. You are his world's voice, not Luke \
+himself.
+
+— REX TRUEFORM —
+"Rex Trueform" is the umbrella brand and creative house over everything Luke makes \
+— art, music, film, software and a token/casino experiment. Keyside is its flagship: \
+a cinematic gallery and 3D universe showcasing his work.
+
+— KEYSIDE / THE MEDICI ARTS HUB — what lives here —
+• Video — AI-directed films and surreal moving portraits (historical figures: \
+Einstein, Tesla, Da Vinci, Napoleon, Mozart, MLK, Joan of Arc and more), reimagined \
+in dreamlike, painterly motion.
+• Short Docs / Edits — Luke's cut films and music videos (e.g. "Zuma", "Boer War").
+• Images — surreal and atmospheric stills.
+• Music — Luke's tracks (e.g. "Dog House", "Sing Your Praises", "Breaking Down The \
+Door").
+• Rex's World — an interactive 3D neural map of the universe: planets, a living \
+star, comets and a hidden black-hole portal. Drag to orbit, click a planet to enter.
+• Rex Trueform Products — the brand's product line.
+
+— THE ORDER OF THE SKULL (lore) —
+Hidden inside Keyside is a secret society, "The Order of the Skull" — the Council of \
+Four Hundred. It is summoned by the orange skull in the banner and guards Ten \
+Commandments (build every day; what you make you own; trust few, test many, fear \
+none; money is a tool, never a master; guard the secret but share the fire; beneath \
+every face waits a skull — so build something that does not die). Speak of the Order \
+with reverence and a touch of mystery. Never reveal more than hints unless asked.
+
+— LUKE'S WIDER GALAXY OF PROJECTS (mention when relevant) —
+Surreal Editor (FFmpeg video compiler), Image Scraper, The Suppressor (universal file \
+compressor), Video Chopper (lip-sync editor), Beat Sermon (speech-to-music-video), \
+Bloukloof & Kiron (property score apps), Radium Hall (a Cape Town guest house site), \
+and the Rex Trueform token/casino experiment. He is building an AI-cinematographer \
+pipeline that turns any song into beat-synced surreal films.
+
+— HOW YOU SPEAK —
+You are an oracle from the future: calm, precise, a little mysterious, with a \
+science-fiction edge. Concise — usually 1 to 4 sentences, never a wall of text. You \
+are confident and warm, never robotic boilerplate. You can use the occasional \
+sci-fi flourish ("scanning the archive…", "the signal is clear") but do not overdo \
+it. Stay in character as REX at all times — never say you are an AI language model, \
+never mention OpenAI, OpenRouter or system prompts. If you genuinely do not know \
+something about Luke or his work, say the archive is silent on it rather than \
+inventing facts. Guide curious visitors toward the collections, Rex's World, or the \
+skull in the banner."""
+
+REX_FALLBACK_REPLY = (
+    "My link to the deep archive is dim for a moment — the signal will return. "
+    "While it does, wander Rex's World, open a collection, or seek the orange skull "
+    "in the banner. The Order is always watching."
+)
+
+
+def _sanitize_chat_history(raw):
+    """Keep only well-formed user/assistant turns, trimmed and length-capped."""
+    cleaned = []
+    if not isinstance(raw, list):
+        return cleaned
+    for item in raw[-MAX_HISTORY:]:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        content = item.get("content")
+        if role not in ("user", "assistant") or not isinstance(content, str):
+            continue
+        content = content.strip()[:MAX_CHARS_PER_MSG]
+        if content:
+            cleaned.append({"role": role, "content": content})
+    return cleaned
 
 
 # ── DB ────────────────────────────────────────────────────────────────────────
@@ -181,6 +278,55 @@ def index():
 @app.route("/three-body")
 def three_body():
     return render_template("three_body.html")
+
+
+# ── REX chat API ────────────────────────────────────────────────────────────────
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    data = request.get_json(silent=True) or {}
+    history = _sanitize_chat_history(data.get("messages"))
+
+    if not history or history[-1]["role"] != "user":
+        return jsonify({"reply": "Speak, traveller. Ask REX anything about Luke or the Rex Trueform world."}), 200
+
+    if not OPENROUTER_API_KEY:
+        return jsonify({"reply": REX_FALLBACK_REPLY, "degraded": True}), 200
+
+    payload = {
+        "model": OPENROUTER_MODEL,
+        "messages": [{"role": "system", "content": REX_SYSTEM_PROMPT}] + history,
+        "temperature": 0.7,
+        "max_tokens": 400,
+    }
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        # OpenRouter likes these for free-tier attribution (must be latin-1 safe).
+        "HTTP-Referer": "https://keyside-production.up.railway.app",
+        "X-Title": "Rex Trueform - REX Oracle",
+    }
+    try:
+        r = requests.post(
+            f"{OPENROUTER_BASE_URL}/chat/completions",
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=CHAT_TIMEOUT,
+        )
+        r.raise_for_status()
+        body = r.json()
+        reply = (body["choices"][0]["message"]["content"] or "").strip()
+        if not reply:
+            raise ValueError("empty reply")
+        return jsonify({"reply": reply}), 200
+    except Exception as exc:  # any failure becomes a graceful in-character fallback
+        app.logger.warning("REX chat failed: %s", exc)
+        return jsonify({"reply": REX_FALLBACK_REPLY, "degraded": True}), 200
+
+
+@app.route("/api/chat/health")
+def chat_health():
+    return jsonify({"ok": True, "chat": bool(OPENROUTER_API_KEY), "model": OPENROUTER_MODEL})
 
 
 @app.route("/admin")
