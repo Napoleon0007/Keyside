@@ -173,7 +173,11 @@
 
 /* "REX TRUEFORM" title — longer than MEDICI, so size to fit and keep
    each word unbreakable (wraps cleanly between words on narrow screens). */
-.site-title.title-rex { font-size: clamp(46px, 9.5vw, 132px); }
+.site-title.title-rex {
+  font-size: clamp(46px, 9.5vw, 132px);
+  transform: perspective(900px) rotateX(11deg);   /* lean back so the extrusion reads 3D */
+  transform-origin: 50% 100%;
+}
 .hero-word { display: inline-block; white-space: nowrap; }
 
 /* ---- Orbit hero (top "first page") --------------------------------- */

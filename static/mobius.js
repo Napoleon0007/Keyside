@@ -85,7 +85,6 @@ const PANELS = [
 
     buildBand();
     buildEdge();
-    buildGroundGlow();
 
     bindControls();
     resize();
@@ -125,7 +124,7 @@ const PANELS = [
 
     const tex = buildTexture();
     const mat = new THREE.MeshPhysicalMaterial({
-      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.5,
+      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.32,
       side: THREE.DoubleSide, metalness: 0.25, roughness: 0.32,
       clearcoat: 1.0, clearcoatRoughness: 0.22,                 // glossy lacquer highlight
       iridescence: 1.0, iridescenceIOR: 1.35, iridescenceThicknessRange: [100, 600], // oil-slick shimmer
@@ -192,25 +191,6 @@ const PANELS = [
     }));
     bead.scale.set(11, 11, 1);
     spinner.add(bead);
-  }
-
-  // a soft glow-pool beneath the band, grounding it against the Zuma backdrop
-  function buildGroundGlow() {
-    const s = 256, c = document.createElement('canvas'); c.width = c.height = s;
-    const g = c.getContext('2d');
-    const rg = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
-    rg.addColorStop(0, 'rgba(255,110,30,0.55)');
-    rg.addColorStop(0.5, 'rgba(255,90,20,0.18)');
-    rg.addColorStop(1, 'rgba(255,90,20,0)');
-    g.fillStyle = rg; g.fillRect(0, 0, s, s);
-    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
-    }));
-    glow.scale.set(330, 120, 1);
-    glow.position.set(0, root.position.y - 86, -40);   // just below the loop, set back
-    glow.renderOrder = -1;
-    scene.add(glow);
   }
 
   function beadSprite() {
