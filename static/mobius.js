@@ -14,7 +14,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 const PANELS = [
   { label: "Rex's World", kicker: 'ENTER THE COSMOS', img: '/static/galaxies/andromeda.jpg', tint: '#ff7a2d', action: { type: 'scroll', sel: '#section-world' } },
   { label: 'Video',       kicker: 'MOTION',           img: '/static/video-thumbs/clouds.jpg',  tint: '#ff8a3d', action: { type: 'filter', val: 'video' } },
-  { label: 'Short Docs',  kicker: 'ARCHIVE',          img: '/static/video-thumbs/boer-war.jpg',tint: '#3da5ff', action: { type: 'filter', val: 'edit' } },
+  { label: 'Short Docs',  kicker: 'ARCHIVE',          img: '/static/video-thumbs/boer-commando.jpg', tint: '#3da5ff', action: { type: 'filter', val: 'edit' } },
   { label: 'Images',      kicker: 'STILLS',           img: '/static/galaxies/sombrero.jpg',    tint: '#8a6cff', action: { type: 'filter', val: 'image' } },
   { label: 'Music',       kicker: 'SOUND',            img: null, music: true,                  tint: '#2ad1ff', action: { type: 'filter', val: 'music' } },
   { label: 'Products',    kicker: 'REX TRUEFORM',     img: '/static/products/rex-casino.webp', tint: '#ff5500', action: { type: 'scroll', sel: '#products' } },
@@ -37,10 +37,10 @@ const PANELS = [
 
   // Geometry constants.
   const N = PANELS.length;
-  const R = 116;           // loop radius
-  const WIDTH = 40;        // half-width of the ribbon
-  const SEG_U = 240;       // segments around the loop (smoothness)
-  const SEG_V = 18;        // segments across the ribbon
+  const R = 146;           // loop radius — wide, spanning across the page
+  const WIDTH = 22;        // half-width of the ribbon — thin + streamlined
+  const SEG_U = 260;       // segments around the loop (smoothness)
+  const SEG_V = 16;        // segments across the ribbon
 
   let renderer, scene, camera, root, spinner, band, edge, raycaster, ndc;
   let inited = false, running = false, raf = 0;
@@ -59,8 +59,8 @@ const PANELS = [
     camera.position.set(0, 0, 330);
 
     root = new THREE.Group();
-    root.rotation.x = -0.92;        // tilt so the twist reads in 3D
-    root.position.y = 32;           // ride high — top of the band just under the hero top
+    root.rotation.x = -1.05;        // flatter tilt → wide, streamlined ribbon across the page
+    root.position.y = 34;           // ride high — top of the band just under the hero top
     scene.add(root);
     spinner = new THREE.Group();     // revolves around the loop axis
     root.add(spinner);
@@ -69,6 +69,9 @@ const PANELS = [
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const key = new THREE.DirectionalLight(0xffb070, 1.35); key.position.set(120, 160, 220); scene.add(key);
     const rim = new THREE.DirectionalLight(0x4aa0ff, 0.95); rim.position.set(-160, -80, -120); scene.add(rim);
+    // coloured point lights — speculars that paint colour across the glossy band
+    const pinkL = new THREE.PointLight(0xff2db8, 0.9, 0); pinkL.position.set(190, 70, 170); scene.add(pinkL);
+    const cyanL = new THREE.PointLight(0x2adfff, 0.9, 0); cyanL.position.set(-190, -30, 170); scene.add(cyanL);
 
     // environment — gives the glossy/metal surface something to reflect.
     try {
@@ -123,8 +126,8 @@ const PANELS = [
       map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.5,
       side: THREE.DoubleSide, metalness: 0.25, roughness: 0.32,
       clearcoat: 1.0, clearcoatRoughness: 0.22,                 // glossy lacquer highlight
-      iridescence: 0.75, iridescenceIOR: 1.3, iridescenceThicknessRange: [120, 480], // oil-slick shimmer
-      envMapIntensity: 0.9,
+      iridescence: 1.0, iridescenceIOR: 1.35, iridescenceThicknessRange: [100, 600], // oil-slick shimmer
+      envMapIntensity: 1.1,
     });
     band = new THREE.Mesh(geo, mat);
     spinner.add(band);
