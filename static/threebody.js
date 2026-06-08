@@ -541,6 +541,7 @@ function boot() {
     else PRESETS[name]();
     mode = 'setup';
     camOrbit.follow = -1; camTarget.set(0, 0, 0);
+    cinemaHomeR = camOrbit.radius; cinemaHomePhi = camOrbit.phi; idleFrames = 0;   // re-home the auto-cinema to this world's framing
     bodies.forEach(b => { b.trail.length = 0; applyVisual(b); });
     updateRun();
   }
@@ -600,18 +601,31 @@ function boot() {
   const camOrbit = { theta: 0.6, phi: 1.15, radius: 5, follow: -1 };
   const camTarget = new THREE.Vector3();
   let velTheta = 0, velPhi = 0;          // #4: fling inertia carried after you let go of a drag
+  // auto-cinema: when idle, the camera pans 360°, tilts, and dollies on its own.
+  let cinema = true, idleFrames = 0, _ct = 0, cinemaHomeR = 5, cinemaHomePhi = 1.0;
+  function wake() { idleFrames = 0; }    // any user input takes the wheel back
   function updateCamera() {
     // target eases to followed body, else to the system's centre of mass
     const t = new THREE.Vector3();
     if (camOrbit.follow >= 0 && bodies[camOrbit.follow]) t.copy(bodies[camOrbit.follow].pos);
     else { let M = 0; bodies.forEach(b => { t.addScaledVector(b.pos, b.m); M += b.m; }); if (M) t.multiplyScalar(1 / M); }
     camTarget.lerp(t, 0.06);
-    if (!orbiting && !dragBody) {          // glide on after a fling, then a gentle idle drift for constant parallax
+    if (!orbiting && !dragBody && !pinching) {   // glide on after a fling, then either auto-cinema or a gentle idle drift
       camOrbit.theta += velTheta;
       camOrbit.phi = Math.max(0.08, Math.min(Math.PI - 0.08, camOrbit.phi + velPhi));
       velTheta *= 0.93; velPhi *= 0.93;
-      camOrbit.theta += 0.0006;
-    }
+      idleFrames++;
+      if (cinema && idleFrames > 140) {          // engaged after ~2.3s of no input
+        _ct += 0.016;
+        camOrbit.theta += 0.0018;                                                   // slow continuous 360° pan
+        const tp = Math.max(0.18, Math.min(1.3, cinemaHomePhi + 0.3 * Math.sin(_ct * 0.25)));  // gentle tilt up/down
+        const tr = cinemaHomeR * (1 + 0.25 * Math.sin(_ct * 0.16));                  // dolly in close, then pull back
+        camOrbit.phi += (tp - camOrbit.phi) * 0.02;                                  // ease → smooth engage/disengage
+        camOrbit.radius += (tr - camOrbit.radius) * 0.02;
+      } else {
+        camOrbit.theta += 0.0006;                 // the original whisper-drift (cinema off or just settling)
+      }
+    } else { idleFrames = 0; }
     const sp = camOrbit.phi, st = camOrbit.theta, r = camOrbit.radius * eclipseZoom;
     camera.position.set(
       camTarget.x + r * Math.sin(sp) * Math.sin(st),
@@ -740,6 +754,7 @@ function boot() {
 
   canvas.addEventListener('pointerdown', (e) => {
     FX.init(); FX.resume();                        // first gesture unlocks audio (autoplay policy)
+    wake();                                         // hands on → pause the auto-cinema
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {                     // second finger → pinch-zoom; drop any orbit/drag
       pinching = true; pinchStartDist = Math.max(1, pinchDist()); pinchStartRadius = camOrbit.radius;
@@ -759,6 +774,7 @@ function boot() {
     if (pinching && pointers.size >= 2) {          // gentle pinch-zoom (exponent < 1 = less sensitive)
       const dist = Math.max(1, pinchDist());
       camOrbit.radius = Math.max(1.2, Math.min(120, pinchStartRadius * Math.pow(pinchStartDist / dist, 0.7)));
+      cinemaHomeR = camOrbit.radius;               // auto-cinema dollies around the user's chosen zoom
       return;
     }
     if (dragBody) {
@@ -807,9 +823,10 @@ function boot() {
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
+    wake();
     const b = pickBody(e);
     if (b) { b.m = Math.max(0.2, Math.min(40, b.m * (e.deltaY < 0 ? 1.12 : 0.89))); manualEdited = true; applyVisual(b); }
-    else { camOrbit.radius = Math.max(1.2, Math.min(120, camOrbit.radius * (e.deltaY < 0 ? 0.9 : 1.1))); }
+    else { camOrbit.radius = Math.max(1.2, Math.min(120, camOrbit.radius * (e.deltaY < 0 ? 0.9 : 1.1))); cinemaHomeR = camOrbit.radius; }
   }, { passive: false });
 
   canvas.addEventListener('dblclick', (e) => {
@@ -849,6 +866,7 @@ function boot() {
   $('grid') && $('grid').addEventListener('change', (e) => { showGrid = e.target.checked; });
   $('sound') && $('sound').addEventListener('click', () => { FX.init(); FX.resume(); const m = FX.toggleMute(); $('sound').innerHTML = m ? '&#128263;' : '&#128266;'; $('sound').classList.toggle('is-muted', m); });
   $('cinematic') && $('cinematic').addEventListener('change', (e) => { cinematic = e.target.checked; });
+  $('autocam') && $('autocam').addEventListener('change', (e) => { cinema = e.target.checked; wake(); });
 
   function clearWorldActive() {
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
