@@ -85,6 +85,7 @@ const PANELS = [
 
     buildBand();
     buildEdge();
+    buildGroundGlow();
 
     bindControls();
     resize();
@@ -136,7 +137,7 @@ const PANELS = [
       shader.uniforms.uHoverU = { value: -1 };
       shader.uniforms.uHoverAmt = { value: 0 };
       shader.uniforms.uLift = { value: 16 };
-      shader.vertexShader = 'uniform float uHoverU, uHoverAmt, uLift;\nvarying float vHover;\n' + shader.vertexShader;
+      shader.vertexShader = 'uniform float uHoverU, uHoverAmt, uLift;\nvarying float vHover;\nvarying float vViewZ;\n' + shader.vertexShader;
       shader.vertexShader = shader.vertexShader.replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
@@ -145,11 +146,22 @@ const PANELS = [
          vHover = g;
          transformed += normalize(objectNormal) * g * uLift;`
       );
-      shader.fragmentShader = 'varying float vHover;\n' + shader.fragmentShader;
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <project_vertex>',
+        '#include <project_vertex>\n         vViewZ = -mvPosition.z;'
+      );
+      shader.fragmentShader = 'varying float vHover;\nvarying float vViewZ;\n' + shader.fragmentShader;
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
          totalEmissiveRadiance += vec3(1.0, 0.55, 0.18) * vHover * 1.8;`
+      );
+      // depth fade — the far side of the loop recedes so the front reads clear
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <dithering_fragment>',
+        `#include <dithering_fragment>
+         float df = smoothstep(470.0, 210.0, vViewZ);
+         gl_FragColor.rgb *= mix(0.32, 1.0, df);`
       );
       mat.userData.shader = shader;
     };
@@ -180,6 +192,25 @@ const PANELS = [
     }));
     bead.scale.set(11, 11, 1);
     spinner.add(bead);
+  }
+
+  // a soft glow-pool beneath the band, grounding it against the Zuma backdrop
+  function buildGroundGlow() {
+    const s = 256, c = document.createElement('canvas'); c.width = c.height = s;
+    const g = c.getContext('2d');
+    const rg = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    rg.addColorStop(0, 'rgba(255,110,30,0.55)');
+    rg.addColorStop(0.5, 'rgba(255,90,20,0.18)');
+    rg.addColorStop(1, 'rgba(255,90,20,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, s, s);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
+    }));
+    glow.scale.set(330, 120, 1);
+    glow.position.set(0, root.position.y - 86, -40);   // just below the loop, set back
+    glow.renderOrder = -1;
+    scene.add(glow);
   }
 
   function beadSprite() {
