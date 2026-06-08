@@ -38,7 +38,7 @@ const PANELS = [
   // Geometry constants.
   const N = PANELS.length;
   const R = 158;           // loop radius — big, frames the title in its gap
-  const WIDTH = 26;        // half-width of the ribbon — broad enough to read the face
+  const WIDTH = 34;        // half-width of the ribbon — thick, so the images read clearly (it's a feature)
   const SEG_U = 260;       // segments around the loop (smoothness)
   const SEG_V = 16;        // segments across the ribbon
 
@@ -61,18 +61,16 @@ const PANELS = [
 
     root = new THREE.Group();
     root.rotation.x = -0.78;        // less edge-on → you see more of the band's broad face
-    root.position.y = 46;           // lifted up; the title sits in the loop's gap
+    root.position.y = 58;           // lifted up; the title sits in the loop's gap
     scene.add(root);
     spinner = new THREE.Group();     // revolves around the loop axis
     root.add(spinner);
 
     // lights — warm Rex orange key, cool rim, soft fill.
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const key = new THREE.DirectionalLight(0xffb070, 1.35); key.position.set(120, 160, 220); scene.add(key);
-    const rim = new THREE.DirectionalLight(0x4aa0ff, 0.95); rim.position.set(-160, -80, -120); scene.add(rim);
-    // coloured point lights — speculars that paint colour across the glossy band
-    const pinkL = new THREE.PointLight(0xff2db8, 0.9, 0); pinkL.position.set(190, 70, 170); scene.add(pinkL);
-    const cyanL = new THREE.PointLight(0x2adfff, 0.9, 0); cyanL.position.set(-190, -30, 170); scene.add(cyanL);
+    // neutral white light so the thumbnails stay true-colour (no tint filtering them)
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(120, 160, 220); scene.add(key);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.45); rim.position.set(-160, -80, -120); scene.add(rim);
 
     // environment — gives the glossy/metal surface something to reflect.
     try {
@@ -124,11 +122,11 @@ const PANELS = [
 
     const tex = buildTexture();
     const mat = new THREE.MeshPhysicalMaterial({
-      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.32,
-      side: THREE.DoubleSide, metalness: 0.25, roughness: 0.32,
-      clearcoat: 1.0, clearcoatRoughness: 0.22,                 // glossy lacquer highlight
-      iridescence: 1.0, iridescenceIOR: 1.35, iridescenceThicknessRange: [100, 600], // oil-slick shimmer
-      envMapIntensity: 1.1,
+      // matte + self-lit so the thumbnails read clear and true — no gloss, no
+      // iridescence, no reflections filtering the images.
+      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.65,
+      side: THREE.DoubleSide, metalness: 0.0, roughness: 0.85,
+      clearcoat: 0.0, iridescence: 0.0, envMapIntensity: 0.0,
     });
     // tactile hover — bulge the touched spot outward along its normal and make
     // it glow. Injected into the physical shader so it's GPU-cheap.
@@ -404,10 +402,10 @@ const PANELS = [
       // phone / portrait: make it BIG — fill the width (a little side-spill is fine)
       // and lift it so REX TRUEFORM sits in the loop's gap (~a third down the screen).
       camera.position.z = outerR / (1.2 * aspect * tanHalf);
-      root.position.y = 0.34 * tanHalf * camera.position.z;
+      root.position.y = 0.40 * tanHalf * camera.position.z;
     } else {
       camera.position.z = 385;     // desktop unchanged
-      root.position.y = 46;
+      root.position.y = 58;
     }
     camera.updateProjectionMatrix();
   }

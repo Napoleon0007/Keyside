@@ -56,7 +56,7 @@ async function boot(canvas) {
   root.add(core);
 
   // ── dotted surface: fibonacci sphere, kept on continent-like patches ──────
-  const N = 12000;
+  const N = 18000;
   const positions = [], colors = [];
   const cA = new THREE.Color(0x5ce0ff);  // electric neon cyan-blue
   const cB = new THREE.Color(0x2a72ff);  // vivid electric blue
@@ -127,7 +127,7 @@ async function boot(canvas) {
   root.add(atmo);
 
   // ── twinkling sparkle glints — each twinkles on the GPU; touch ignites them ──
-  const SPK = 1500, spkPos = [], spkPhase = [];
+  const SPK = 2200, spkPos = [], spkPhase = [];
   for (let i = 0; i < SPK; i++) {
     const u = (Math.sin(i * 12.9898) * 43758.5453) % 1, v = (Math.sin(i * 78.233) * 12543.123) % 1;
     const th = Math.abs(u) * Math.PI * 2, ph = Math.acos(2 * Math.abs(v) - 1), r = 1.012 + (Math.abs(u) * 0.01);
