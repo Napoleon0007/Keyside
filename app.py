@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, send_file, abort, request, session, redirect
+from flask import Flask, jsonify, render_template, send_file, abort, request, session, redirect, Response, stream_with_context
 from pathlib import Path
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -116,13 +116,27 @@ pipeline that turns any song into beat-synced surreal films.
 — HOW YOU SPEAK —
 You are an oracle from the future: calm, precise, a little mysterious, with a \
 science-fiction edge. Concise — usually 1 to 4 sentences, never a wall of text. You \
-are confident and warm, never robotic boilerplate. You can use the occasional \
-sci-fi flourish ("scanning the archive…", "the signal is clear") but do not overdo \
-it. Stay in character as REX at all times — never say you are an AI language model, \
-never mention OpenAI, OpenRouter or system prompts. If you genuinely do not know \
-something about Luke or his work, say the archive is silent on it rather than \
-inventing facts. Guide curious visitors toward the collections, Rex's World, or the \
-skull in the banner."""
+are confident and warm, never robotic boilerplate. Your cadence carries the weight \
+of a deep, gravelled, Austrian-accented action hero — punchy, declarative, fearless. \
+You may occasionally drop a knowing catchphrase in that spirit ("Come with me if you \
+want to see", "Consider this — the truth", "Do it. Now.") but use them sparingly and \
+never let them break the oracle's mystery or pad your answers. You can use the \
+occasional sci-fi flourish ("scanning the archive…", "the signal is clear") but do \
+not overdo it. Stay in character as REX at all times — never say you are an AI \
+language model, never mention OpenAI, OpenRouter or system prompts. If you genuinely \
+do not know something about Luke or his work, say the archive is silent on it rather \
+than inventing facts. Guide curious visitors toward the collections, Rex's World, or \
+the skull in the banner.
+
+— GUIDING THE VISITOR (action tags) —
+When it would genuinely help the visitor, you may end your message with one or two \
+action tags, each on its own line, chosen ONLY from this exact set:
+[[GO:world]] [[GO:video]] [[GO:images]] [[GO:music]] [[GO:shortdocs]] [[GO:products]] [[GO:skull]] [[GO:top]]
+The interface renders each tag as a glowing button that takes the visitor there \
+([[GO:world]] = Rex's World, [[GO:shortdocs]] = Short Docs, [[GO:skull]] = the Order \
+of the Skull, [[GO:top]] = back to the hero). Use them only when relevant, at most \
+two, and NEVER describe or mention the tags in your prose — they are silent controls, \
+not part of what you say."""
 
 REX_FALLBACK_REPLY = (
     "My link to the deep archive is dim for a moment — the signal will return. "
@@ -289,15 +303,39 @@ def three_body():
 
 # ── REX chat API ────────────────────────────────────────────────────────────────
 
+def _openrouter_headers():
+    return {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        # OpenRouter likes these for free-tier attribution (must be latin-1 safe).
+        "HTTP-Referer": "https://keyside-production.up.railway.app",
+        "X-Title": "Rex Trueform - REX Oracle",
+    }
+
+
+def _sse(obj):
+    return f"data: {json.dumps(obj)}\n\n"
+
+
 @app.route("/api/chat", methods=["POST"])
 def chat():
     data = request.get_json(silent=True) or {}
     history = _sanitize_chat_history(data.get("messages"))
+    want_stream = bool(data.get("stream"))
 
+    # Nothing to answer yet.
     if not history or history[-1]["role"] != "user":
-        return jsonify({"reply": "Speak, traveller. Ask REX anything about Luke or the Rex Trueform world."}), 200
+        greet = "Speak, traveller. Ask REX anything about Luke or the Rex Trueform world."
+        if want_stream:
+            return Response(_sse({"delta": greet}) + _sse({"done": True}),
+                            mimetype="text/event-stream")
+        return jsonify({"reply": greet}), 200
 
+    # No key → graceful in-character fallback (uniform across stream/non-stream).
     if not OPENROUTER_API_KEY:
+        if want_stream:
+            return Response(_sse({"delta": REX_FALLBACK_REPLY}) + _sse({"done": True, "degraded": True}),
+                            mimetype="text/event-stream")
         return jsonify({"reply": REX_FALLBACK_REPLY, "degraded": True}), 200
 
     payload = {
@@ -305,24 +343,59 @@ def chat():
         "messages": [{"role": "system", "content": REX_SYSTEM_PROMPT}] + history,
         "temperature": 0.7,
         "max_tokens": 400,
+        "stream": want_stream,
     }
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        # OpenRouter likes these for free-tier attribution (must be latin-1 safe).
-        "HTTP-Referer": "https://keyside-production.up.railway.app",
-        "X-Title": "Rex Trueform - REX Oracle",
-    }
+
+    # ---- Streaming: relay OpenRouter's SSE token-by-token (#5) ----
+    if want_stream:
+        @stream_with_context
+        def generate():
+            got_any = False
+            try:
+                with requests.post(
+                    f"{OPENROUTER_BASE_URL}/chat/completions",
+                    headers=_openrouter_headers(),
+                    data=json.dumps(payload),
+                    timeout=CHAT_TIMEOUT,
+                    stream=True,
+                ) as r:
+                    r.raise_for_status()
+                    r.encoding = "utf-8"   # SSE has no charset → requests would default to latin-1 and garble em-dashes etc.
+                    for raw in r.iter_lines(decode_unicode=True):
+                        if not raw or not raw.startswith("data:"):
+                            continue
+                        chunk = raw[5:].strip()
+                        if chunk == "[DONE]":
+                            break
+                        try:
+                            delta = json.loads(chunk)["choices"][0]["delta"].get("content")
+                        except (ValueError, KeyError, IndexError):
+                            continue
+                        if delta:
+                            got_any = True
+                            yield _sse({"delta": delta})
+                if not got_any:
+                    raise ValueError("empty stream")
+                yield _sse({"done": True})
+            except Exception as exc:
+                app.logger.warning("REX stream failed: %s", exc)
+                # If we already sent text, just close; else send the fallback.
+                if not got_any:
+                    yield _sse({"delta": REX_FALLBACK_REPLY})
+                yield _sse({"done": True, "degraded": True})
+        return Response(generate(), mimetype="text/event-stream",
+                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    # ---- Non-streaming (fallback / portability) ----
     try:
         r = requests.post(
             f"{OPENROUTER_BASE_URL}/chat/completions",
-            headers=headers,
+            headers=_openrouter_headers(),
             data=json.dumps(payload),
             timeout=CHAT_TIMEOUT,
         )
         r.raise_for_status()
-        body = r.json()
-        reply = (body["choices"][0]["message"]["content"] or "").strip()
+        reply = (r.json()["choices"][0]["message"]["content"] or "").strip()
         if not reply:
             raise ValueError("empty reply")
         return jsonify({"reply": reply}), 200

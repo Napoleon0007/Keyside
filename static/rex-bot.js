@@ -2,15 +2,17 @@
    REX — the AI oracle of the Rex Trueform world.
    A single, self-contained, drop-in chat widget. Injects its own styles + DOM.
 
+   Features: streaming replies, in-reply navigation buttons, suggested prompts,
+   a boot/awakening sequence, and voice (REX speaks + listens).
+
    To use on ANY site:
-     1. Expose a backend POST endpoint that takes {messages:[{role,content}...]}
-        and returns {reply: "..."}  (see /api/chat in Keyside's app.py).
+     1. Expose a POST endpoint that takes {messages:[{role,content}...], stream:bool}
+        and returns {reply:"..."} (or an SSE stream of {delta}/{done}). See /api/chat.
      2. Add:  <script src="rex-bot.js" defer></script>
      3. (optional) configure before the script loads:
           window.REX_BOT_CONFIG = {
-            endpoint: '/api/chat',     // where to POST
-            navMount: '.nav-right',    // selector to dock the nav launcher (optional)
-            greeting: '...'            // first-open line (optional)
+            endpoint:'/api/chat', navMount:'.nav-right',
+            greeting:'...', suggestions:[...], actions:{...}
           };
    The floating orb always appears; the nav button only appears if navMount exists.
    ========================================================================== */
@@ -27,8 +29,35 @@
     greeting:
       "I am REX — the intelligence of the Rex Trueform world. Ask me of Luke, " +
       "his art, his music, or the secrets hidden in this place.",
-    placeholder: "Transmit a question…"
+    placeholder: "Transmit a question…",
+    suggestions: [
+      "Who is Luke?",
+      "Take me to Rex's World",
+      "What is the Order of the Skull?",
+      "Show me the music"
+    ]
   }, window.REX_BOT_CONFIG || {});
+
+  /* ---- page-navigation actions REX can trigger via [[GO:tag]] ------------- */
+  function clickFilter(type) {
+    var b = document.querySelector('.filter-btn[data-type="' + type + '"]');
+    if (b) b.click();
+  }
+  function scrollTo(sel) {
+    var e = document.querySelector(sel);
+    if (e) { e.scrollIntoView({ behavior: "smooth", block: "start" }); return true; }
+    return false;
+  }
+  var ACTIONS = Object.assign({
+    world:     { label: "Enter Rex's World",       run: function () { clickFilter("world"); scrollTo("#section-world"); } },
+    video:     { label: "Open the Films",          run: function () { clickFilter("video"); scrollTo("#content"); } },
+    images:    { label: "Open the Images",         run: function () { clickFilter("image"); scrollTo("#content"); } },
+    music:     { label: "Open the Music",          run: function () { clickFilter("music"); scrollTo("#content"); } },
+    shortdocs: { label: "Open Short Docs",         run: function () { clickFilter("edit"); scrollTo("#content"); } },
+    products:  { label: "Rex Trueform Products",   run: function () { clickFilter("products"); scrollTo("#products"); } },
+    skull:     { label: "The Order of the Skull",  run: function () { var s = document.querySelector("#skullBtn"); if (s) s.click(); } },
+    top:       { label: "Back to the top",         run: function () { if (!scrollTo("#hero")) window.scrollTo({ top: 0, behavior: "smooth" }); } }
+  }, CFG.actions || {});
 
   /* ---------- styles ------------------------------------------------------- */
   var CSS = `
@@ -127,14 +156,17 @@
     background: conic-gradient(from 0deg, var(--rb-orange), var(--rb-cyan), transparent 70%, var(--rb-orange)) border-box;
     -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
     animation: rb-spin 6s linear infinite; }
+  .rexbot-sigil.rb-speaking .rb-core { animation: rb-speak .35s ease-in-out infinite; box-shadow:0 0 22px rgba(255,160,60,1); }
+  .rexbot-sigil.rb-speaking .rb-ring { animation-duration:1.6s; }
   .rexbot-titles { flex:1 1 auto; min-width:0; }
   .rexbot-title { font-size:18px; font-weight:700; letter-spacing:7px; color:#fff3e7; line-height:1;
     text-shadow:0 0 10px rgba(255,122,24,.7), 0 0 22px rgba(255,90,0,.4); animation: rb-flicker 7s infinite; }
   .rexbot-status { display:flex; align-items:center; gap:6px; margin-top:5px; font-size:9px; letter-spacing:2.5px; color:var(--rb-cyan); }
   .rexbot-status .rb-dot { width:6px; height:6px; border-radius:50%; background:#46f08a; box-shadow:0 0 8px #46f08a; animation: rb-pulse 1.8s ease-in-out infinite; }
-  .rexbot-x { flex:0 0 auto; width:30px; height:30px; border:1px solid rgba(255,122,24,.4); border-radius:8px;
-    background:transparent; color:var(--rb-hot); font-size:15px; cursor:pointer; line-height:1; transition: all .2s; }
-  .rexbot-x:hover { background:rgba(255,122,24,.18); color:#fff; border-color:var(--rb-orange); }
+  .rexbot-hbtn { flex:0 0 auto; width:30px; height:30px; border:1px solid rgba(255,122,24,.4); border-radius:8px;
+    background:transparent; color:var(--rb-hot); font-size:14px; cursor:pointer; line-height:1; transition: all .2s; display:grid; place-items:center; }
+  .rexbot-hbtn:hover { background:rgba(255,122,24,.18); color:#fff; border-color:var(--rb-orange); }
+  .rexbot-hbtn.rb-on { background:rgba(255,122,24,.22); color:#fff; border-color:var(--rb-orange); box-shadow:0 0 12px rgba(255,122,24,.5); }
 
   .rexbot-log { position:relative; z-index:4; flex:1 1 auto; overflow-y:auto; padding:16px 14px 6px;
     display:flex; flex-direction:column; gap:12px; scrollbar-width:thin; scrollbar-color: rgba(255,122,24,.5) transparent; }
@@ -153,9 +185,38 @@
   .rb-think i { width:7px; height:7px; border-radius:50%; background:var(--rb-orange); box-shadow:0 0 8px var(--rb-orange); animation: rb-bounce 1.2s infinite; }
   .rb-think i:nth-child(2){ animation-delay:.18s; } .rb-think i:nth-child(3){ animation-delay:.36s; }
 
+  /* suggested prompts + action buttons */
+  .rb-chips { align-self:stretch; display:flex; flex-wrap:wrap; gap:7px; margin-top:2px; }
+  .rb-chip {
+    cursor:pointer; font-family:'Space Mono', monospace; font-size:11px; color:var(--rb-cyan);
+    background:rgba(94,234,255,.07); border:1px solid rgba(94,234,255,.35); border-radius:999px; padding:7px 11px; transition:all .18s;
+  }
+  .rb-chip:hover { color:#fff; border-color:var(--rb-cyan); box-shadow:0 0 14px rgba(94,234,255,.35); background:rgba(94,234,255,.14); }
+  .rb-actions { align-self:flex-start; display:flex; flex-wrap:wrap; gap:8px; max-width:90%; }
+  .rb-action {
+    cursor:pointer; font-family:'Space Mono', monospace; font-size:11px; letter-spacing:.5px; color:#1a0a02; font-weight:700;
+    background: radial-gradient(circle at 40% 30%, var(--rb-hot), var(--rb-deep)); border:1px solid var(--rb-orange); border-radius:9px;
+    padding:8px 12px; box-shadow:0 0 16px rgba(255,122,24,.45); transition:all .18s; display:inline-flex; align-items:center; gap:6px;
+  }
+  .rb-action::before { content:"▸"; font-weight:700; }
+  .rb-action:hover { transform:translateY(-1px); box-shadow:0 0 26px rgba(255,122,24,.8); }
+
+  /* boot sequence */
+  .rexbot-boot { position:absolute; inset:0; z-index:6; display:flex; flex-direction:column; justify-content:center; gap:9px;
+    padding:0 30px; background:linear-gradient(180deg, rgba(8,5,8,.97), rgba(14,8,5,.99)); transition:opacity .5s ease; }
+  .rexbot-boot.rb-gone { opacity:0; pointer-events:none; }
+  .rb-boot-line { font-size:12px; letter-spacing:2px; color:var(--rb-hot); opacity:0; text-shadow:0 0 10px rgba(255,122,24,.5); }
+  .rb-boot-line.on { opacity:1; }
+  .rb-boot-line.cy { color:var(--rb-cyan); text-shadow:0 0 10px rgba(94,234,255,.6); font-size:13px; }
+  .rb-boot-bar { height:2px; margin-top:6px; background:linear-gradient(90deg, var(--rb-orange), var(--rb-cyan)); width:0; box-shadow:0 0 10px var(--rb-orange); transition:width 1.1s ease; }
+
   .rexbot-foot { position:relative; z-index:4; padding:12px; border-top:1px solid rgba(255,122,24,.28);
     background: linear-gradient(0deg, rgba(255,122,24,.07), transparent); }
   .rexbot-inputwrap { display:flex; align-items:flex-end; gap:8px; }
+  .rexbot-mic { flex:0 0 auto; width:44px; height:44px; border-radius:10px; cursor:pointer; border:1px solid rgba(255,122,24,.45);
+    background:rgba(0,0,0,.35); color:var(--rb-hot); font-size:16px; line-height:1; transition:all .18s; display:grid; place-items:center; }
+  .rexbot-mic:hover { border-color:var(--rb-orange); color:#fff; box-shadow:0 0 14px rgba(255,122,24,.4); }
+  .rexbot-mic.rb-listening { color:#fff; border-color:#ff3b3b; background:rgba(255,59,59,.18); box-shadow:0 0 18px rgba(255,59,59,.6); animation: rb-pulse 1s ease-in-out infinite; }
   .rexbot-input { flex:1 1 auto; resize:none; max-height:90px; min-height:42px; padding:11px 12px;
     font-family:'Space Mono', monospace; font-size:12.5px; line-height:1.4; color:var(--rb-ink);
     background:rgba(0,0,0,.4); border:1px solid rgba(255,122,24,.38); border-radius:10px; outline:none; transition: all .2s; }
@@ -170,6 +231,7 @@
 
   @keyframes rb-spin { to { transform: rotate(360deg); } }
   @keyframes rb-pulse { 0%,100%{ transform:scale(1); opacity:1; } 50%{ transform:scale(.9); opacity:.82; } }
+  @keyframes rb-speak { 0%,100%{ transform:scale(1); } 50%{ transform:scale(.74); } }
   @keyframes rb-float { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-7px); } }
   @keyframes rb-sweep { 0%{ transform:translateY(-100%); } 100%{ transform:translateY(280%); } }
   @keyframes rb-bounce { 0%,100%{ transform:translateY(0); opacity:.6; } 50%{ transform:translateY(-5px); opacity:1; } }
@@ -195,11 +257,22 @@
     var s = el("style"); s.id = "rexbot-style"; s.textContent = CSS;
     document.head.appendChild(s);
   }
+  var TAG_RE = /\[\[GO:(\w+)\]\]/g;
+  function stripTags(t) { return (t || "").replace(TAG_RE, "").replace(/\n{3,}/g, "\n\n").trim(); }
+  function liveText(t) { return (t || "").split("[[")[0].replace(/\s+$/, ""); } // hide tags + trailing partial while streaming
+  function extractTags(t) {
+    var out = [], m, seen = {};
+    TAG_RE.lastIndex = 0;
+    while ((m = TAG_RE.exec(t)) && out.length < 2) {
+      var k = m[1].toLowerCase();
+      if (ACTIONS[k] && !seen[k]) { seen[k] = 1; out.push(k); }
+    }
+    return out;
+  }
 
   /* ---------- build -------------------------------------------------------- */
   function build() {
     injectStyle();
-
     var root = el("div", "rexbot");
     document.body.appendChild(root);
 
@@ -211,6 +284,9 @@
       '<span class="rb-ring"></span><span class="rb-ring b"></span>' +
       '<span class="rb-core"></span><span class="rb-eye">REX</span>';
     root.appendChild(orb);
+
+    var hasSR = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    var hasTTS = ("speechSynthesis" in window);
 
     // panel
     var panel = el("div", "rexbot-panel");
@@ -224,11 +300,13 @@
           '<div class="rexbot-title">' + CFG.title + '</div>' +
           '<div class="rexbot-status"><span class="rb-dot"></span>' + CFG.status + '</div>' +
         '</div>' +
-        '<button class="rexbot-x" type="button" aria-label="Close">✕</button>' +
+        (hasTTS ? '<button class="rexbot-hbtn rexbot-voice" type="button" aria-label="Toggle REX voice" title="REX speaks">🔊</button>' : '') +
+        '<button class="rexbot-hbtn rexbot-x" type="button" aria-label="Close">✕</button>' +
       '</div>' +
       '<div class="rexbot-log" id="rexbotLog" aria-live="polite"></div>' +
       '<div class="rexbot-foot">' +
         '<div class="rexbot-inputwrap">' +
+          (hasSR ? '<button class="rexbot-mic" type="button" aria-label="Speak to REX" title="Speak to REX">🎙</button>' : '') +
           '<textarea class="rexbot-input" rows="1" placeholder="' + CFG.placeholder + '"></textarea>' +
           '<button class="rexbot-send" type="button" aria-label="Send">➤</button>' +
         '</div>' +
@@ -236,10 +314,13 @@
       '</div>';
     root.appendChild(panel);
 
-    var logEl = panel.querySelector(".rexbot-log");
-    var input = panel.querySelector(".rexbot-input");
+    var logEl   = panel.querySelector(".rexbot-log");
+    var input   = panel.querySelector(".rexbot-input");
     var sendBtn = panel.querySelector(".rexbot-send");
-    var closeBtn = panel.querySelector(".rexbot-x");
+    var closeBtn= panel.querySelector(".rexbot-x");
+    var sigil   = panel.querySelector(".rexbot-sigil");
+    var voiceBtn= panel.querySelector(".rexbot-voice");
+    var micBtn  = panel.querySelector(".rexbot-mic");
 
     // nav launcher (optional, portable)
     var navBtn = null;
@@ -252,82 +333,253 @@
       mount.appendChild(navBtn);
     }
 
-    /* ---------- state + logic ---------- */
-    var history = [];        // {role, content} for the API
-    var busy = false;
-    var greeted = false;
+    /* ---------- state ---------- */
+    var history = [];
+    var busy = false, greeted = false;
+    var voiceOn = false;
+    try { voiceOn = localStorage.getItem("rexbot_voice") === "1"; } catch (e) {}
+    if (voiceBtn && voiceOn) voiceBtn.classList.add("rb-on");
+    var audioCtx = null;
 
-    function open() {
-      panel.classList.add("rb-open");
-      orb.classList.add("rb-hidden");
-      try { sessionStorage.setItem("rexbot_open", "1"); } catch (e) {}
-      if (!greeted) { greeted = true; addMsg("rex", CFG.greeting, true); }
-      setTimeout(function () { input.focus(); }, 320);
+    /* ---------- voice: REX speaks ---------- */
+    var chosenVoice = null;
+    function pickVoice() {
+      if (chosenVoice) return chosenVoice;
+      var vs = (hasTTS && speechSynthesis.getVoices()) || [];
+      if (!vs.length) return null;
+      var prefer = ["Daniel", "Arthur", "Oliver", "Aaron", "Fred", "Rocko", "Reed", "Eddy", "Google UK English Male"];
+      for (var i = 0; i < prefer.length; i++) {
+        var v = vs.find(function (x) { return x.name.indexOf(prefer[i]) !== -1; });
+        if (v) { chosenVoice = v; return v; }
+      }
+      // else: any English male-ish, else first
+      chosenVoice = vs.find(function (x) { return /en[-_]/i.test(x.lang) && !/female|samantha|victoria|karen|moira|tessa/i.test(x.name); }) || vs[0];
+      return chosenVoice;
     }
-    function close() {
-      panel.classList.remove("rb-open");
-      orb.classList.remove("rb-hidden");
-      try { sessionStorage.setItem("rexbot_open", "0"); } catch (e) {}
+    function speak(text) {
+      if (!voiceOn || !hasTTS || !text) return;
+      try { speechSynthesis.cancel(); } catch (e) {}
+      var parts = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
+      parts.forEach(function (p, i) {
+        p = p.trim(); if (!p) return;
+        var u = new SpeechSynthesisUtterance(p);
+        var v = pickVoice(); if (v) u.voice = v;
+        u.rate = 0.86; u.pitch = 0.6; u.volume = 1;     // deep, slow, gravelled
+        if (i === 0) u.onstart = function () { sigil.classList.add("rb-speaking"); };
+        u.onend = function () { if (!speechSynthesis.speaking) sigil.classList.remove("rb-speaking"); };
+        try { speechSynthesis.speak(u); } catch (e) {}
+      });
+    }
+    if (hasTTS) {
+      // voices populate async on some browsers
+      speechSynthesis.onvoiceschanged = function () { chosenVoice = null; pickVoice(); };
+    }
+    if (voiceBtn) voiceBtn.addEventListener("click", function () {
+      voiceOn = !voiceOn;
+      voiceBtn.classList.toggle("rb-on", voiceOn);
+      try { localStorage.setItem("rexbot_voice", voiceOn ? "1" : "0"); } catch (e) {}
+      if (!voiceOn) { try { speechSynthesis.cancel(); } catch (e) {} sigil.classList.remove("rb-speaking"); }
+    });
+
+    /* ---------- voice: REX listens ---------- */
+    function toggleMic() {
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR || busy) return;
+      var rec = new SR();
+      rec.lang = "en-US"; rec.interimResults = true; rec.maxAlternatives = 1;
+      micBtn.classList.add("rb-listening");
+      rec.onresult = function (e) {
+        var t = "";
+        for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+        input.value = t; autosize();
+      };
+      rec.onerror = function () {};
+      rec.onend = function () {
+        micBtn.classList.remove("rb-listening");
+        if (input.value.trim()) send();
+      };
+      try { rec.start(); } catch (e) { micBtn.classList.remove("rb-listening"); }
+    }
+    if (micBtn) micBtn.addEventListener("click", toggleMic);
+
+    /* ---------- boot beeps ---------- */
+    function beep(freq, t0, dur) {
+      if (!audioCtx) return;
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime + t0);
+      g.gain.exponentialRampToValueAtTime(0.12, audioCtx.currentTime + t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + t0 + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(audioCtx.currentTime + t0); o.stop(audioCtx.currentTime + t0 + dur + 0.02);
     }
 
-    function addMsg(who, text, typeOn) {
+    /* ---------- rendering ---------- */
+    function scroll() { logEl.scrollTop = logEl.scrollHeight; }
+    function addMsg(who, text) {
       var m = el("div", "rb-msg " + who);
-      logEl.appendChild(m);
-      if (typeOn) typeText(m, text); else m.textContent = text;
-      scroll();
+      m.textContent = text || "";
+      logEl.appendChild(m); scroll();
       return m;
     }
-    function scroll() { logEl.scrollTop = logEl.scrollHeight; }
-
-    function typeText(node, text) {
-      // chunked reveal — fast enough to feel alive, never sluggish on long replies
+    function typeInto(node, text) {
       var i = 0, step = Math.max(1, Math.round(text.length / 90));
       (function tick() {
         i = Math.min(text.length, i + step);
-        node.textContent = text.slice(0, i);
-        scroll();
+        node.textContent = text.slice(0, i); scroll();
         if (i < text.length) setTimeout(tick, 16);
       })();
     }
-
     function showThinking() {
-      var t = el("div", "rb-think");
-      t.innerHTML = "<i></i><i></i><i></i>";
-      logEl.appendChild(t); scroll();
-      return t;
+      var t = el("div", "rb-think", "<i></i><i></i><i></i>");
+      logEl.appendChild(t); scroll(); return t;
+    }
+    function renderActions(full) {
+      var tags = extractTags(full);
+      if (!tags.length) return;
+      var row = el("div", "rb-actions");
+      tags.forEach(function (k) {
+        var b = el("button", "rb-action"); b.type = "button";
+        b.textContent = ACTIONS[k].label;
+        b.addEventListener("click", function () { close(); setTimeout(ACTIONS[k].run, 280); });
+        row.appendChild(b);
+      });
+      logEl.appendChild(row); scroll();
+    }
+    function showChips() {
+      if (!CFG.suggestions || !CFG.suggestions.length) return;
+      var row = el("div", "rb-chips");
+      CFG.suggestions.forEach(function (q) {
+        var c = el("button", "rb-chip"); c.type = "button"; c.textContent = q;
+        c.addEventListener("click", function () { row.remove(); input.value = q; send(); });
+        row.appendChild(c);
+      });
+      logEl.appendChild(row); scroll();
+    }
+    function hideChips() { var c = logEl.querySelector(".rb-chips"); if (c) c.remove(); }
+
+    /* ---------- streaming send ---------- */
+    async function streamInto(makeNode) {
+      var res = await fetch(CFG.endpoint, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history, stream: true })
+      });
+      if (!res.ok || !res.body) throw new Error("no stream");
+      var reader = res.body.getReader(), dec = new TextDecoder();
+      var buf = "", full = "", node = null;
+      for (;;) {
+        var r = await reader.read();
+        if (r.done) break;
+        buf += dec.decode(r.value, { stream: true });
+        var idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          var evt = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          var lines = evt.split("\n"), data = null;
+          for (var i = 0; i < lines.length; i++) if (lines[i].indexOf("data:") === 0) data = lines[i].slice(5).trim();
+          if (data == null) continue;
+          var p; try { p = JSON.parse(data); } catch (e) { continue; }
+          if (p.delta) {
+            if (!node) node = makeNode();
+            full += p.delta; node.textContent = liveText(full); scroll();
+          }
+        }
+      }
+      if (!full.trim()) throw new Error("empty");
+      return { full: full, node: node };
+    }
+
+    async function nonStream() {
+      var res = await fetch(CFG.endpoint, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history })
+      });
+      var d = await res.json();
+      return (d && d.reply) || "The archive is silent.";
     }
 
     async function send() {
       var text = input.value.trim();
       if (!text || busy) return;
-      busy = true; sendBtn.disabled = true;
+      busy = true; sendBtn.disabled = true; hideChips();
       input.value = ""; autosize();
-      addMsg("user", text, false);
+      addMsg("user", text);
       history.push({ role: "user", content: text });
 
       var think = showThinking();
+      var node = null, full = "";
       try {
-        var res = await fetch(CFG.endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history })
-        });
-        var data = await res.json();
-        var reply = (data && data.reply) || "The archive is silent.";
-        think.remove();
-        addMsg("rex", reply, true);
-        history.push({ role: "assistant", content: reply });
+        var out = await streamInto(function () { if (think.parentNode) think.remove(); return addMsg("rex", ""); });
+        node = out.node; full = out.full;
       } catch (e) {
-        think.remove();
-        addMsg("rex", "My signal to the deep archive was lost. Try once more.", true);
-      } finally {
-        busy = false; sendBtn.disabled = false; input.focus();
+        try {
+          full = await nonStream();
+          if (think.parentNode) think.remove();
+          node = addMsg("rex", "");
+        } catch (e2) {
+          if (think.parentNode) think.remove();
+          node = addMsg("rex", ""); full = "My signal to the deep archive was lost. Try once more.";
+        }
       }
+      if (think.parentNode) think.remove();
+      var clean = stripTags(full);
+      if (node) node.textContent = clean;
+      history.push({ role: "assistant", content: clean });
+      renderActions(full);
+      speak(clean);
+      busy = false; sendBtn.disabled = false; input.focus();
     }
 
     function autosize() {
       input.style.height = "auto";
       input.style.height = Math.min(90, input.scrollHeight) + "px";
+    }
+
+    /* ---------- boot / awaken sequence ---------- */
+    function runBoot(done) {
+      var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var ov = el("div", "rexbot-boot");
+      ov.innerHTML =
+        '<div class="rb-boot-line" data-i="0">▸ ESTABLISHING LINK…</div>' +
+        '<div class="rb-boot-line" data-i="1">▸ DECRYPTING ARCHIVE…</div>' +
+        '<div class="rb-boot-line cy" data-i="2">◉ ORACLE ONLINE</div>' +
+        '<div class="rb-boot-bar"></div>';
+      panel.appendChild(ov);
+      var lines = ov.querySelectorAll(".rb-boot-line");
+      var bar = ov.querySelector(".rb-boot-bar");
+      if (reduce) { ov.remove(); done(); return; }
+      try { beep(420, 0, 0.12); beep(620, 0.18, 0.12); beep(880, 0.95, 0.22); } catch (e) {}
+      setTimeout(function () { lines[0].classList.add("on"); bar.style.width = "40%"; }, 60);
+      setTimeout(function () { lines[1].classList.add("on"); bar.style.width = "75%"; }, 420);
+      setTimeout(function () { lines[2].classList.add("on"); bar.style.width = "100%"; }, 880);
+      setTimeout(function () { ov.classList.add("rb-gone"); }, 1320);
+      setTimeout(function () { ov.remove(); done(); }, 1820);
+    }
+
+    /* ---------- open / close ---------- */
+    function open() {
+      panel.classList.add("rb-open");
+      orb.classList.add("rb-hidden");
+      try { sessionStorage.setItem("rexbot_open", "1"); } catch (e) {}
+      if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+      if (audioCtx && audioCtx.state === "suspended") { try { audioCtx.resume(); } catch (e) {} }
+      if (!greeted) {
+        greeted = true;
+        runBoot(function () {
+          var g = addMsg("rex", ""); typeInto(g, CFG.greeting);
+          speak(CFG.greeting);
+          showChips();
+          setTimeout(function () { input.focus(); }, 200);
+        });
+      } else {
+        setTimeout(function () { input.focus(); }, 300);
+      }
+    }
+    function close() {
+      panel.classList.remove("rb-open");
+      orb.classList.remove("rb-hidden");
+      try { speechSynthesis.cancel(); } catch (e) {}
+      sigil.classList.remove("rb-speaking");
+      try { sessionStorage.setItem("rexbot_open", "0"); } catch (e) {}
     }
 
     /* ---------- events ---------- */
@@ -343,7 +595,6 @@
       if (e.key === "Escape" && panel.classList.contains("rb-open")) close();
     });
 
-    // restore last open state within the session
     try { if (sessionStorage.getItem("rexbot_open") === "1") open(); } catch (e) {}
   }
 
