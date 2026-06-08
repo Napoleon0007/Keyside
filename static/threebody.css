@@ -208,3 +208,43 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 
 
 /* glowing slider track */
 input[type=range] { box-shadow: 0 0 10px rgba(51,182,255,0.35); }
+
+/* sound toggle: dim when muted */
+#sound { font-size: 14px; }
+#sound.is-muted { opacity: 0.5; }
+
+/* best-effort iOS haptic switch — rendered (so the Taptic engine fires) but out of the way */
+.tb-haptic-sink { position: fixed; bottom: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
+
+/* ── one-time gesture coach (phone-first) ───────────────────────────────────── */
+.tb-coach {
+  position: fixed; inset: 0; z-index: 6; display: grid; place-items: center;
+  background: radial-gradient(ellipse at center, rgba(3,6,16,0.78), rgba(2,3,9,0.94));
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); padding: 24px;
+  animation: tbCoachIn 0.35s ease both;
+}
+.tb-coach[hidden] { display: none; }
+@keyframes tbCoachIn { from { opacity: 0; } to { opacity: 1; } }
+.tb-coach-card {
+  width: min(360px, 92vw); text-align: center;
+  background: linear-gradient(180deg, rgba(12,20,38,0.92), rgba(6,10,22,0.92));
+  border: 1px solid rgba(94,234,255,0.28); border-radius: 20px; padding: 26px 24px 22px;
+  box-shadow: 0 0 40px rgba(51,182,255,0.22), inset 0 0 0 1px rgba(94,234,255,0.08);
+}
+.tb-coach-orbs { display: flex; gap: 10px; justify-content: center; margin-bottom: 14px; }
+.tb-coach-orbs i { width: 16px; height: 16px; border-radius: 50%; display: block; }
+.tb-coach-orbs i:nth-child(1) { background: radial-gradient(circle at 35% 32%, #ffd6ad, var(--orange)); box-shadow: 0 0 14px rgba(255,85,0,0.7); }
+.tb-coach-orbs i:nth-child(2) { background: radial-gradient(circle at 35% 32%, #c7ecff, #33b6ff); box-shadow: 0 0 14px rgba(51,182,255,0.7); }
+.tb-coach-orbs i:nth-child(3) { background: radial-gradient(circle at 35% 32%, #e6d1ff, #b06bff); box-shadow: 0 0 14px rgba(176,107,255,0.7); }
+.tb-coach-card h2 {
+  margin: 0 0 16px; font-family: 'Bebas Neue', sans-serif; font-weight: 400;
+  font-size: 30px; letter-spacing: 0.06em; color: #fff;
+}
+.tb-coach-card ul { list-style: none; margin: 0 0 22px; padding: 0; text-align: left; }
+.tb-coach-card li {
+  font-family: 'Space Mono', monospace; font-size: 13px; line-height: 1.5; color: #cfe1ff;
+  padding: 9px 4px; border-bottom: 1px solid rgba(94,234,255,0.12);
+}
+.tb-coach-card li:last-child { border-bottom: 0; }
+.tb-coach-card li b { color: #fff; }
+.tb-coach-card .tb-run { width: 100%; padding: 12px; font-size: 14px; }

@@ -16,6 +16,24 @@
   <canvas id="sim"></canvas>
   <div class="tb-vignette" aria-hidden="true"></div>
   <div id="eclipseHud" class="tb-eclipse" aria-hidden="true"><span>&#9680; ECLIPSE</span></div>
+
+  <!-- best-effort iOS haptic: toggling a rendered switch taps the Taptic engine -->
+  <input id="iosHaptic" type="checkbox" switch class="tb-haptic-sink" tabindex="-1" aria-hidden="true">
+
+  <!-- one-time gesture coach (phone-first) -->
+  <div id="coach" class="tb-coach" hidden>
+    <div class="tb-coach-card">
+      <span class="tb-coach-orbs" aria-hidden="true"><i></i><i></i><i></i></span>
+      <h2>Play the cosmos</h2>
+      <ul>
+        <li><b>Drag</b> a planet to move it</li>
+        <li><b>Flick</b> a planet to launch it</li>
+        <li><b>Pinch</b> to zoom &middot; <b>drag space</b> to spin the view</li>
+        <li>Tap <b>&#9654; Run</b> to set them orbiting</li>
+      </ul>
+      <button id="coachOk" class="tb-btn tb-run" type="button">Got it</button>
+    </div>
+  </div>
   <div id="glfail" class="tb-glfail" hidden>
     <div style="max-width:420px;text-align:center;line-height:1.6">
       <p style="font-size:15px;color:#eaf2ff;margin:0 0 10px">This page needs WebGL, and your browser couldn't start it.</p>
@@ -67,6 +85,7 @@
     <button id="reset" class="tb-mini" type="button">&#8635; Reset</button>
     <button id="gear" class="tb-mini" type="button" aria-label="Settings">&#9881;</button>
     <button id="solBtn" class="tb-mini" type="button">&#10022; Solutions</button>
+    <button id="sound" class="tb-mini" type="button" aria-label="Sound">&#128266;</button>
   </div>
 
   <!-- settings popover (advanced, hidden) -->
@@ -139,6 +158,16 @@
       var hide = function () { hint.classList.add('gone'); };
       setTimeout(hide, 7000);
       document.getElementById('sim').addEventListener('pointerdown', hide, { once: true });
+
+      // one-time gesture coach — show on first visit, remember dismissal
+      var coach = document.getElementById('coach');
+      if (coach) {
+        var seen; try { seen = localStorage.getItem('tb_coach_seen'); } catch (e) { seen = '1'; }
+        if (!seen) coach.removeAttribute('hidden');
+        var dismiss = function () { coach.setAttribute('hidden', ''); try { localStorage.setItem('tb_coach_seen', '1'); } catch (e) {} };
+        document.getElementById('coachOk').addEventListener('click', dismiss);
+        coach.addEventListener('click', function (e) { if (e.target === coach) dismiss(); });
+      }
     })();
   </script>
 </body>

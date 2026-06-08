@@ -25,7 +25,7 @@ const CAT = {
 // Music = the fire cotton ball (Rex Trueform's signature). The deck is rotated by
 // the calendar day so the strip looks fresh — a different image leads each day.
 const DECK = [
-  { img: '/static/video-thumbs/cotton-ball-fire.jpg', cat: 'music' },     // fire cotton ball — Music
+  { img: '/static/video-thumbs/mercury-acid-trip.jpg', cat: 'music' },    // mercury / liquid-silver — Music
   { img: '/static/galaxies/andromeda.jpg',            cat: 'world' },
   { img: '/static/video-thumbs/einstein.jpg',         cat: 'edit' },
   { img: '/static/products/rex-casino.webp',          cat: 'products' },
@@ -34,7 +34,7 @@ const DECK = [
   { img: '/static/galaxies/whirlpool.jpg',            cat: 'image' },
   { img: '/static/products/the-suppressor.webp',      cat: 'products' },
   { img: '/static/video-thumbs/picasso.jpg',          cat: 'edit' },
-  { img: '/static/video-thumbs/mercury-acid-trip.jpg',cat: 'video' },
+  { img: '/static/video-thumbs/cotton-ball-fire.jpg', cat: 'video' },     // fire cotton ball
   { img: '/static/galaxies/sombrero.jpg',             cat: 'image' },
   { img: '/static/products/surreal-editor.webp',      cat: 'products' },
   { img: '/static/video-thumbs/mozart.jpg',           cat: 'edit' },

@@ -564,6 +564,7 @@ function boot() {
   const pinchDist = () => { const p = [...pointers.values()]; return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); };
 
   canvas.addEventListener('pointerdown', (e) => {
+    FX.init(); FX.resume();                        // first gesture unlocks audio (autoplay policy)
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {                     // second finger → pinch-zoom; drop any orbit/drag
       pinching = true; pinchStartDist = Math.max(1, pinchDist()); pinchStartRadius = camOrbit.radius;
@@ -652,6 +653,7 @@ function boot() {
   function readout() { const el = $('exploreReadout'); if (el && $('vx')) el.textContent = `v = (${(+$('vx').value).toFixed(3)}, ${(+$('vy').value).toFixed(3)})`; }
 
   $('run').addEventListener('click', () => {
+    FX.init(); FX.resume();
     if (mode === 'running') { mode = 'paused'; }
     else { if (manualEdited) { autoOrbit(); manualEdited = false; } mode = 'running'; }
     updateRun();
@@ -671,6 +673,7 @@ function boot() {
   $('grav').addEventListener('input', (e) => { G = +e.target.value; $('gravVal').textContent = G.toFixed(2); });
   $('trails').addEventListener('change', (e) => { showTrails = e.target.checked; });
   $('grid') && $('grid').addEventListener('change', (e) => { showGrid = e.target.checked; });
+  $('sound') && $('sound').addEventListener('click', () => { FX.init(); FX.resume(); const m = FX.toggleMute(); $('sound').innerHTML = m ? '&#128263;' : '&#128266;'; $('sound').classList.toggle('is-muted', m); });
   $('cinematic') && $('cinematic').addEventListener('change', (e) => { cinematic = e.target.checked; });
 
   document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => {
