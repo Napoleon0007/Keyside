@@ -332,15 +332,12 @@ async function init() {
   });
 
   content.innerHTML = '';
-  buildMusicSection(groups.musicMine);   // music first, up top (AI Music removed)
-  buildSection('edit', 'Short Docs', groups.edit,                 // short documentaries, just below music
+  // Only Short Docs remains as a content rail — Video, Images and Music were removed to
+  // keep phones from crashing. Browse the rest via the Explore card ring under Rex's World.
+  buildSection('edit', 'Short Docs', groups.edit,
     { src: loopUrl('pattern-hero.mp4'), poster: '/static/video-thumbs/pattern-acid.jpg' });  // Pattern Acid bg
-  buildSection('video', 'Video', groups.video,                    // Signal III bg behind the Video rail
-    { src: loopUrl('signal3-hero.mp4'), poster: '/static/video-thumbs/signal-iii.jpg' });
-  buildSection('image', 'Images', groups.image,                   // Clouds bg behind the Images rail
-    { src: loopUrl('clouds-hero.mp4'), poster: '/static/video-thumbs/clouds.jpg' });
 
-  countNum.textContent = videos.length;
+  countNum.textContent = groups.edit.length;
   applyTypeFilter(currentType);
 }
 
@@ -960,6 +957,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAppModa
 const HUB_OF = { video: 'video', edit: 'edits', image: 'images', music: 'music', products: 'products' };
 
 function applyTypeFilter(type) {
+  // Video/Images/Music rails were removed — if anything still asks for one of those,
+  // show everything instead of blanking the page.
+  const served = type === 'all' || type === 'world' || type === 'products'
+    || (type in HUB_OF) || !!document.querySelector(`.media-section[data-type="${type}"]`);
+  if (!served) type = 'all';
   currentType = type;
   document.querySelectorAll('.media-section').forEach(section => {
     const show = type === 'all' || section.dataset.type === type;

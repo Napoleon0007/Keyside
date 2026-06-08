@@ -11,13 +11,11 @@
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ---- Panels (mirror the filter bar) ------------------------------- */
+  // Video / Images / Music rails were removed, so the ring only offers what still exists.
   var PANELS = [
-    { label: "Rex's World", kicker: "ENTER THE COSMOS", img: "/static/galaxies/andromeda.jpg", action: { type: "scroll", sel: "#section-world" } },
-    { label: "Video",       kicker: "MOTION",            img: "/static/video-thumbs/clouds.jpg",   action: { type: "filter", val: "video" } },
-    { label: "Short Docs",  kicker: "ARCHIVE",           img: "/static/video-thumbs/boer-war.jpg", action: { type: "filter", val: "edit" } },
-    { label: "Images",      kicker: "STILLS",            img: "/static/galaxies/sombrero.jpg",     action: { type: "filter", val: "image" } },
-    { label: "Music",       kicker: "SOUND",             music: true,                              action: { type: "filter", val: "music" } },
-    { label: "Products",    kicker: "REX TRUEFORM",      img: "/static/products/rex-casino.webp",  action: { type: "scroll", sel: "#products" } }
+    { label: "Rex's World", kicker: "ENTER THE COSMOS", img: "/static/galaxies/andromeda.jpg",   action: { type: "scroll", sel: "#section-world" } },
+    { label: "Short Docs",  kicker: "ARCHIVE",          img: "/static/video-thumbs/boer-war.jpg", action: { type: "filter", val: "edit" } },
+    { label: "Products",    kicker: "REX TRUEFORM",     img: "/static/products/rex-casino.webp",  action: { type: "scroll", sel: "#products" } }
   ];
 
   /* ---- Disc factory -------------------------------------------------- */
@@ -205,4 +203,5 @@
 
   /* ---- Mounts ------------------------------------------------------- */
   createDisc({ section: "#hero", ring: "#heroRing", sky: "#heroSky", autoRevolve: true, cardW: 230, spread: 1.7 });
+  createDisc({ section: "#section-disc", ring: "#discRing", sky: "#discSky", autoRevolve: false });
 })();

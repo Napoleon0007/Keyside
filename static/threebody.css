@@ -220,6 +220,13 @@ input[type=range] { box-shadow: 0 0 10px rgba(51,182,255,0.35); }
 .tb-solar.active { color: #2a1606; border-color: transparent;
   background: linear-gradient(180deg, #ffe0a8, #ff9b3a); box-shadow: 0 0 22px rgba(255,140,40,0.6); }
 
+/* "Neutron Star" — a selectable world, styled blue-white */
+.tb-neutron { margin-bottom: 14px; border-color: rgba(150,200,255,0.5);
+  background: linear-gradient(180deg, rgba(24,40,70,0.55), rgba(12,22,42,0.55)); color: #cfe6ff; }
+.tb-neutron:hover { color: #fff; border-color: #9fd0ff; box-shadow: 0 0 18px rgba(120,180,255,0.5); }
+.tb-neutron.active { color: #08131f; border-color: transparent;
+  background: linear-gradient(180deg, #eaf4ff, #8fbcff); box-shadow: 0 0 22px rgba(140,190,255,0.65); }
+
 /* best-effort iOS haptic switch — rendered (so the Taptic engine fires) but out of the way */
 .tb-haptic-sink { position: fixed; bottom: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
 

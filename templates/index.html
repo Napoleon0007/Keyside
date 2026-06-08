@@ -65,10 +65,7 @@
     <div class="filter-scroll">
       <button class="filter-btn active" data-type="all">All</button>
       <button class="filter-btn" data-type="world">World</button>
-      <button class="filter-btn" data-type="video">Video</button>
       <button class="filter-btn" data-type="edit">Short Docs</button>
-      <button class="filter-btn" data-type="image">Images</button>
-      <button class="filter-btn" data-type="music">Music</button>
       <button class="filter-btn" data-type="products">Rex Trueform Products</button>
     </div>
     <div class="filter-count">
@@ -94,6 +91,19 @@
       <span>Your browser can't render the 3D world.</span>
     </div>
     <p class="world-hint">drag to orbit &middot; grab a planet &middot; click art to open &middot; &#x25B6; tour</p>
+  </section>
+
+  <!-- Explore Rex's Collections — spinning card-ring navigator, sits just below Rex's World -->
+  <section class="disc-section" id="section-disc" data-type="disc" aria-label="Explore the collections">
+    <div class="disc-head">
+      <h2 class="disc-title">Explore <span class="orange">Rex's</span> Collections</h2>
+    </div>
+    <canvas id="discSky" class="disc-sky"></canvas>
+    <div class="disc-stage">
+      <div class="disc-floor"></div>
+      <div class="disc-ring" id="discRing"></div>
+    </div>
+    <p class="disc-hint">drag to spin &middot; click a panel to enter</p>
   </section>
 
   <main class="content" id="content">

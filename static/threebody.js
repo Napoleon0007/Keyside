@@ -122,7 +122,7 @@ function boot() {
   })();
 
   // ── simulation state ────────────────────────────────────────────────────────
-  let G = 1.0, softening = 0.03, speed = 0.4, showTrails = true, solarMode = false;
+  let G = 1.0, softening = 0.03, speed = 0.4, showTrails = true, solarMode = false, systemMode = false;
   let solarRings = [], SOLAR_TEX = null;
   let mode = 'setup';                     // 'setup' | 'running' | 'paused'
   let bodies = [];
@@ -228,6 +228,25 @@ function boot() {
     }));
   }
 
+  // A neutron star: a tiny, blindingly blue-white core (no orange plasma).
+  const neutronMat = new THREE.MeshBasicMaterial({ color: 0xeaf4ff });
+  // Twin pulsar beams — two opposed cones on a tilted magnetic axis; the whole rig
+  // spins so the beams sweep the sky like a lighthouse.
+  function makeBeams() {
+    const grp = new THREE.Group(), axis = new THREE.Group();
+    axis.rotation.z = 0.42;                                   // magnetic axis tilted off the spin axis → it sweeps
+    const geo = new THREE.ConeGeometry(0.5, 5, 28, 1, true); geo.translate(0, -2.5, 0);   // apex at the star
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      vertexShader: 'varying float vY; void main(){ vY=position.y; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader: 'varying float vY; void main(){ float a=clamp((vY+5.0)/5.0,0.0,1.0); gl_FragColor=vec4(0.55,0.82,1.0, a*0.42); }',
+    });
+    const c1 = new THREE.Mesh(geo, mat), c2 = new THREE.Mesh(geo, mat); c2.rotation.x = Math.PI;
+    c1.frustumCulled = c2.frustumCulled = false;
+    axis.add(c1, c2); grp.add(axis); grp.renderOrder = 2;
+    return grp;
+  }
+
   function makeBody(x, y, z, vx, vy, vz, m, i, opts) {
     opts = opts || {};                   // opts lets the Solar System place arbitrary planets; 3-body presets pass none
     const color = opts.color != null ? opts.color : COLORS[i];
@@ -237,6 +256,7 @@ function boot() {
     const hasRing = opts.ring != null ? opts.ring : (i === 2);
     const hasCloud = opts.cloud != null ? opts.cloud : (i === 1);
     const noLight = !!opts.noLight;      // Solar planets skip their own point light (Sun lights them) → far cheaper on mobile
+    const neutron = !!opts.neutron;      // a neutron star: blue-white core + sweeping pulsar beams
     const mat = new THREE.MeshStandardMaterial({ map: tex, bumpMap: tex, bumpScale: 0.05, emissive: color, emissiveIntensity: 0.05,
       roughness: photoreal ? 0.48 : 0.62, metalness: photoreal ? 0.22 : 0.08,    // #2: lower roughness → a tight specular hotspot that travels as it spins
       envMap: envCube, envMapIntensity: photoreal ? 0.7 : 0.45 });               // #5: faint cosmic reflection
@@ -269,6 +289,8 @@ function boot() {
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     const light = new THREE.PointLight(color, 1.2, 80, 2);
     if (!noLight) mesh.add(light);
+    let beams = null;
+    if (neutron) { beams = makeBeams(); beams.visible = false; scene.add(beams); }
     scene.add(mesh); scene.add(glow);
 
     const line = new THREE.Line(new THREE.BufferGeometry(),
@@ -279,15 +301,15 @@ function boot() {
     const hit = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 12), new THREE.MeshBasicMaterial({ visible: false }));
     scene.add(hit);
 
-    return { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), m, idx: i, color: new THREE.Color(color), name, photoreal, rVis: opts.rVis || 0, mesh, mat, cloud, ring, corona, atmo, glow, line, light, hit, trail: [], star: null };
+    return { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), m, idx: i, color: new THREE.Color(color), name, photoreal, neutron, rVis: opts.rVis || 0, mesh, mat, cloud, ring, corona, atmo, glow, line, light, beams, hit, trail: [], star: null };
   }
 
   function clearBodies() {
-    bodies.forEach(b => scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit));
+    bodies.forEach(b => scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit, b.beams));
     bodies = [];
     solarRings.forEach(r => { scene.remove(r); r.geometry.dispose(); }); solarRings = [];
-    if (solarMode) grid.wells.material.opacity = 1.0;   // restore full well-glow for the 3-body sandbox
-    solarMode = false;
+    grid.wells.material.opacity = 1.0;     // restore full well-glow for the 3-body sandbox
+    solarMode = systemMode = false;
   }
 
   const _sunWorld = new THREE.Vector3(), _sunView = new THREE.Vector3();
@@ -296,15 +318,15 @@ function boot() {
     const isStar = b.m >= STAR_MASS;
     if (isStar !== b.star) {               // swap planet⇄star look only when it flips
       b.star = isStar;
-      b.mesh.material = isStar ? starSurfaceMat : b.mat;   // boiling-plasma shader vs textured planet
-      b.atmo.visible = !isStar;            // star uses the flame corona instead of the soft atmosphere shell
-      b.corona.visible = isStar;
+      b.mesh.material = b.neutron ? neutronMat : (isStar ? starSurfaceMat : b.mat);   // neutron core · plasma sun · textured planet
+      b.atmo.visible = !isStar && !b.neutron;   // star/neutron use corona/beams instead of the soft atmosphere shell
+      b.corona.visible = isStar && !b.neutron;  // neutron has no orange flame corona
       if (b.cloud) b.cloud.visible = !isStar;
       if (b.ring) b.ring.visible = !isStar;
-      b.glow.material.color.set(isStar ? 0xffc070 : b.color.getHex());
+      b.glow.material.color.set(b.neutron ? 0xcfe6ff : (isStar ? 0xffc070 : b.color.getHex()));
     }
-    b.light.intensity = isStar ? (solarMode ? 3.0 : 6.5) : 0.45;   // softer Sun in solar mode so the sheet + inner planets aren't blown out
-    b.light.distance = isStar ? 160 : 70;
+    b.light.intensity = b.neutron ? 5.0 : (isStar ? (solarMode ? 3.0 : 6.5) : 0.45);   // softer Sun in solar mode; neutron is a hot blue key
+    b.light.distance = (isStar || b.neutron) ? 160 : 70;
     b.mesh.position.copy(b.pos); b.mesh.scale.setScalar(r);
     b.corona.position.copy(b.pos); b.corona.scale.setScalar(r * 1.42);
     b.atmo.position.copy(b.pos); b.atmo.scale.setScalar(r * (b.photoreal ? 1.34 : 1.26));
@@ -320,8 +342,9 @@ function boot() {
     } else {
       b.atmo.material.uniforms.uColor.value.set(b.color.getHex());
     }
-    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (isStar ? (solarMode ? 2.8 : 4.6) : 6.5));   // small star halo so neighbouring planets stay visible
-    b.glow.material.opacity = isStar ? (solarMode ? 0.26 : 0.4) : 0.6;   // dim the star's glow a lot (it was washing planets out)
+    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (b.neutron ? 9 : (isStar ? (solarMode ? 2.8 : 4.6) : 6.5)));   // small star halo; neutron is a tight intense point
+    b.glow.material.opacity = b.neutron ? 0.5 : (isStar ? (solarMode ? 0.26 : 0.4) : 0.6);
+    if (b.beams) { b.beams.position.copy(b.pos); b.beams.visible = true; }
     b.hit.position.copy(b.pos); b.hit.scale.setScalar(Math.max(r * 2.8, 0.55));
   }
 
@@ -443,7 +466,7 @@ function boot() {
     scene.add(ring); solarRings.push(ring);
   }
   function solarSystem() {
-    G = 1; softening = 0.02; clearBodies(); solarMode = true;
+    G = 1; softening = 0.02; clearBodies(); solarMode = true; systemMode = true;
     grid.wells.material.opacity = 0.5;        // dim the warm well-glow so the Sun's funnel doesn't flood the scene
     const T = solarTextures(), MSUN = 42;      // dominant (≥17× any planet) → planets stay calm, but a shallower/narrower well
     // name, texture, colour, orbit radius, mass (≪ Sun), visual radius, ring?, photoreal?
@@ -478,10 +501,42 @@ function boot() {
     if ($('speed')) { $('speed').value = speed; $('speedVal').textContent = speed.toFixed(1) + '×'; }
   }
 
+  // ── a neutron star + tight, fast-whipping companions ─────────────────────────────
+  //    A tiny ultra-dense core (huge mass, sweeping pulsar beams) the worlds race
+  //    around — extreme gravity made visible. Same honest physics: drag one out and
+  //    only its orbit is wrecked.
+  function neutronStar() {
+    G = 1; softening = 0.02; clearBodies(); systemMode = true;
+    grid.wells.material.opacity = 0.5;
+    const T = solarTextures(), MNS = 70;     // tiny radius, enormous mass → blistering close orbits
+    const ns = makeBody(0, 0, 0, 0, 0, 0, MNS, 0, { name: 'Neutron Star', color: 0xbcd8ff, tex: null, rVis: 0.24, neutron: true });
+    bodies = [ns];
+    const defs = [
+      ['Inner',  T.mars,    0xd0683a, 1.5, 0.25, 0.16, false],
+      ['Middle', T.earth,   0x6fb3ff, 2.4, 0.30, 0.20, true ],
+      ['Outer',  T.jupiter, 0xcaa37a, 3.6, 0.60, 0.32, false],
+    ];
+    let px = 0, pz = 0;
+    defs.forEach((d, k) => {
+      const [name, tex, color, dist, mass, rVis, photoreal] = d;
+      const ang = k * 2.1 + 0.5;
+      const x = Math.cos(ang) * dist, z = Math.sin(ang) * dist;
+      const v = Math.sqrt(G * MNS / dist);
+      bodies.push(makeBody(x, 0, z, -Math.sin(ang) * v, 0, Math.cos(ang) * v, mass, k + 1, { name, tex, color, rVis, photoreal, cloud: photoreal, noLight: true }));
+      px += mass * (-Math.sin(ang) * v); pz += mass * (Math.cos(ang) * v);
+      addOrbitRing(dist);
+    });
+    ns.vel.set(-px / MNS, 0, -pz / MNS);
+    const portrait = canvas.clientHeight > canvas.clientWidth;
+    camOrbit.radius = portrait ? 20 : 13; camOrbit.phi = 0.92; camOrbit.theta = 0.6;
+    speed = 2.5; if ($('speed')) { $('speed').value = speed; $('speedVal').textContent = speed.toFixed(1) + '×'; }
+  }
+
   let currentPreset = 'figure-8';
   function loadPreset(name) {
     if (name === 'explore') symmetric(+$('vx').value, +$('vy').value);
     else if (name === 'solar') solarSystem();
+    else if (name === 'neutron') neutronStar();
     else if (SYM[name]) { symmetric(SYM[name][0], SYM[name][1]); if ($('vx')) { $('vx').value = SYM[name][0]; $('vy').value = SYM[name][1]; readout(); } }
     else PRESETS[name]();
     mode = 'setup';
@@ -622,12 +677,12 @@ function boot() {
       const dt = 0.001, sub = Math.max(1, Math.round(speed * 12));
       for (let s = 0; s < sub; s++) integrate(dt * timeScale);
       for (const b of bodies) { b.trail.push(b.pos.clone()); if (b.trail.length > TRAIL_MAX) b.trail.shift(); }
-      if (!solarMode) checkSlingshots();   // planets sitting near the Sun aren't slingshots — skip the whoosh
+      if (!systemMode) checkSlingshots();   // placed-orbit scenarios aren't slingshots — skip the whoosh
 
     }
     if (lensflare) { const s = bodies.find(b => b.star); if (s) { lensflare.position.copy(s.pos); lensflare.visible = true; } else lensflare.visible = false; }
     starUniforms.uTime.value += 0.016;      // boil the plasma + flicker the corona
-    bodies.forEach(b => { applyVisual(b); updateTrail(b); b.mesh.rotation.y += 0.0025; });
+    bodies.forEach(b => { applyVisual(b); updateTrail(b); b.mesh.rotation.y += 0.0025; if (b.beams) b.beams.rotation.y += 0.05; });
     grid.lines.visible = grid.surface.visible = grid.wells.visible = showGrid;
     if (showGrid) grid.update(bodies);
     updateCamera();
@@ -772,7 +827,7 @@ function boot() {
   $('run').addEventListener('click', () => {
     FX.init(); FX.resume();
     if (mode === 'running') { mode = 'paused'; }
-    else { if (manualEdited && !solarMode) { autoOrbit(); manualEdited = false; } mode = 'running'; }   // solar: keep the real orbits, don't auto-swirl
+    else { if (manualEdited && !systemMode) { autoOrbit(); manualEdited = false; } mode = 'running'; }   // placed scenarios: keep the real orbits, don't auto-swirl
     updateRun();
   });
   $('reset').addEventListener('click', () => loadPreset(currentPreset));
@@ -793,20 +848,26 @@ function boot() {
   $('sound') && $('sound').addEventListener('click', () => { FX.init(); FX.resume(); const m = FX.toggleMute(); $('sound').innerHTML = m ? '&#128263;' : '&#128266;'; $('sound').classList.toggle('is-muted', m); });
   $('cinematic') && $('cinematic').addEventListener('change', (e) => { cinematic = e.target.checked; });
 
-  document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => {
+  function clearWorldActive() {
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
     $('solarBtn') && $('solarBtn').classList.remove('active');
+    $('neutronBtn') && $('neutronBtn').classList.remove('active');
+  }
+  document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => {
+    clearWorldActive();
     btn.classList.add('active'); currentPreset = btn.dataset.preset; loadPreset(currentPreset);
   }));
-  // Our Solar System — a selectable "world" that loads the Sun + 8 planets and runs straight away
-  $('solarBtn') && $('solarBtn').addEventListener('click', () => {
+  // Selectable "worlds" that load a whole system and run straight away
+  function loadWorld(id, btnId) {
     FX.init(); FX.resume();
-    document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
-    $('solarBtn').classList.add('active');
-    currentPreset = 'solar'; loadPreset('solar');
+    clearWorldActive();
+    $(btnId) && $(btnId).classList.add('active');
+    currentPreset = id; loadPreset(id);
     mode = 'running'; updateRun();
     $('solutions').setAttribute('hidden', '');
-  });
+  }
+  $('solarBtn') && $('solarBtn').addEventListener('click', () => loadWorld('solar', 'solarBtn'));
+  $('neutronBtn') && $('neutronBtn').addEventListener('click', () => loadWorld('neutron', 'neutronBtn'));
   function explore() {
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
     currentPreset = 'explore'; readout(); loadPreset('explore');
