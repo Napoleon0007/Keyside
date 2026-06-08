@@ -89,6 +89,7 @@ html, body {
 .tb-pop {
   position: fixed; left: 50%; bottom: 78px; transform: translateX(-50%); z-index: 4;
   width: 300px; padding: 14px 16px; border-radius: 14px;
+  max-height: calc(100vh - 96px); overflow-y: auto;   /* scroll if the panel is taller than the screen */
   background: var(--panel); border: 1px solid var(--border);
   -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: 0 22px 56px rgba(0,0,0,0.55);
 }
