@@ -483,9 +483,10 @@ function buildMusicSection(mine /* ai, introSrc removed — AI Music section tak
   section.id = 'section-music';
   section._cfs = [];
 
-  // Zuma music-video loop behind everything so the section reads as one dark cinematic
+  // Cotton Ball Fire loop behind everything so the section reads as one dark cinematic
   // space. Poster paints instantly; the clip is kicked into playing by attachSectionBg.
-  attachSectionBg(section, loopUrl('zuma-hero.mp4'), '/static/video-thumbs/zuma.jpg');
+  // Served from our own /static (guaranteed present) rather than the loop CDN.
+  attachSectionBg(section, '/static/covers/cotton-ball-fire.mp4', '/static/video-thumbs/cotton-ball-fire.jpg');
 
   const head = document.createElement('div');
   head.className = 'section-head';
