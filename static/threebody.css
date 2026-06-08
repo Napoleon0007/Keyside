@@ -13,6 +13,14 @@ html, body {
 }
 #sim { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; z-index: 0; }
 .tb-glfail { position: fixed; inset: 0; display: grid; place-items: center; z-index: 5; color: #9fc4e8; }
+.tb-glfail[hidden] { display: none; }   /* author display:grid otherwise overrides the [hidden] attribute */
+
+/* cinematic eclipse overlay — vignette + HUD tag, opacity driven from JS */
+.tb-eclipse { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at center, rgba(2,4,12,0) 42%, rgba(2,4,12,0.5) 100%); }
+.tb-eclipse span { position: absolute; left: 50%; top: 15%; transform: translateX(-50%);
+  font-family: 'Space Mono', monospace; font-weight: 700; letter-spacing: 0.42em; font-size: 12px;
+  color: #ffd9a8; text-shadow: 0 0 16px rgba(255,120,30,0.85), 0 0 4px rgba(255,90,0,0.9); white-space: nowrap; }
 
 /* Top bar */
 .tb-top {
@@ -130,3 +138,61 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 
   .tb-pop, .tb-pop-wide { width: calc(100vw - 24px); }
   .tb-dock { flex-wrap: wrap; justify-content: center; width: calc(100vw - 24px); border-radius: 16px; }
 }
+
+/* ═══ #5 — futuristic glass control deck ════════════════════════════════════ */
+
+/* Deeper glass + a live neon edge-glow on the dock and popovers */
+.tb-dock, .tb-pop {
+  background:
+    linear-gradient(180deg, rgba(40,60,96,0.16), rgba(8,11,20,0)) ,
+    rgba(7,10,18,0.74);
+  -webkit-backdrop-filter: blur(20px) saturate(1.25); backdrop-filter: blur(20px) saturate(1.25);
+  border-color: rgba(94,234,255,0.34);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.6), 0 0 22px rgba(51,182,255,0.14), inset 0 1px 0 rgba(180,230,255,0.18);
+}
+/* thin shimmering scanlines inside the panels */
+.tb-dock::after, .tb-pop::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(140,200,255,0.05) 0 1px, transparent 1px 4px);
+  opacity: 0.5; mix-blend-mode: screen;
+}
+/* HUD corner brackets on the rectangular popovers */
+.tb-pop::before {
+  content: ''; position: absolute; inset: 7px; border-radius: 10px; pointer-events: none; opacity: 0.7;
+  background:
+    linear-gradient(var(--neon),var(--neon)) left top/16px 2px no-repeat,
+    linear-gradient(var(--neon),var(--neon)) left top/2px 16px no-repeat,
+    linear-gradient(var(--orange),var(--orange)) right top/16px 2px no-repeat,
+    linear-gradient(var(--orange),var(--orange)) right top/2px 16px no-repeat,
+    linear-gradient(var(--orange),var(--orange)) left bottom/16px 2px no-repeat,
+    linear-gradient(var(--orange),var(--orange)) left bottom/2px 16px no-repeat,
+    linear-gradient(var(--neon),var(--neon)) right bottom/16px 2px no-repeat,
+    linear-gradient(var(--neon),var(--neon)) right bottom/2px 16px no-repeat;
+  filter: drop-shadow(0 0 4px rgba(94,234,255,0.5));
+}
+
+/* Angular HUD buttons (notched corners) with an edge-light sweep on hover */
+.tb-btn, .preset {
+  position: relative; overflow: hidden; border-color: rgba(94,234,255,0.4);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  box-shadow: inset 0 0 0 1px rgba(94,234,255,0.16), inset 0 1px 0 rgba(190,235,255,0.12);
+}
+.tb-btn::after, .preset::after {
+  content: ''; position: absolute; top: 0; left: -120%; width: 60%; height: 100%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(180,230,255,0.35), transparent);
+  transition: left 0.5s ease;
+}
+.tb-btn:hover::after, .preset:hover::after { left: 130%; }
+.tb-btn:hover, .preset:hover { box-shadow: 0 0 18px rgba(94,234,255,0.4), inset 0 0 0 1px rgba(94,234,255,0.45); transform: translateY(-1px); }
+.tb-mini { transition: 0.18s; }
+.tb-mini:hover { transform: translateY(-1px); }
+
+/* The Run button: a living, breathing neon capsule */
+.tb-run { animation: tbRunPulse 2.6s ease-in-out infinite; }
+.tb-run.is-running { animation: tbRunPulseCyan 2.6s ease-in-out infinite; }
+@keyframes tbRunPulse { 0%,100% { box-shadow: 0 0 22px rgba(255,85,0,0.45); } 50% { box-shadow: 0 0 34px rgba(255,120,40,0.75); } }
+@keyframes tbRunPulseCyan { 0%,100% { box-shadow: 0 0 22px rgba(51,182,255,0.5); } 50% { box-shadow: 0 0 36px rgba(90,210,255,0.8); } }
+@media (prefers-reduced-motion: reduce) { .tb-run { animation: none; } }
+
+/* glowing slider track */
+input[type=range] { box-shadow: 0 0 10px rgba(51,182,255,0.35); }

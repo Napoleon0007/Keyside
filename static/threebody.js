@@ -41,29 +41,42 @@ function boot() {
   renderer.toneMappingExposure = 1.15;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x03040a, 0.012);
+  scene.fog = new THREE.FogExp2(0x03040a, 0.0009);   // light touch: depth haze without fogging out the starfield
   const camera = new THREE.PerspectiveCamera(52, 1, 0.05, 4000);
 
-  scene.add(new THREE.AmbientLight(0x4060a0, 0.7));
+  // Lighting rig (#1): a warm key gives every sphere a real lit side + terminator
+  // (so it reads 3D even with no star present); a cool fill keeps dark sides from
+  // crushing to black and adds rim shape; ambient is low so form survives.
+  scene.add(new THREE.AmbientLight(0x35507a, 0.22));
+  const keyLight = new THREE.DirectionalLight(0xfff1dd, 1.15);
+  keyLight.position.set(6, 5, 4); scene.add(keyLight);
+  const fillLight = new THREE.DirectionalLight(0x4d74c8, 0.4);
+  fillLight.position.set(-5, -2, -4); scene.add(fillLight);
+  const starTex = starSprite();                        // shared point-sprite for stars + dust (init before first use)
   const ambient = new THREE.Group();
-  ambient.add(makeStars(6000, 1.5, 0.9, 240, 1800));   // far, dense field
-  ambient.add(makeStars(1800, 3.0, 1.0, 90, 700));     // nearer, brighter stars
+  ambient.add(makeStars(9000, 1.4, 0.95, 300, 2200));  // far, very dense field
+  ambient.add(makeStars(2600, 2.2, 1.0, 120, 900));    // mid layer
+  ambient.add(makeStars(700, 3.6, 1.0, 80, 480));      // near, bright headline stars
   ambient.add(makeNebula());
   ambient.add(makeGalaxies());
+  const shootingStars = makeShootingStars();           // sporadic streaks across the deep background
+  scene.add(shootingStars.group);
   const dust = makeDust();                              // floaty motes near the action
   ambient.add(dust);
   scene.add(ambient);
 
   // Real bloom for that sharp neon-in-space glow (loaded lazily; falls back if it fails).
-  let composer = null;
+  let composer = null, bokeh = null;
   (async () => {
     try {
       const base = 'https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/';
-      const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }] = await Promise.all([
-        import(base + 'EffectComposer.js'), import(base + 'RenderPass.js'), import(base + 'UnrealBloomPass.js'),
+      const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { BokehPass }] = await Promise.all([
+        import(base + 'EffectComposer.js'), import(base + 'RenderPass.js'), import(base + 'UnrealBloomPass.js'), import(base + 'BokehPass.js'),
       ]);
       composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
+      bokeh = new BokehPass(scene, camera, { focus: 5.0, aperture: 0.00018, maxblur: 0.006 });  // #4: cinematic depth of field
+      composer.addPass(bokeh);
       composer.addPass(new UnrealBloomPass(new THREE.Vector2(canvas.clientWidth, canvas.clientHeight), 0.85, 0.65, 0.8));
       composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       composer.setSize(canvas.clientWidth, canvas.clientHeight);
@@ -80,8 +93,63 @@ function boot() {
   const texLoader = new THREE.TextureLoader();
   const loadTex = (n) => { const t = texLoader.load(`/static/textures/${n}.jpg`); t.colorSpace = THREE.SRGBColorSpace; return t; };
   const PLANET_TEX = [loadTex('marsmap1k'), loadTex('earthmap1k'), loadTex('jupitermap')];
-  const SUN_TEX = loadTex('sunmap');
   const STAR_MASS = 5.5;                 // a body this heavy (or heavier) ignites into a star
+
+  // ── star shaders: a boiling-plasma surface + a flickering corona of flames (#3) ──
+  const NOISE_GLSL = `
+    float hash(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+    float vnoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
+      return mix(mix(mix(hash(i+vec3(0,0,0)),hash(i+vec3(1,0,0)),f.x), mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+                 mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x), mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y), f.z); }
+    float fbm(vec3 p){ float v=0.0,a=0.5; for(int k=0;k<5;k++){ v+=a*vnoise(p); p*=2.0; a*=0.5; } return v; }`;
+  const starUniforms = { uTime: { value: 0 } };
+  const starSurfaceMat = new THREE.ShaderMaterial({
+    uniforms: starUniforms,
+    vertexShader: `varying vec3 vPos; void main(){ vPos=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: NOISE_GLSL + `
+      varying vec3 vPos; uniform float uTime;
+      void main(){
+        vec3 p=normalize(vPos);
+        float g = fbm(p*4.0 + vec3(0.0,0.0,uTime*0.15))*0.7 + fbm(p*9.0 - vec3(uTime*0.22))*0.4;
+        vec3 cool=vec3(0.85,0.20,0.02), hot=vec3(1.0,0.86,0.46);
+        vec3 col=mix(cool,hot, smoothstep(0.32,0.95,g));
+        col += pow(max(g-0.72,0.0),2.0)*vec3(1.3,0.95,0.55)*4.0;   // white-hot granule flecks
+        gl_FragColor=vec4(col*1.5, 1.0);
+      }`,
+  });
+  const coronaMat = new THREE.ShaderMaterial({
+    uniforms: starUniforms, transparent: true, blending: THREE.AdditiveBlending, side: THREE.BackSide, depthWrite: false,
+    vertexShader: `varying vec3 vN; varying vec3 vP; varying vec3 vPos; void main(){ vN=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vP=mv.xyz; vPos=position; gl_Position=projectionMatrix*mv; }`,
+    fragmentShader: NOISE_GLSL + `
+      varying vec3 vN; varying vec3 vP; varying vec3 vPos; uniform float uTime;
+      void main(){
+        float fres=pow(1.0-abs(dot(normalize(vN),normalize(-vP))),1.8);
+        vec3 p=normalize(vPos);
+        float flame=fbm(p*5.0 + vec3(0.0,uTime*0.6,0.0));   // flames lick upward over time
+        float a=fres*(0.35+0.85*flame);
+        vec3 col=mix(vec3(1.0,0.35,0.04), vec3(1.0,0.72,0.30), flame);
+        gl_FragColor=vec4(col, a*0.95);
+      }`,
+  });
+
+  // ── world detail (#2): a ringed gas giant + a drifting cloud layer ──────────────
+  const ringTex = loadTex('saturnringcolor');
+  function ringSystem() {                            // flat annulus, texture mapped inner→outer
+    const g = new THREE.RingGeometry(1.4, 2.35, 96, 1);
+    const pos = g.attributes.position, uv = g.attributes.uv, v3 = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) { v3.fromBufferAttribute(pos, i); uv.setXY(i, (v3.length() - 1.4) / 0.95, 0.5); }
+    const ring = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: ringTex, alphaMap: ringTex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.92 }));
+    ring.rotation.x = Math.PI / 2 - 0.32; ring.rotation.y = 0.18;
+    return ring;
+  }
+  function cloudShell() {                             // wispy procedural clouds drifting over the surface
+    return new THREE.Mesh(new THREE.SphereGeometry(1.014, 40, 40), new THREE.ShaderMaterial({
+      uniforms: starUniforms, transparent: true, depthWrite: false,
+      vertexShader: `varying vec3 vPos; void main(){ vPos=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      fragmentShader: NOISE_GLSL + `varying vec3 vPos; uniform float uTime;
+        void main(){ vec3 p=normalize(vPos); float c=fbm(p*3.2 + vec3(uTime*0.02,0.0,0.0)); float a=smoothstep(0.55,0.82,c); gl_FragColor=vec4(vec3(1.0), a*0.6); }`,
+    }));
+  }
 
   function visRadius(m) { return Math.max(0.18, Math.cbrt(m) * 0.2); }
 
@@ -97,8 +165,14 @@ function boot() {
 
   function makeBody(x, y, z, vx, vy, vz, m, i) {
     const color = COLORS[i];
-    const mat = new THREE.MeshStandardMaterial({ map: PLANET_TEX[i], emissive: color, emissiveIntensity: 0.45, roughness: 0.9, metalness: 0.05 });
+    const mat = new THREE.MeshStandardMaterial({ map: PLANET_TEX[i], bumpMap: PLANET_TEX[i], bumpScale: 0.03, emissive: color, emissiveIntensity: 0.06,
+      roughness: i === 1 ? 0.68 : 0.9, metalness: i === 1 ? 0.18 : 0.05 });   // Earth gets a soft ocean sheen
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 40), mat);
+    let cloud = null, ring = null;
+    if (i === 1) { cloud = cloudShell(); mesh.add(cloud); }                    // Earth → drifting clouds
+    if (i === 2) { ring = ringSystem(); mesh.add(ring); }                      // gas giant → ring system
+    const corona = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48), coronaMat);   // flames, shown only when this body is a star
+    corona.visible = false; scene.add(corona);
     const atmo = atmosphere(color); scene.add(atmo);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     const light = new THREE.PointLight(color, 1.2, 80, 2);
@@ -113,64 +187,87 @@ function boot() {
     const hit = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 12), new THREE.MeshBasicMaterial({ visible: false }));
     scene.add(hit);
 
-    return { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), m, idx: i, color: new THREE.Color(color), name: NAMES[i], mesh, mat, atmo, glow, line, light, hit, trail: [], star: null };
+    return { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), m, idx: i, color: new THREE.Color(color), name: NAMES[i], mesh, mat, cloud, ring, corona, atmo, glow, line, light, hit, trail: [], star: null };
   }
 
-  function clearBodies() { bodies.forEach(b => scene.remove(b.mesh, b.atmo, b.glow, b.line, b.hit)); bodies = []; }
+  function clearBodies() { bodies.forEach(b => scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit)); bodies = []; }
 
   function applyVisual(b) {
     const r = visRadius(b.m);
     const isStar = b.m >= STAR_MASS;
     if (isStar !== b.star) {               // swap planet⇄star look only when it flips
       b.star = isStar;
-      b.mat.map = isStar ? SUN_TEX : PLANET_TEX[b.idx];
-      b.mat.emissive.set(isStar ? 0xffb060 : b.color.getHex());
-      b.mat.needsUpdate = true;
+      b.mesh.material = isStar ? starSurfaceMat : b.mat;   // boiling-plasma shader vs textured planet
+      b.atmo.visible = !isStar;            // star uses the flame corona instead of the soft atmosphere shell
+      b.corona.visible = isStar;
+      if (b.cloud) b.cloud.visible = !isStar;
+      if (b.ring) b.ring.visible = !isStar;
       b.glow.material.color.set(isStar ? 0xffc070 : b.color.getHex());
     }
-    b.mat.emissiveIntensity = isStar ? 1.7 : 0.45;
-    b.light.intensity = isStar ? 5.0 : 0.9;
+    b.light.intensity = isStar ? 6.5 : 0.45;          // star is a strong key for its neighbours; planets only a soft colour bounce
     b.light.distance = isStar ? 160 : 70;
     b.mesh.position.copy(b.pos); b.mesh.scale.setScalar(r);
-    b.atmo.position.copy(b.pos); b.atmo.scale.setScalar(r * (isStar ? 1.55 : 1.28));
-    b.atmo.material.uniforms.uColor.value.set(isStar ? 0xffcc66 : b.color.getHex());
-    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (isStar ? 12 : 6.5));
-    b.glow.material.opacity = isStar ? 0.92 : 0.6;
+    b.corona.position.copy(b.pos); b.corona.scale.setScalar(r * 1.42);
+    b.atmo.position.copy(b.pos); b.atmo.scale.setScalar(r * 1.28);
+    b.atmo.material.uniforms.uColor.value.set(b.color.getHex());
+    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (isStar ? 8.5 : 6.5));
+    b.glow.material.opacity = isStar ? 0.6 : 0.6;   // tamed star halo so terminators + eclipses read
     b.hit.position.copy(b.pos); b.hit.scale.setScalar(Math.max(r * 2.8, 0.55));
   }
 
-  // ── spacetime curvature grid (the rubber-sheet that dimples under each mass) ──
+  // ── spacetime curvature surface (#1): a living 3D rubber-sheet — a translucent
+  //    dark body for presence, glowing gravity wells in each mass's colour, and the
+  //    neon wireframe on top. All three share one bending displacement. ──────────
   let showGrid = true;
-  const grid = makeGrid(15, 74, -2.8);
-  scene.add(grid.lines);
+  const grid = makeGrid(15, 88, -2.8);
+  grid.surface.renderOrder = 0; grid.wells.renderOrder = 1; grid.lines.renderOrder = 2;
+  scene.add(grid.surface); scene.add(grid.wells); scene.add(grid.lines);
   function makeGrid(half, seg, y0) {
-    const N = seg + 1, base = new Float32Array(N * N * 3), col = new Float32Array(N * N * 3);
+    const N = seg + 1, base = new Float32Array(N * N * 3), lcol = new Float32Array(N * N * 3);
     const c = new THREE.Color(0x2f6bff);
     for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
       const v = j * N + k, x = (k / (N - 1) * 2 - 1) * half, z = (j / (N - 1) * 2 - 1) * half;
       base[v * 3] = x; base[v * 3 + 1] = 0; base[v * 3 + 2] = z;
       const edge = Math.pow(1 - Math.min(1, Math.hypot(x, z) / half), 1.4);  // fade to dark at the rim
-      col[v * 3] = c.r * edge; col[v * 3 + 1] = c.g * edge; col[v * 3 + 2] = c.b * edge;
+      lcol[v * 3] = c.r * edge; lcol[v * 3 + 1] = c.g * edge; lcol[v * 3 + 2] = c.b * edge;
     }
-    const idx = [];
-    for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) {
-      const a = j * N + k; if (k < N - 1) idx.push(a, a + 1); if (j < N - 1) idx.push(a, a + N);
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(base.slice(), 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    geo.setIndex(idx);
-    const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
-    const arr = geo.attributes.position.array;
+    // wireframe (line segments)
+    const lidx = [];
+    for (let j = 0; j < N; j++) for (let k = 0; k < N; k++) { const a = j * N + k; if (k < N - 1) lidx.push(a, a + 1); if (j < N - 1) lidx.push(a, a + N); }
+    const lgeo = new THREE.BufferGeometry();
+    lgeo.setAttribute('position', new THREE.Float32BufferAttribute(base.slice(), 3));
+    lgeo.setAttribute('color', new THREE.Float32BufferAttribute(lcol, 3));
+    lgeo.setIndex(lidx);
+    const lines = new THREE.LineSegments(lgeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+    // filled sheet (triangles) — shared by the dark body and the glowing wells
+    const tidx = [];
+    for (let j = 0; j < N - 1; j++) for (let k = 0; k < N - 1; k++) { const a = j * N + k; tidx.push(a, a + N, a + 1, a + 1, a + N, a + N + 1); }
+    const tgeo = new THREE.BufferGeometry();
+    tgeo.setAttribute('position', new THREE.Float32BufferAttribute(base.slice(), 3));
+    tgeo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(N * N * 3), 3));
+    tgeo.setIndex(tidx);
+    const surface = new THREE.Mesh(tgeo, new THREE.MeshBasicMaterial({ color: 0x07172e, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
+    const wells = new THREE.Mesh(tgeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
+    const larr = lgeo.attributes.position.array, tarr = tgeo.attributes.position.array, carr = tgeo.attributes.color.array;
     function update(bs) {
       for (let v = 0; v < N * N; v++) {
-        const x = base[v * 3], z = base[v * 3 + 2]; let d = 0;
-        for (const b of bs) { const dx = x - b.pos.x, dz = z - b.pos.z; d += 1.4 * b.m / (dx * dx + dz * dz + 0.35); }
-        arr[v * 3 + 1] = y0 - Math.min(d, 6);
+        const x = base[v * 3], z = base[v * 3 + 2];
+        let d = 0, cr = 0, cg = 0, cb = 0;
+        for (const b of bs) {
+          const dx = x - b.pos.x, dz = z - b.pos.z, inv = b.m / (dx * dx + dz * dz + 0.35);
+          d += 1.4 * inv;
+          const w = Math.min(0.55 * inv, 1.7);                 // glow weight in this body's colour
+          cr += b.color.r * w; cg += b.color.g * w; cb += b.color.b * w;
+        }
+        const y = y0 - Math.min(d, 6);
+        larr[v * 3 + 1] = y; tarr[v * 3 + 1] = y;
+        carr[v * 3] = cr; carr[v * 3 + 1] = cg; carr[v * 3 + 2] = cb;
       }
-      geo.attributes.position.needsUpdate = true;
+      lgeo.attributes.position.needsUpdate = true;
+      tgeo.attributes.position.needsUpdate = true;
+      tgeo.attributes.color.needsUpdate = true;
     }
-    return { lines, update };
+    return { lines, surface, wells, update };
   }
 
   // ── presets: the infinite symmetric family + free-form ──────────────────────
@@ -268,13 +365,20 @@ function boot() {
   // ── camera (custom orbit) ─────────────────────────────────────────────────────
   const camOrbit = { theta: 0.6, phi: 1.15, radius: 5, follow: -1 };
   const camTarget = new THREE.Vector3();
+  let velTheta = 0, velPhi = 0;          // #4: fling inertia carried after you let go of a drag
   function updateCamera() {
     // target eases to followed body, else to the system's centre of mass
     const t = new THREE.Vector3();
     if (camOrbit.follow >= 0 && bodies[camOrbit.follow]) t.copy(bodies[camOrbit.follow].pos);
     else { let M = 0; bodies.forEach(b => { t.addScaledVector(b.pos, b.m); M += b.m; }); if (M) t.multiplyScalar(1 / M); }
     camTarget.lerp(t, 0.06);
-    const sp = camOrbit.phi, st = camOrbit.theta, r = camOrbit.radius;
+    if (!orbiting && !dragBody) {          // glide on after a fling, then a gentle idle drift for constant parallax
+      camOrbit.theta += velTheta;
+      camOrbit.phi = Math.max(0.08, Math.min(Math.PI - 0.08, camOrbit.phi + velPhi));
+      velTheta *= 0.93; velPhi *= 0.93;
+      camOrbit.theta += 0.0006;
+    }
+    const sp = camOrbit.phi, st = camOrbit.theta, r = camOrbit.radius * eclipseZoom;
     camera.position.set(
       camTarget.x + r * Math.sin(sp) * Math.sin(st),
       camTarget.y + r * Math.cos(sp),
@@ -289,8 +393,9 @@ function boot() {
     const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
     for (let k = 0; k < n; k++) {
       pos[k * 3] = t[k].x; pos[k * 3 + 1] = t[k].y; pos[k * 3 + 2] = t[k].z;
-      const a = (k / n) * 0.9;                  // older → dimmer (additive: dark = invisible)
-      col[k * 3] = b.color.r * a; col[k * 3 + 1] = b.color.g * a; col[k * 3 + 2] = b.color.b * a;
+      const f = k / n, a = f * f * 1.5;         // sharp falloff + bright head → glowing comet-tail (bloom catches it)
+      const w = Math.max(0, f - 0.85) * 4;      // white-hot tip near the planet
+      col[k * 3] = b.color.r * a + w; col[k * 3 + 1] = b.color.g * a + w; col[k * 3 + 2] = b.color.b * a + w;
     }
     b.line.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     b.line.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -298,19 +403,53 @@ function boot() {
     b.line.visible = showTrails && n > 1;
   }
 
+  // ── cinematic eclipse moments ───────────────────────────────────────────────────
+  // When one body slips in front of another (or the star) from the camera's view,
+  // ease into slow-mo + a gentle push-in + a HUD cue so the alignment is witnessed,
+  // not missed. Pure overlays — never alters the user's speed or camera permanently.
+  let cinematic = true, timeScale = 1, eclipseZoom = 1, eclipseStrength = 0;
+  const eclipseHud = document.getElementById('eclipseHud');
+  const _ev1 = new THREE.Vector3(), _ev2 = new THREE.Vector3();
+  function updateEclipse() {
+    let raw = 0;
+    if (mode === 'running' && cinematic && !orbiting && !dragBody) {
+      const cam = camera.position;
+      for (let i = 0; i < bodies.length; i++) for (let j = 0; j < bodies.length; j++) {
+        if (i === j) continue;
+        const di = _ev1.subVectors(bodies[i].pos, cam), li = di.length();
+        const dj = _ev2.subVectors(bodies[j].pos, cam), lj = dj.length();
+        if (li >= lj) continue;                              // i must be the nearer (occluding) body
+        const ang = di.angleTo(dj);
+        const ai = Math.asin(Math.min(1, visRadius(bodies[i].m) / Math.max(li, 1e-3)));
+        const aj = Math.asin(Math.min(1, visRadius(bodies[j].m) / Math.max(lj, 1e-3)));
+        const s = 1 - ang / (ai + aj);                       // 1 = dead-centre overlap, <0 = no overlap
+        if (s > raw) raw = s;
+      }
+      raw = Math.pow(Math.max(0, Math.min(1, raw)), 1.2);    // punchy: only real overlaps register
+    }
+    eclipseStrength += (raw - eclipseStrength) * 0.12;
+    timeScale += ((1 - 0.82 * eclipseStrength) - timeScale) * 0.08;   // slow-mo at the peak
+    eclipseZoom += ((1 - 0.16 * eclipseStrength) - eclipseZoom) * 0.06; // subtle push-in
+    if (eclipseHud) eclipseHud.style.opacity = (eclipseStrength * 0.92).toFixed(3);
+  }
+
   // ── render loop ────────────────────────────────────────────────────────────────
   function frame() {
+    updateEclipse();
     if (mode === 'running') {
       const dt = 0.001, sub = Math.max(1, Math.round(speed * 12));
-      for (let s = 0; s < sub; s++) integrate(dt);
+      for (let s = 0; s < sub; s++) integrate(dt * timeScale);
       for (const b of bodies) { b.trail.push(b.pos.clone()); if (b.trail.length > TRAIL_MAX) b.trail.shift(); }
     }
+    starUniforms.uTime.value += 0.016;      // boil the plasma + flicker the corona
     bodies.forEach(b => { applyVisual(b); updateTrail(b); b.mesh.rotation.y += 0.0025; });
-    grid.lines.visible = showGrid;
+    grid.lines.visible = grid.surface.visible = grid.wells.visible = showGrid;
     if (showGrid) grid.update(bodies);
     updateCamera();
+    if (bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(camTarget);  // keep the bodies tack-sharp, blur the deep field
     ambient.rotation.y += 0.00018;          // whole cosmos drifts → floaty parallax
     dust.rotation.x += 0.0001;
+    shootingStars.update(0.016);
     if (composer) composer.render(); else renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
@@ -324,11 +463,34 @@ function boot() {
   function setNDC(e) { const r = canvas.getBoundingClientRect(); ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1; ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1; }
   function pickBody(e) { setNDC(e); raycaster.setFromCamera(ndc, camera); const hit = raycaster.intersectObjects(bodies.map(b => b.hit), false)[0]; return hit ? bodies.find(b => b.hit === hit.object) : null; }
 
+  // #3: tactile throwing — flick a planet to launch it. An arrow + dashed ghost path
+  // preview the shot while you hold; release with a real flick and it takes off.
+  const THROW_GAIN = 3.2, THROW_MAX = 2.6, THROW_MIN = 0.14;
+  const flickVel = new THREE.Vector3();
+  const aimArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 1, 0xffd27a, 0.34, 0.22);
+  aimArrow.visible = false; scene.add(aimArrow);
+  const previewLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.55, depthWrite: false }));
+  previewLine.visible = false; scene.add(previewLine);
+  function updateAim(b) {
+    const v = flickVel.clone().multiplyScalar(THROW_GAIN); v.clampLength(0, THROW_MAX);
+    const speed = v.length();
+    if (speed <= THROW_MIN) { aimArrow.visible = false; previewLine.visible = false; return; }
+    aimArrow.visible = true; aimArrow.position.copy(b.pos);
+    aimArrow.setDirection(v.clone().normalize()); aimArrow.setLength(0.5 + speed * 1.8, 0.34, 0.22);
+    const pts = [], p = b.pos.clone(), vv = v.clone(), a = new THREE.Vector3();   // ghost path under the others' gravity
+    for (let s = 0; s < 150; s++) {
+      a.set(0, 0, 0);
+      for (const o of bodies) { if (o === b) continue; const d = o.pos.clone().sub(p), r2 = d.lengthSq() + 0.05; a.addScaledVector(d, G * o.m / (r2 * Math.sqrt(r2))); }
+      vv.addScaledVector(a, 0.012); p.addScaledVector(vv, 0.012); pts.push(p.clone());
+    }
+    previewLine.geometry.setFromPoints(pts); previewLine.visible = true;
+  }
+
   canvas.addEventListener('pointerdown', (e) => {
     const b = pickBody(e);                       // grab a planet anytime
     if (b) {
       if (mode === 'running') { mode = 'paused'; updateRun(); }   // grabbing pauses, so you can rearrange
-      dragBody = b; manualEdited = true;
+      dragBody = b; manualEdited = true; flickVel.set(0, 0, 0);
       const n = camera.getWorldDirection(new THREE.Vector3()).negate();
       dragPlane.setFromNormalAndCoplanarPoint(n, b.pos);
     } else { orbiting = true; lastX = e.clientX; lastY = e.clientY; }
@@ -338,16 +500,30 @@ function boot() {
     if (dragBody) {
       setNDC(e); raycaster.setFromCamera(ndc, camera);
       const hit = new THREE.Vector3();
-      if (raycaster.ray.intersectPlane(dragPlane, hit)) { dragBody.pos.copy(hit); dragBody.vel.set(0, 0, 0); }
+      if (raycaster.ray.intersectPlane(dragPlane, hit)) {
+        flickVel.lerp(hit.clone().sub(dragBody.pos), 0.4);   // smoothed flick = recent drag motion
+        dragBody.pos.copy(hit); dragBody.vel.set(0, 0, 0);
+        updateAim(dragBody);
+      }
     } else if (orbiting) {
       const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
-      camOrbit.theta -= dx * 0.005;
-      camOrbit.phi = Math.max(0.08, Math.min(Math.PI - 0.08, camOrbit.phi - dy * 0.005));
+      const dTheta = -dx * 0.005, dPhi = -dy * 0.005;
+      camOrbit.theta += dTheta;
+      camOrbit.phi = Math.max(0.08, Math.min(Math.PI - 0.08, camOrbit.phi + dPhi));
+      velTheta = dTheta; velPhi = dPhi;   // remember the last motion → fling inertia on release
     } else {
       canvas.style.cursor = pickBody(e) ? 'grab' : 'default';
     }
   });
   function endPointer(e) {
+    if (dragBody) {
+      const launch = flickVel.clone().multiplyScalar(THROW_GAIN); launch.clampLength(0, THROW_MAX);
+      if (launch.length() > THROW_MIN) {                 // a real flick → throw it and let it fly
+        dragBody.vel.copy(launch); manualEdited = false;
+        if (mode !== 'running') { mode = 'running'; updateRun(); }
+      } else { dragBody.vel.set(0, 0, 0); }              // gentle drop → just placed
+    }
+    aimArrow.visible = false; previewLine.visible = false; flickVel.set(0, 0, 0);
     dragBody = null; orbiting = false; canvas.style.cursor = 'default';
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
   }
@@ -395,6 +571,7 @@ function boot() {
   $('grav').addEventListener('input', (e) => { G = +e.target.value; $('gravVal').textContent = G.toFixed(2); });
   $('trails').addEventListener('change', (e) => { showTrails = e.target.checked; });
   $('grid') && $('grid').addEventListener('change', (e) => { showGrid = e.target.checked; });
+  $('cinematic') && $('cinematic').addEventListener('change', (e) => { cinematic = e.target.checked; });
 
   document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
@@ -420,7 +597,6 @@ function boot() {
   requestAnimationFrame(frame);
 
   // ── scene assets ───────────────────────────────────────────────────────────────
-  const starTex = starSprite();
   function makeStars(count, size, opacity, rMin, rMax) {
     const pos = new Float32Array(count * 3), col = new Float32Array(count * 3);
     const tint = [new THREE.Color(0xbfd4ff), new THREE.Color(0xffffff), new THREE.Color(0xffe6c0), new THREE.Color(0x9fc4ff)];
@@ -444,17 +620,64 @@ function boot() {
   }
   function makeNebula() {
     const grp = new THREE.Group();
-    const cols = [0x2a1a4a, 0x10314f, 0x3a1530, 0x1a2c52, 0x2e1840];
-    for (let i = 0; i < 5; i++) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexFor(cols[i]), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.45 }));
-      const r = 90 + Math.random() * 120, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+    const cols = [0x4a2a7a, 0x1a4f7f, 0x5a2040, 0x24407a, 0x44206a, 0x2a5a6a, 0x6a3050];
+    for (let i = 0; i < cols.length; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexFor(cols[i]), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.6 }));
+      const r = 80 + Math.random() * 150, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
       s.position.set(r * Math.sin(ph) * Math.cos(th), r * Math.sin(ph) * Math.sin(th) * 0.7, r * Math.cos(ph) - 60);
-      s.scale.setScalar(150 + Math.random() * 130); grp.add(s);
+      s.scale.setScalar(160 + Math.random() * 150); grp.add(s);
     }
     return grp;
   }
-  function makeGalaxies() {                          // distant spiral galaxies for depth
+  // Sporadic shooting stars / comets streaking through the deep background.
+  function makeShootingStars() {
+    const grp = new THREE.Group(); const streaks = [];
+    for (let i = 0; i < 5; i++) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+      const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xdfeeff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+      grp.add(line); streaks.push({ line, active: false, t: 0, dur: 1, idle: Math.random() * 6, p: new THREE.Vector3(), v: new THREE.Vector3() });
+    }
+    function spawn(s) {
+      const r = 350 + Math.random() * 250, th = Math.random() * Math.PI * 2;
+      s.p.set(Math.cos(th) * r, 120 + Math.random() * 220, Math.sin(th) * r);
+      s.v.set((Math.random() - 0.5) * 2, -0.5 - Math.random() * 0.6, (Math.random() - 0.5) * 2).normalize().multiplyScalar(420 + Math.random() * 380);
+      s.t = 0; s.dur = 0.7 + Math.random() * 0.6; s.active = true;
+    }
+    function update(dt) {
+      for (const s of streaks) {
+        if (!s.active) { s.idle -= dt; if (s.idle <= 0) { spawn(s); } else continue; }
+        s.t += dt; if (s.t >= s.dur) { s.active = false; s.idle = 3 + Math.random() * 7; s.line.material.opacity = 0; continue; }
+        s.p.addScaledVector(s.v, dt);
+        const a = s.line.geometry.attributes.position.array;
+        a[0] = s.p.x - s.v.x * 0.04; a[1] = s.p.y - s.v.y * 0.04; a[2] = s.p.z - s.v.z * 0.04;
+        a[3] = s.p.x; a[4] = s.p.y; a[5] = s.p.z; s.line.geometry.attributes.position.needsUpdate = true;
+        s.line.material.opacity = Math.sin((s.t / s.dur) * Math.PI) * 0.9;
+      }
+    }
+    return { group: grp, update };
+  }
+  // Real NASA/Hubble galaxy photos from static/galaxies/ (same set as Rex's World),
+  // scattered through the deep background. Feathered so the square photo edges melt
+  // into space; normal blending keeps their true colours. Procedural fallback if the
+  // API is unreachable so the back is never empty.
+  function makeGalaxies() {
     const grp = new THREE.Group();
+    fetch('/api/galaxies').then(r => r.json()).then(d => {
+      const files = Array.isArray(d.galaxies) ? d.galaxies : [];
+      if (!files.length) { fillProcedural(grp); return; }
+      const COUNT = 13;
+      for (let i = 0; i < COUNT; i++) {
+        const tex = featherGalaxyTexture(files[i % files.length]);
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.72 + Math.random() * 0.28 }));
+        const r = 650 + Math.random() * 850, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+        s.position.set(r * Math.sin(ph) * Math.cos(th), r * Math.sin(ph) * Math.sin(th) * 0.8, r * Math.cos(ph));
+        s.material.rotation = Math.random() * Math.PI * 2; s.scale.setScalar(280 + Math.random() * 380); grp.add(s);
+      }
+    }).catch(() => fillProcedural(grp));
+    return grp;
+  }
+  function fillProcedural(grp) {                     // fallback only — no real photos available
     const cols = [0x6fa8ff, 0xff9ad1, 0xffd28a, 0x9d7bff, 0x7fe0c0];
     for (let i = 0; i < 6; i++) {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: galaxyTex(cols[i % cols.length]), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 }));
@@ -462,7 +685,29 @@ function boot() {
       s.position.set(r * Math.sin(ph) * Math.cos(th), r * Math.sin(ph) * Math.sin(th) * 0.7, r * Math.cos(ph));
       s.material.rotation = Math.random() * Math.PI * 2; s.scale.setScalar(130 + Math.random() * 180); grp.add(s);
     }
-    return grp;
+  }
+  // Turn a rectangular galaxy photo into an edgeless texture: its own brightness
+  // becomes its alpha (dark sky → transparent) and a radial feather kills the corners.
+  function featherGalaxyTexture(url) {
+    const S = 512, cv = document.createElement('canvas'); cv.width = cv.height = S;
+    const g = cv.getContext('2d'); const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const sc = Math.max(S / img.width, S / img.height), w = img.width * sc, h = img.height * sc;
+      g.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+      const data = g.getImageData(0, 0, S, S), px = data.data, c = S / 2, rmax = S / 2;
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+        const i = (y * S + x) * 4;
+        const L = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255;
+        let a = Math.min(1, Math.max(0, (L - 0.06) * 1.7));
+        a *= Math.max(0, 1 - Math.pow(Math.hypot(x - c, y - c) / rmax, 2.2));
+        px[i + 3] = (a * 255) | 0;
+      }
+      g.putImageData(data, 0, 0); tex.needsUpdate = true;
+    };
+    img.onerror = () => {};
+    img.src = url;
+    return tex;
   }
   function starSprite() {
     const s = 64, c = document.createElement('canvas'); c.width = c.height = s; const g = c.getContext('2d');
