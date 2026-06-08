@@ -101,14 +101,8 @@
   </section>
 
   <!-- The Trinity — three worlds locked in a calm, never-ending figure-8 orbit -->
-  <section class="trinity" id="section-trinity" aria-label="The Trinity">
-    <div class="trinity-head">
-      <h2 class="trinity-title">The <span class="orange">Trinity</span></h2>
-      <p class="trinity-sub">three worlds &middot; one endless orbit</p>
-    </div>
-    <canvas id="trinityCanvas"></canvas>
-    <button class="trinity-reset" id="trinityReset" type="button">&#8635; reset the dance</button>
-    <p class="trinity-hint">grab a world &amp; fling it &middot; scroll on one to grow it &middot; drag space to look</p>
+  <section class="trinity" id="section-trinity" aria-label="The Three-Body game">
+    <iframe class="trinity-frame" id="trinityFrame" src="/three-body" title="The Three-Body Problem — play it" loading="lazy" allow="fullscreen"></iframe>
   </section>
 
   <!-- Rolling 3D disc — navigator into the collections -->
@@ -275,7 +269,6 @@
   <script type="module" src="{{ url_for('static', filename='earth-dive.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='globe.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='gallery-galaxy.js') }}"></script>
-  <script type="module" src="{{ url_for('static', filename='trinity.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='mobius.js') }}"></script>
   <script src="{{ url_for('static', filename='landing.js') }}"></script>
 
