@@ -112,6 +112,19 @@
   background: linear-gradient(135deg, #1a0a02 0%, #3a1402 55%, #ff5500 220%);
 }
 
+/* ---- Möbius mode (hero ring only) -------------------------------- */
+/* The band twists onto its own back, so the underside of every card must
+   stay visible as it turns edge-on; a faint orange rim keeps the ribbon
+   reading as one continuous twisting strip rather than floating tiles. */
+.disc-ring.mobius .disc-card {
+  backface-visibility: visible;
+  filter: brightness(.72) saturate(.95);
+  box-shadow: 0 0 0 1px rgba(255,85,0,.18), 0 18px 50px rgba(0,0,0,.55);
+}
+.disc-ring.mobius .disc-card.active {
+  filter: brightness(1.08) saturate(1.12);
+}
+
 .disc-card .card-label {
   position: absolute;
   left: 18px; right: 18px; bottom: 20px;
