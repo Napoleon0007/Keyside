@@ -83,6 +83,36 @@ function boot() {
     } catch (e) { composer = null; }
   })();
 
+  // #5: anamorphic lens flare + sunburst rays from the star (lazy; harmless if it fails)
+  let lensflare = null;
+  (async () => {
+    try {
+      const { Lensflare, LensflareElement } = await import('https://unpkg.com/three@0.160.0/examples/jsm/objects/Lensflare.js');
+      const burst = (() => {
+        const s = 256, c = document.createElement('canvas'); c.width = c.height = s; const g = c.getContext('2d'); g.translate(s / 2, s / 2);
+        const rg = g.createRadialGradient(0, 0, 0, 0, 0, s / 2); rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(0.22, 'rgba(255,228,186,0.55)'); rg.addColorStop(1, 'rgba(255,196,130,0)');
+        g.fillStyle = rg; g.beginPath(); g.arc(0, 0, s / 2, 0, 6.283); g.fill();
+        g.strokeStyle = 'rgba(255,240,210,0.75)'; g.lineWidth = 2;
+        for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * s / 2, Math.sin(a) * s / 2); g.stroke(); }
+        const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+      })();
+      const streak = (() => {
+        const s = 256, c = document.createElement('canvas'); c.width = c.height = s; const g = c.getContext('2d');
+        const lg = g.createLinearGradient(0, 0, s, 0); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(0.5, 'rgba(255,244,224,1)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = lg; g.fillRect(0, s / 2 - 2, s, 4); g.globalAlpha = 0.32; g.fillRect(0, s / 2 - 9, s, 18); g.globalAlpha = 1;
+        const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+      })();
+      const lf = new Lensflare();
+      lf.addElement(new LensflareElement(burst, 300, 0, new THREE.Color(0xffe6c0)));
+      lf.addElement(new LensflareElement(streak, 700, 0, new THREE.Color(0xfff0d8)));
+      lf.addElement(new LensflareElement(glowTex, 50, 0.35, new THREE.Color(0xff8a3d)));
+      lf.addElement(new LensflareElement(glowTex, 90, 0.55, new THREE.Color(0x6fa8ff)));
+      lf.addElement(new LensflareElement(glowTex, 60, 0.72, new THREE.Color(0xb06bff)));
+      lf.addElement(new LensflareElement(glowTex, 130, 1.0, new THREE.Color(0xffd28a)));
+      lf.visible = false; scene.add(lf); lensflare = lf;
+    } catch (e) { lensflare = null; }
+  })();
+
   // ── simulation state ────────────────────────────────────────────────────────
   let G = 1.0, softening = 0.03, speed = 0.4, showTrails = true;
   let mode = 'setup';                     // 'setup' | 'running' | 'paused'
@@ -94,6 +124,19 @@ function boot() {
   const loadTex = (n) => { const t = texLoader.load(`/static/textures/${n}.jpg`); t.colorSpace = THREE.SRGBColorSpace; return t; };
   const PLANET_TEX = [loadTex('marsmap1k'), loadTex('earthmap1k'), loadTex('jupitermap')];
   const STAR_MASS = 5.5;                 // a body this heavy (or heavier) ignites into a star
+
+  // #5: a cheap procedural cosmic cube-map so planets reflect the nebula/starfield
+  const envCube = (() => {
+    const tints = ['#1a2c52', '#2a1a4a', '#10314f', '#3a1530', '#24407a', '#2e1840'], faces = [];
+    for (let f = 0; f < 6; f++) {
+      const s = 128, c = document.createElement('canvas'); c.width = c.height = s; const g = c.getContext('2d');
+      const rg = g.createRadialGradient(s * 0.5, s * 0.42, 0, s * 0.5, s * 0.5, s * 0.72);
+      rg.addColorStop(0, tints[f]); rg.addColorStop(1, '#04060e'); g.fillStyle = rg; g.fillRect(0, 0, s, s);
+      g.fillStyle = '#cfe3ff'; for (let i = 0; i < 45; i++) { g.globalAlpha = Math.random() * 0.6 + 0.2; g.fillRect(Math.random() * s, Math.random() * s, 1.4, 1.4); } g.globalAlpha = 1;
+      faces.push(c);
+    }
+    const t = new THREE.CubeTexture(faces); t.needsUpdate = true; t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
 
   // ── star shaders: a boiling-plasma surface + a flickering corona of flames (#3) ──
   const NOISE_GLSL = `
@@ -166,7 +209,8 @@ function boot() {
   function makeBody(x, y, z, vx, vy, vz, m, i) {
     const color = COLORS[i];
     const mat = new THREE.MeshStandardMaterial({ map: PLANET_TEX[i], bumpMap: PLANET_TEX[i], bumpScale: 0.03, emissive: color, emissiveIntensity: 0.06,
-      roughness: i === 1 ? 0.68 : 0.9, metalness: i === 1 ? 0.18 : 0.05 });   // Earth gets a soft ocean sheen
+      roughness: i === 1 ? 0.68 : 0.9, metalness: i === 1 ? 0.18 : 0.05,        // Earth gets a soft ocean sheen
+      envMap: envCube, envMapIntensity: i === 1 ? 0.55 : 0.3 });                // #5: faint cosmic reflection
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 40), mat);
     let cloud = null, ring = null;
     if (i === 1) { cloud = cloudShell(); mesh.add(cloud); }                    // Earth → drifting clouds
@@ -323,8 +367,9 @@ function boot() {
   // ── physics ──────────────────────────────────────────────────────────────────
   const _a = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
   function accel() {
-    for (let i = 0; i < 3; i++) _a[i].set(0, 0, 0);
-    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    const n = bodies.length;
+    for (let i = 0; i < n; i++) _a[i].set(0, 0, 0);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
       if (i === j) continue;
       const dx = bodies[j].pos.x - bodies[i].pos.x, dy = bodies[j].pos.y - bodies[i].pos.y, dz = bodies[j].pos.z - bodies[i].pos.z;
       const r2 = dx * dx + dy * dy + dz * dz + softening * softening;
@@ -333,10 +378,11 @@ function boot() {
     }
   }
   function integrate(dt) {
+    const n = bodies.length;
     accel();
-    for (let i = 0; i < 3; i++) { bodies[i].vel.addScaledVector(_a[i], 0.5 * dt); bodies[i].pos.addScaledVector(bodies[i].vel, dt); }
+    for (let i = 0; i < n; i++) { bodies[i].vel.addScaledVector(_a[i], 0.5 * dt); bodies[i].pos.addScaledVector(bodies[i].vel, dt); }
     accel();
-    for (let i = 0; i < 3; i++) bodies[i].vel.addScaledVector(_a[i], 0.5 * dt);
+    for (let i = 0; i < n; i++) bodies[i].vel.addScaledVector(_a[i], 0.5 * dt);
   }
 
   // Auto-orbit: from any placement, hand each body a balanced tangential velocity
@@ -345,9 +391,9 @@ function boot() {
     const C = new THREE.Vector3(); let M = 0;
     bodies.forEach(b => { C.addScaledVector(b.pos, b.m); M += b.m; });
     C.multiplyScalar(1 / M);
-    // spin axis = normal of the plane through the three bodies (fallback: up)
-    let axis = new THREE.Vector3().subVectors(bodies[1].pos, bodies[0].pos)
-      .cross(new THREE.Vector3().subVectors(bodies[2].pos, bodies[0].pos));
+    // spin axis = normal of the plane through the bodies (fallback: up) — survives a merge to 2
+    let axis = new THREE.Vector3(0, 1, 0);
+    if (bodies.length >= 3) axis.subVectors(bodies[1].pos, bodies[0].pos).cross(new THREE.Vector3().subVectors(bodies[2].pos, bodies[0].pos));
     if (axis.lengthSq() < 1e-6) axis.set(0, 1, 0); else axis.normalize();
     bodies.forEach(b => {
       const r = new THREE.Vector3().subVectors(b.pos, C);
@@ -433,14 +479,95 @@ function boot() {
     if (eclipseHud) eclipseHud.style.opacity = (eclipseStrength * 0.92).toFixed(3);
   }
 
+  // ── collision & slingshot FX (#4): sparks on close passes, a flash + shockwave on
+  //    impact, and bodies that merge (momentum-conserving) and can ignite a star. ──
+  const MAX_SPARKS = 360;
+  const sparkGeo = new THREE.BufferGeometry();
+  const sparkPos = new Float32Array(MAX_SPARKS * 3).fill(9999), sparkCol = new Float32Array(MAX_SPARKS * 3);
+  sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+  sparkGeo.setAttribute('color', new THREE.BufferAttribute(sparkCol, 3));
+  const sparkPts = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ size: 0.14, map: starTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
+  sparkPts.frustumCulled = false; scene.add(sparkPts);
+  const sparkVel = [], sparkLife = new Float32Array(MAX_SPARKS), sparkMax = new Float32Array(MAX_SPARKS);
+  for (let i = 0; i < MAX_SPARKS; i++) sparkVel.push(new THREE.Vector3());
+  let sparkHead = 0;
+  function emitSparks(p, color, count, speed) {
+    for (let i = 0; i < count; i++) {
+      const k = sparkHead % MAX_SPARKS; sparkHead++;
+      sparkPos[k * 3] = p.x; sparkPos[k * 3 + 1] = p.y; sparkPos[k * 3 + 2] = p.z;
+      sparkVel[k].set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize().multiplyScalar(speed * (0.4 + Math.random()));
+      const life = 0.5 + Math.random() * 0.7; sparkLife[k] = life; sparkMax[k] = life;
+      sparkCol[k * 3] = color.r * 1.6; sparkCol[k * 3 + 1] = color.g * 1.6; sparkCol[k * 3 + 2] = color.b * 1.6;
+    }
+  }
+  const rings = [];
+  for (let i = 0; i < 8; i++) {
+    const m = new THREE.Mesh(new THREE.RingGeometry(0.82, 1.0, 56), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
+    m.visible = false; scene.add(m); rings.push({ mesh: m, active: false, t: 0, dur: 0.7, maxR: 1 });
+  }
+  function spawnRing(p, colorInt, maxR) {
+    const r = rings.find(x => !x.active) || rings[0];
+    r.active = true; r.t = 0; r.dur = 0.55 + Math.random() * 0.25; r.maxR = maxR;
+    r.mesh.position.copy(p); r.mesh.material.color.set(colorInt); r.mesh.visible = true;
+  }
+  function updateFX(dt) {
+    for (let k = 0; k < MAX_SPARKS; k++) {
+      if (sparkLife[k] <= 0) continue;
+      sparkLife[k] -= dt;
+      sparkPos[k * 3] += sparkVel[k].x * dt; sparkPos[k * 3 + 1] += sparkVel[k].y * dt; sparkPos[k * 3 + 2] += sparkVel[k].z * dt;
+      sparkCol[k * 3] *= 0.95; sparkCol[k * 3 + 1] *= 0.95; sparkCol[k * 3 + 2] *= 0.95;   // additive → dim = gone
+      if (sparkLife[k] <= 0) { sparkPos[k * 3] = sparkPos[k * 3 + 1] = sparkPos[k * 3 + 2] = 9999; }
+    }
+    sparkGeo.attributes.position.needsUpdate = true; sparkGeo.attributes.color.needsUpdate = true;
+    for (const r of rings) {
+      if (!r.active) continue;
+      r.t += dt; const k = r.t / r.dur;
+      if (k >= 1) { r.active = false; r.mesh.visible = false; continue; }
+      r.mesh.scale.setScalar(0.2 + r.maxR * k); r.mesh.material.opacity = (1 - k) * 0.9; r.mesh.lookAt(camera.position);
+    }
+  }
+  function removeBody(b) { scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit); const i = bodies.indexOf(b); if (i >= 0) bodies.splice(i, 1); }
+  function checkMerge() {                              // runs every substep so fast head-on passes can't tunnel
+    for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+      const A = bodies[i], B = bodies[j];
+      if (A.pos.distanceTo(B.pos) < (visRadius(A.m) + visRadius(B.m)) * 0.8) {   // impact → merge (conserve momentum)
+        const big = A.m >= B.m ? A : B, small = big === A ? B : A, M = A.m + B.m;
+        const mid = A.pos.clone().multiplyScalar(A.m).addScaledVector(B.pos, B.m).multiplyScalar(1 / M);
+        const v = A.vel.clone().multiplyScalar(A.m).addScaledVector(B.vel, B.m).multiplyScalar(1 / M);
+        emitSparks(mid, A.color.clone().lerp(B.color, 0.5), 70, 3.2); spawnRing(mid, 0xffffff, visRadius(M) * 7);
+        const wasStar = big.star; big.m = M; big.pos.copy(mid); big.vel.copy(v);
+        removeBody(small); applyVisual(big);
+        if (!wasStar && M >= STAR_MASS) { spawnRing(mid, 0xffd27a, visRadius(M) * 11); emitSparks(mid, new THREE.Color(0xffd27a), 55, 4.2); }   // ignition
+        return true;                                   // bodies changed — bail the substep loop
+      }
+    }
+    return false;
+  }
+  function grazeSparks() {                             // once per frame: sparks fly off near misses
+    for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+      const A = bodies[i], B = bodies[j];
+      const d = A.pos.distanceTo(B.pos), rs = visRadius(A.m) + visRadius(B.m);
+      if (d >= rs * 0.8 && d < rs * 2.6) {
+        const sep = B.pos.clone().sub(A.pos), relv = B.vel.clone().sub(A.vel);
+        if (relv.dot(sep) < 0) {
+          const n = Math.min(4, Math.floor((1 - (d - rs * 0.8) / (rs * 1.8)) * relv.length() * 3));
+          if (n > 0) emitSparks(A.pos.clone().add(B.pos).multiplyScalar(0.5), A.color.clone().lerp(B.color, 0.5), n, 1.0 + relv.length());
+        }
+      }
+    }
+  }
+
   // ── render loop ────────────────────────────────────────────────────────────────
   function frame() {
     updateEclipse();
     if (mode === 'running') {
       const dt = 0.001, sub = Math.max(1, Math.round(speed * 12));
-      for (let s = 0; s < sub; s++) integrate(dt * timeScale);
+      for (let s = 0; s < sub; s++) { integrate(dt * timeScale); if (checkMerge()) break; }
       for (const b of bodies) { b.trail.push(b.pos.clone()); if (b.trail.length > TRAIL_MAX) b.trail.shift(); }
+      grazeSparks();
     }
+    updateFX(0.016);
+    if (lensflare) { const s = bodies.find(b => b.star); if (s) { lensflare.position.copy(s.pos); lensflare.visible = true; } else lensflare.visible = false; }
     starUniforms.uTime.value += 0.016;      // boil the plasma + flicker the corona
     bodies.forEach(b => { applyVisual(b); updateTrail(b); b.mesh.rotation.y += 0.0025; });
     grid.lines.visible = grid.surface.visible = grid.wells.visible = showGrid;
