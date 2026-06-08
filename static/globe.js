@@ -56,10 +56,10 @@ async function boot(canvas) {
   root.add(core);
 
   // ── dotted surface: fibonacci sphere, kept on continent-like patches ──────
-  const N = 18000;
+  const N = 26000;
   const positions = [], colors = [];
-  const cA = new THREE.Color(0x5ce0ff);  // electric neon cyan-blue
-  const cB = new THREE.Color(0x2a72ff);  // vivid electric blue
+  const cA = new THREE.Color(0x6ee9ff);  // electric neon cyan-blue (brighter)
+  const cB = new THREE.Color(0x2f86ff);  // vivid electric blue
   const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < N; i++) {
     const yy = 1 - (i / (N - 1)) * 2;            // 1 → -1
@@ -71,7 +71,7 @@ async function boot(canvas) {
     positions.push(x, y, z);
     const t = Math.min(1, (m - 0.04) * 1.6);
     const c = cB.clone().lerp(cA, t * t);
-    const b = 0.9 + t * 0.7;
+    const b = 1.05 + t * 0.85;
     colors.push(c.r * b, c.g * b, c.b * b);
   }
   // every bead gets its own blink phase so the whole globe shimmers continuously
@@ -127,7 +127,7 @@ async function boot(canvas) {
   root.add(atmo);
 
   // ── twinkling sparkle glints — each twinkles on the GPU; touch ignites them ──
-  const SPK = 2200, spkPos = [], spkPhase = [];
+  const SPK = 3800, spkPos = [], spkPhase = [];
   for (let i = 0; i < SPK; i++) {
     const u = (Math.sin(i * 12.9898) * 43758.5453) % 1, v = (Math.sin(i * 78.233) * 12543.123) % 1;
     const th = Math.abs(u) * Math.PI * 2, ph = Math.acos(2 * Math.abs(v) - 1), r = 1.012 + (Math.abs(u) * 0.01);
@@ -141,16 +141,16 @@ async function boot(canvas) {
     transparent: true, depthTest: true, depthWrite: false, blending: THREE.AdditiveBlending,
     uniforms: {
       uT: { value: 0 }, uMap: { value: dotSprite() }, uColor: { value: new THREE.Color(0xcdeeff) },
-      uSize: { value: 0.135 }, uHit: { value: new THREE.Vector3(0, 0, 0) }, uHitStr: { value: 0 },
+      uSize: { value: 0.155 }, uHit: { value: new THREE.Vector3(0, 0, 0) }, uHitStr: { value: 0 },
     },
     vertexShader: `attribute float phase; varying float vTw; varying float vLive;
       uniform float uT, uSize, uHitStr; uniform vec3 uHit;
       void main(){
-        float base = pow(0.5 + 0.5 * sin(uT + phase), 3.0);
+        float base = pow(0.5 + 0.5 * sin(uT + phase), 2.4);
         float d = distance(position, uHit);
         float near = exp(-d * d / 0.05);            // glitter halo around the touch
         vLive = near * uHitStr;
-        vTw = base * (0.55 + 0.45 * uHitStr) + vLive * 2.6;   // comes alive where you touch
+        vTw = base * (0.95 + 0.45 * uHitStr) + vLive * 2.6;   // always twinkling; ignites where you touch
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         gl_PointSize = uSize * (0.28 + vTw) * (320.0 / -mv.z);
         gl_Position = projectionMatrix * mv; }`,

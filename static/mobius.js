@@ -399,10 +399,10 @@ const PANELS = [
     const tanHalf = Math.tan((camera.fov * Math.PI / 180) / 2);
     const outerR = R + WIDTH;
     if (aspect < 1.05) {
-      // phone / portrait: make it BIG — fill the width (a little side-spill is fine)
-      // and lift it so REX TRUEFORM sits in the loop's gap (~a third down the screen).
-      camera.position.z = outerR / (1.2 * aspect * tanHalf);
-      root.position.y = 0.40 * tanHalf * camera.position.z;
+      // phone / portrait: make it BIG — overfill the width (side-spill is the look)
+      // and lift it so REX TRUEFORM sits dead-centre in the loop's gap.
+      camera.position.z = outerR / (0.92 * aspect * tanHalf);
+      root.position.y = 0.42 * tanHalf * camera.position.z;
     } else {
       camera.position.z = 330;     // desktop: pulled in → bigger loop (slight side-spill is intentional)
       root.position.y = 58;
