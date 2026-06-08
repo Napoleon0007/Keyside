@@ -36,8 +36,8 @@ const PANELS = [
 
   // Geometry constants.
   const N = PANELS.length;
-  const R = 100;           // loop radius
-  const WIDTH = 30;        // half-width of the ribbon
+  const R = 116;           // loop radius
+  const WIDTH = 40;        // half-width of the ribbon
   const SEG_U = 240;       // segments around the loop (smoothness)
   const SEG_V = 18;        // segments across the ribbon
 
@@ -64,7 +64,7 @@ const PANELS = [
     root.add(spinner);
 
     // lights — warm Rex orange key, cool rim, soft fill.
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
     const key = new THREE.DirectionalLight(0xffb070, 1.15); key.position.set(120, 160, 220); scene.add(key);
     const rim = new THREE.DirectionalLight(0x4aa0ff, 0.8);  rim.position.set(-160, -80, -120); scene.add(rim);
 
@@ -112,8 +112,8 @@ const PANELS = [
 
     const tex = buildTexture();
     const mat = new THREE.MeshStandardMaterial({
-      map: tex, side: THREE.DoubleSide, metalness: 0.35, roughness: 0.55,
-      emissive: 0x180a04, emissiveIntensity: 1.0,
+      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.55,
+      side: THREE.DoubleSide, metalness: 0.15, roughness: 0.62,
     });
     band = new THREE.Mesh(geo, mat);
     spinner.add(band);
@@ -148,31 +148,28 @@ const PANELS = [
     tex.anisotropy = 8;
 
     const paintCell = (i, img) => {
-      const x0 = i * CELL;
+      const x0 = i * CELL, p = PANELS[i];
       g.save();
       g.beginPath(); g.rect(x0, 0, CELL, H); g.clip();
-      // base
-      g.fillStyle = '#08040a'; g.fillRect(x0, 0, CELL, H);
       if (img) {
+        // full-colour thumbnail, cover-fit, no tint or vignette — let it pop.
+        g.fillStyle = '#08040a'; g.fillRect(x0, 0, CELL, H);
         const s = Math.max(CELL / img.width, H / img.height);
         const w = img.width * s, h = img.height * s;
         g.drawImage(img, x0 + (CELL - w) / 2, (H - h) / 2, w, h);
-      }
-      // tint + vignette
-      const tint = PANELS[i].tint;
-      g.globalCompositeOperation = 'overlay';
-      g.fillStyle = tint; g.globalAlpha = 0.34; g.fillRect(x0, 0, CELL, H);
-      g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-      const grad = g.createLinearGradient(0, 0, 0, H);
-      grad.addColorStop(0, 'rgba(0,0,0,.15)'); grad.addColorStop(1, 'rgba(4,2,6,.78)');
-      g.fillStyle = grad; g.fillRect(x0, 0, CELL, H);
-      if (PANELS[i].music) {
-        g.fillStyle = tint; g.font = '150px sans-serif';
+      } else if (p.music) {
+        // Music has no thumbnail — keep a branded gradient + note glyph.
+        const grad = g.createLinearGradient(x0, 0, x0 + CELL, H);
+        grad.addColorStop(0, '#1a0a02'); grad.addColorStop(.55, '#3a1402'); grad.addColorStop(1, '#ff5500');
+        g.fillStyle = grad; g.fillRect(x0, 0, CELL, H);
+        g.fillStyle = '#fff'; g.font = '150px sans-serif';
         g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillText('♫', x0 + CELL / 2, H / 2);
+      } else {
+        g.fillStyle = '#08040a'; g.fillRect(x0, 0, CELL, H);
       }
-      // neon divider between cells
-      g.fillStyle = 'rgba(255,85,0,.65)'; g.fillRect(x0, 0, 3, H);
+      // thin neon divider between cells
+      g.fillStyle = 'rgba(255,85,0,.55)'; g.fillRect(x0, 0, 2, H);
       g.restore();
       tex.needsUpdate = true;
     };

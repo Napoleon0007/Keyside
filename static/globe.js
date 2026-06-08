@@ -78,17 +78,10 @@ async function boot(canvas) {
   dotGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   dotGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   const dots = new THREE.Points(dotGeo, new THREE.PointsMaterial({
-    size: 0.032, map: dotSprite(), vertexColors: true, transparent: true,
+    size: 0.037, map: dotSprite(), vertexColors: true, transparent: true,
     depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
   }));
   root.add(dots);
-
-  // per-dot home positions + spring offset/velocity (for the touch-gravity field)
-  const DOTS = positions.length / 3;
-  const home  = Float32Array.from(positions);
-  const posArr = dotGeo.getAttribute('position').array;
-  const off = new Float32Array(home.length);
-  const vel = new Float32Array(home.length);
 
   // ── atmosphere: fresnel rim glow ──────────────────────────────────────────
   const atmo = new THREE.Mesh(
@@ -105,14 +98,15 @@ async function boot(canvas) {
           gl_FragColor = vec4(uColor, f * 0.9); }`,
     })
   );
-  atmo.scale.setScalar(1.18);
+  atmo.scale.setScalar(1.2);
+  atmo.material.uniforms.uColor.value.setHex(0x4ab0ff);
   root.add(atmo);
 
-  // ── twinkling sparkle glints — each has its own phase, twinkles on the GPU ──
-  const SPK = 260, spkPos = [], spkPhase = [];
+  // ── twinkling sparkle glints — each twinkles on the GPU; touch ignites them ──
+  const SPK = 820, spkPos = [], spkPhase = [];
   for (let i = 0; i < SPK; i++) {
     const u = (Math.sin(i * 12.9898) * 43758.5453) % 1, v = (Math.sin(i * 78.233) * 12543.123) % 1;
-    const th = Math.abs(u) * Math.PI * 2, ph = Math.acos(2 * Math.abs(v) - 1), r = 1.015;
+    const th = Math.abs(u) * Math.PI * 2, ph = Math.acos(2 * Math.abs(v) - 1), r = 1.012 + (Math.abs(u) * 0.01);
     spkPos.push(Math.sin(ph) * Math.cos(th) * r, Math.cos(ph) * r, Math.sin(ph) * Math.sin(th) * r);
     spkPhase.push(Math.abs((Math.sin(i * 3.17) * 6.2831)) % 6.2831);
   }
@@ -121,14 +115,25 @@ async function boot(canvas) {
   spkGeo.setAttribute('phase', new THREE.Float32BufferAttribute(spkPhase, 1));
   const sparkleMat = new THREE.ShaderMaterial({
     transparent: true, depthTest: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { uT: { value: 0 }, uMap: { value: dotSprite() }, uColor: { value: new THREE.Color(0xc7e8ff) }, uSize: { value: 0.085 } },
-    vertexShader: `attribute float phase; varying float vTw; uniform float uT; uniform float uSize;
-      void main(){ vTw = pow(0.5 + 0.5 * sin(uT + phase), 3.0);
+    uniforms: {
+      uT: { value: 0 }, uMap: { value: dotSprite() }, uColor: { value: new THREE.Color(0xeaf5ff) },
+      uSize: { value: 0.11 }, uHit: { value: new THREE.Vector3(0, 0, 0) }, uHitStr: { value: 0 },
+    },
+    vertexShader: `attribute float phase; varying float vTw; varying float vLive;
+      uniform float uT, uSize, uHitStr; uniform vec3 uHit;
+      void main(){
+        float base = pow(0.5 + 0.5 * sin(uT + phase), 3.0);
+        float d = distance(position, uHit);
+        float near = exp(-d * d / 0.05);            // glitter halo around the touch
+        vLive = near * uHitStr;
+        vTw = base * (0.55 + 0.45 * uHitStr) + vLive * 2.6;   // comes alive where you touch
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = uSize * (0.3 + vTw) * (320.0 / -mv.z);
+        gl_PointSize = uSize * (0.28 + vTw) * (320.0 / -mv.z);
         gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: `varying float vTw; uniform sampler2D uMap; uniform vec3 uColor;
-      void main(){ vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(uColor, t.a * vTw); }`,
+    fragmentShader: `varying float vTw; varying float vLive; uniform sampler2D uMap; uniform vec3 uColor;
+      void main(){ vec4 t = texture2D(uMap, gl_PointCoord);
+        vec3 col = mix(uColor, vec3(1.0), clamp(vLive, 0.0, 1.0));   // ignites toward white
+        gl_FragColor = vec4(col, t.a * vTw); }`,
   });
   const sparkles = new THREE.Points(spkGeo, sparkleMat);
   root.add(sparkles);
@@ -173,44 +178,35 @@ async function boot(canvas) {
     ty = (e.clientY / window.innerHeight - 0.5);
   }, { passive: true });
 
-  // ── touch-gravity: poke the orb, dots scatter, then spring home ───────────
+  // ── touch-to-sparkle: the globe stays intact; glitter ignites where you touch ─
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const hitLocal = new THREE.Vector3();
-  let hovering = false, hitActive = false, restFrames = 0;
+  let hovering = false;
   canvas.addEventListener('pointermove', (e) => {
     const r = canvas.getBoundingClientRect();
     ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
     ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-    hovering = true; restFrames = 90;
+    hovering = true;
   }, { passive: true });
   canvas.addEventListener('pointerleave', () => { hovering = false; }, { passive: true });
 
-  function gravity() {
-    hitActive = false;
+  function touchSparkle() {
+    let onGlobe = false;
     if (hovering) {
       ray.setFromCamera(ndc, camera);
       const hit = ray.intersectObject(core, false)[0];
-      if (hit) { dots.worldToLocal(hitLocal.copy(hit.point)); hitActive = true; }
-    }
-    if (!hitActive && restFrames <= 0) return;   // settled: skip the heavy loop
-    if (!hitActive) restFrames--;
-    const R2 = 0.14, amp = 0.34, stiff = 0.07, damp = 0.82;
-    for (let i = 0; i < DOTS; i++) {
-      const j = i * 3, bx = home[j], by = home[j + 1], bz = home[j + 2];
-      let tX = 0, tY = 0, tZ = 0;
-      if (hitActive) {
-        const dx = bx - hitLocal.x, dy = by - hitLocal.y, dz = bz - hitLocal.z;
-        const inf = Math.exp(-(dx * dx + dy * dy + dz * dz) / R2);
-        if (inf > 0.01) { const f = inf * amp; tX = bx * f; tY = by * f; tZ = bz * f; }
+      if (hit) {
+        // raycast hits the front face; sparkles share the globe's spin, so the
+        // touch point converts straight into their local frame.
+        sparkles.worldToLocal(hitLocal.copy(hit.point));
+        sparkleMat.uniforms.uHit.value.copy(hitLocal);
+        onGlobe = true;
       }
-      vel[j]     = vel[j]     * damp + (tX - off[j])     * stiff;
-      vel[j + 1] = vel[j + 1] * damp + (tY - off[j + 1]) * stiff;
-      vel[j + 2] = vel[j + 2] * damp + (tZ - off[j + 2]) * stiff;
-      off[j] += vel[j]; off[j + 1] += vel[j + 1]; off[j + 2] += vel[j + 2];
-      posArr[j] = bx + off[j]; posArr[j + 1] = by + off[j + 1]; posArr[j + 2] = bz + off[j + 2];
     }
-    dotGeo.getAttribute('position').needsUpdate = true;
+    const target = onGlobe ? 1 : 0;       // ramp the glitter up on touch, fade on leave
+    const u = sparkleMat.uniforms.uHitStr;
+    u.value += (target - u.value) * (onGlobe ? 0.2 : 0.06);
   }
 
   // ── run / pause off-screen ────────────────────────────────────────────────
@@ -232,7 +228,7 @@ async function boot(canvas) {
       root.rotation.y += 0;             // base spin handled per-mesh
       ringGroup.rotation.y = px * 0.4;
     }
-    gravity();
+    touchSparkle();
     renderer.render(scene, camera);
   };
   const io = new IntersectionObserver(([en]) => {
