@@ -923,7 +923,7 @@ async function boot(stage) {
   }
 
   // ── Cinematic focus / fly-to (Phase 2) — reused by clicks, filters and the tour ──
-  const FOCUS_MS = reduced ? 0 : 800;
+  const FOCUS_MS = reduced ? 0 : 420;   // fly-to zoom — snappier
   const _AXIS_Z = new THREE.Vector3(0, 0, 1);
   let focus = null;   // { qFrom, qTo, zFrom, zTo, t0, dur, then, track, target, frameRadius }
 
@@ -1238,7 +1238,7 @@ async function boot(stage) {
 
     parX += (parTX - parX) * 0.06; parY += (parTY - parY) * 0.06;
     pivot.rotation.set(parX, parY, 0);
-    camZ += (tCamZ - camZ) * 0.08; camera.position.z = camZ;
+    camZ += (tCamZ - camZ) * 0.12; camera.position.z = camZ;
 
     pivot.updateMatrixWorld(true);   // sync all world matrices for edges + labels
     const pulse = 1 + Math.sin(t * 1.6) * 0.06;
