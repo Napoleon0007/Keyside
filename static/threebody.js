@@ -551,8 +551,10 @@ function boot() {
     const n = bodies.length;
     while (_a.length < n) _a.push(new THREE.Vector3());
     for (let i = 0; i < n; i++) _a[i].set(0, 0, 0);
-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-      if (i === j) continue;
+    for (let i = 0; i < n; i++) {
+      if (bodies[i] === dragBody) continue;          // held body is steered by the finger, not gravity
+      for (let j = 0; j < n; j++) {
+      if (i === j || bodies[j] === dragBody) continue;   // a held body exerts no pull → its gravity is "taken away"
       const dx = bodies[j].pos.x - bodies[i].pos.x, dy = bodies[j].pos.y - bodies[i].pos.y, dz = bodies[j].pos.z - bodies[i].pos.z;
       // soften by at least the pair's combined radius so an overlapping pass gives a
       // strong-but-finite slingshot, never an infinite-force explosion
@@ -742,10 +744,9 @@ function boot() {
       pinching = true; pinchStartDist = Math.max(1, pinchDist()); pinchStartRadius = camOrbit.radius;
       dragBody = null; orbiting = false; aimArrow.visible = false; previewLine.visible = false; flickVel.set(0, 0, 0);
     } else if (pointers.size === 1) {
-      const b = pickBody(e);                       // grab a planet anytime
+      const b = pickBody(e);                       // grab a planet anytime — the sim keeps running
       if (b) {
-        if (mode === 'running') { mode = 'paused'; updateRun(); }   // grabbing pauses, so you can rearrange
-        dragBody = b; manualEdited = true; flickVel.set(0, 0, 0);
+        dragBody = b; manualEdited = true; flickVel.set(0, 0, 0);   // held body is lifted out of physics; the rest keep orbiting
         const n = camera.getWorldDirection(new THREE.Vector3()).negate();
         dragPlane.setFromNormalAndCoplanarPoint(n, b.pos);
       } else { orbiting = true; lastX = e.clientX; lastY = e.clientY; }

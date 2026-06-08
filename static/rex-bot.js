@@ -27,15 +27,9 @@
     title: "REX",
     status: "ORACLE ONLINE",
     greeting:
-      "I am REX — the intelligence of the Rex Trueform world. Ask me of Luke, " +
-      "his art, his music, or the secrets hidden in this place.",
+      "I am REX — the intelligence of the Rex Trueform world. Speak your mind, and I will answer.",
     placeholder: "Transmit a question…",
-    suggestions: [
-      "Who is Luke?",
-      "Take me to Rex's World",
-      "What is the Order of the Skull?",
-      "Show me the music"
-    ]
+    suggestions: []   // no preemptive prompts — let people write what they're thinking
   }, window.REX_BOT_CONFIG || {});
 
   /* ---- page-navigation actions REX can trigger via [[GO:tag]] ------------- */
@@ -117,15 +111,16 @@
   /* ---- panel ---- */
   .rexbot-panel {
     position:fixed; right:26px; bottom:26px; width:392px; max-width:calc(100vw - 32px);
-    height:560px; max-height:calc(100vh - 52px); z-index:99999;
+    height:440px; max-height:calc(100vh - 52px); z-index:99999;
     display:flex; flex-direction:column; overflow:hidden;
+    /* transparent glass — you see the world through it; heavy blur keeps text legible */
     background:
-      linear-gradient(180deg, rgba(20,12,16,.92), rgba(8,5,8,.96)),
+      linear-gradient(180deg, rgba(20,12,16,.50), rgba(8,5,8,.58)),
       repeating-linear-gradient(0deg, rgba(255,122,24,.05) 0 1px, transparent 1px 3px);
     border:1px solid var(--rb-edge); border-radius:16px;
-    box-shadow: 0 0 0 1px rgba(255,122,24,.12), 0 24px 70px rgba(0,0,0,.7),
-                0 0 60px rgba(255,90,0,.18), inset 0 0 40px rgba(255,90,0,.05);
-    backdrop-filter: blur(10px) saturate(1.1); -webkit-backdrop-filter: blur(10px) saturate(1.1);
+    box-shadow: 0 0 0 1px rgba(255,122,24,.12), 0 24px 70px rgba(0,0,0,.55),
+                0 0 60px rgba(255,90,0,.16), inset 0 0 40px rgba(255,90,0,.05);
+    backdrop-filter: blur(20px) saturate(1.15); -webkit-backdrop-filter: blur(20px) saturate(1.15);
     transform: translateY(18px) scale(.96); opacity:0; pointer-events:none;
     transition: transform .32s cubic-bezier(.2,.9,.3,1.2), opacity .28s ease;
   }
@@ -238,7 +233,8 @@
   @keyframes rb-flicker { 0%,100%{opacity:1;} 92%{opacity:1;} 93%{opacity:.55;} 94%{opacity:1;} 97%{opacity:.7;} 98%{opacity:1;} }
 
   @media (max-width:520px) {
-    .rexbot-panel { right:0; bottom:0; width:100vw; height:100dvh; max-height:100dvh; border-radius:0; }
+    /* shorter floating sheet, not fullscreen — you see the world through it */
+    .rexbot-panel { right:10px; left:10px; bottom:84px; width:auto; height:66dvh; max-height:66dvh; border-radius:16px; }
     .rexbot-orb { right:16px; bottom:16px; }
   }
   @media (prefers-reduced-motion: reduce) {
