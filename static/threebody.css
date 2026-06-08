@@ -133,10 +133,19 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 
 .tb-hint.gone { opacity: 0; }
 
 @media (max-width: 560px) {
-  .tb-title { font-size: 20px; }
-  .tb-top { gap: 10px; padding: 10px 14px; }
+  /* Keep the whole control row on-screen: drop the long title, shrink buttons,
+     and let the header wrap so the Run button is never pushed off the edge. */
+  .tb-top { gap: 8px; padding: 8px 10px; flex-wrap: wrap; }
+  .tb-title { display: none; }
+  .tb-back { padding: 7px 11px; font-size: 11px; }
+  .tb-logo { width: 38px; height: 38px; }
+  .tb-top-actions { gap: 8px; }
+  .tb-btn { padding: 8px 11px; font-size: 11px; }
+  .tb-run { padding: 9px 18px; font-size: 12px; }
   .tb-pop, .tb-pop-wide { width: calc(100vw - 24px); }
-  .tb-dock { flex-wrap: wrap; justify-content: center; width: calc(100vw - 24px); border-radius: 16px; }
+  .tb-dock { flex-wrap: wrap; justify-content: center; width: calc(100vw - 24px); border-radius: 16px; gap: 8px; padding: 9px 12px; }
+  .tb-mini { padding: 7px 11px; }
+  .tb-hint { bottom: 96px; font-size: 11px; }
 }
 
 /* ═══ #5 — futuristic glass control deck ════════════════════════════════════ */
