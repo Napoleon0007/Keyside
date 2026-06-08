@@ -56,7 +56,7 @@
       <div class="hero-content">
         <span class="hero-kicker">Come here, sausage</span>
         <h1 class="site-title title-rex"><span class="hero-word"><span class="hero-letter">R</span><span class="hero-letter">E</span><span class="hero-letter">X</span></span> <span class="hero-word"><span class="hero-letter side">T</span><span class="hero-letter side">R</span><span class="hero-letter side">U</span><span class="hero-letter side">E</span><span class="hero-letter side">F</span><span class="hero-letter side">O</span><span class="hero-letter side">R</span><span class="hero-letter side">M</span></span></h1>
-        <p class="site-sub-name">The <span class="orange floaty">Medici</span> family bought a golden age. <span class="nowrap">We&rsquo;re building the next one.</span></p>
+        <p class="site-sub-name">The <span class="orange floaty">Medici</span> Family Art Hub</p>
         <p class="hero-breadth">We build <span class="hero-cycle" id="heroCycle">galleries</span></p>
       </div>
       <div class="hero-scroll-cue" aria-hidden="true">scroll &#9662;</div>
@@ -96,6 +96,10 @@
 
   <!-- Explore Rex's Collections — spinning card-ring navigator, sits just below Rex's World -->
   <section class="disc-section" id="section-disc" data-type="disc" aria-label="Explore the collections">
+    <video class="disc-bg-video" id="discBgVideo" muted loop playsinline webkit-playsinline preload="auto" aria-hidden="true" poster="{{ url_for('static', filename='boer-disc-poster.jpg') }}">
+      <source src="{{ url_for('static', filename='boer-disc.mp4') }}" type="video/mp4">
+    </video>
+    <div class="disc-bg-veil" aria-hidden="true"></div>
     <div class="disc-head">
       <h2 class="disc-title">Explore <span class="orange">Rex's</span> Collections</h2>
     </div>
@@ -106,6 +110,13 @@
     </div>
     <p class="disc-hint">drag to spin &middot; click a panel to enter</p>
   </section>
+
+  <!-- slim brand banner — clean transition between Explore and the rails below -->
+  <div class="rt-banner" aria-hidden="true">
+    <span class="rt-banner-line"></span>
+    <span class="rt-banner-text">REX TRUEFORM &middot; <span class="orange">a house that builds worlds</span></span>
+    <span class="rt-banner-line"></span>
+  </div>
 
   <main class="content" id="content">
     <div class="gallery-loading" id="galleryLoading">

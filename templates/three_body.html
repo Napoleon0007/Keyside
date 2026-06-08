@@ -104,6 +104,7 @@
     <h3>Choose a world</h3>
     <button id="solarBtn" class="tb-btn tb-wide tb-solar" type="button">&#9728; Our Solar System</button>
     <button id="neutronBtn" class="tb-btn tb-wide tb-neutron" type="button">&#10038; Neutron Star</button>
+    <button id="runSimBtn" class="tb-btn tb-wide tb-runsim" type="button">&#9654; Run the Simulator</button>
     <h3>Famous orbits</h3>
     <div class="tb-presets">
       <button class="preset active" data-preset="figure-8" type="button">Figure-8</button>
@@ -143,19 +144,25 @@
   </script>
   <script>
     (function () {
+      // Toggle on pointerup (fires once per tap) and SWALLOW the synthesized mouse-click
+      // that touch fires afterwards — that trailing click was slamming the panel shut.
+      var lastToggle = 0;
+      function closeAllPops() { document.querySelectorAll('.tb-pop').forEach(function (x) { x.setAttribute('hidden', ''); }); }
       function popover(btnId, popId) {
         var b = document.getElementById(btnId), p = document.getElementById(popId);
-        b.addEventListener('click', function (e) {
-          e.stopPropagation();
+        b.addEventListener('pointerup', function (e) {
+          e.preventDefault(); e.stopPropagation();
+          var now = Date.now(); if (now - lastToggle < 600) return; lastToggle = now;   // ignore the touch→mouse duplicate sequence
           var open = !p.hasAttribute('hidden');
-          document.querySelectorAll('.tb-pop').forEach(function (x) { x.setAttribute('hidden', ''); });
-          if (open) p.setAttribute('hidden', ''); else p.removeAttribute('hidden');
+          closeAllPops();
+          if (!open) p.removeAttribute('hidden');
         });
+        b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });   // kill the ghost click
       }
       popover('gear', 'settings'); popover('solBtn', 'solutions');
-      document.addEventListener('click', function (e) {
-        if (!e.target.closest('.tb-pop') && !e.target.closest('.tb-dock'))
-          document.querySelectorAll('.tb-pop').forEach(function (x) { x.setAttribute('hidden', ''); });
+      // close when tapping outside — on pointerdown so it's deterministic across touch/mouse
+      document.addEventListener('pointerdown', function (e) {
+        if (!e.target.closest('.tb-pop') && !e.target.closest('.tb-dock')) closeAllPops();
       });
       // fade the hint after a few seconds / first interaction
       var hint = document.getElementById('hint');

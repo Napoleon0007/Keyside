@@ -127,7 +127,7 @@ function boot() {
   let mode = 'setup';                     // 'setup' | 'running' | 'paused'
   let bodies = [];
   let manualEdited = false;               // user moved/resized a planet → auto-orbit on Run
-  const TRAIL_MAX = 700;
+  const TRAIL_MAX = 1100;   // long enough to trace most of an orbit so every body shows its path
   const glowTex = makeGlowTexture();
   const texLoader = new THREE.TextureLoader();
   const loadTex = (n) => { const t = texLoader.load(`/static/textures/${n}.jpg`); t.colorSpace = THREE.SRGBColorSpace; return t; };
@@ -641,7 +641,7 @@ function boot() {
     const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
     for (let k = 0; k < n; k++) {
       pos[k * 3] = t[k].x; pos[k * 3 + 1] = t[k].y; pos[k * 3 + 2] = t[k].z;
-      const f = k / n, a = f * f * 1.5;         // sharp falloff + bright head
+      const f = k / n, a = f * f * 1.3 + 0.35 * f;   // brighter with a glowing floor so even tiny/dim bodies show a clear trail
       const w = Math.max(0, f - 0.85) * 4;      // white-hot tip near the planet
       col[k * 3] = b.color.r * a + w; col[k * 3 + 1] = b.color.g * a + w; col[k * 3 + 2] = b.color.b * a + w;
     }
@@ -883,11 +883,16 @@ function boot() {
     clearWorldActive();
     $(btnId) && $(btnId).classList.add('active');
     currentPreset = id; loadPreset(id);
-    mode = 'running'; updateRun();
-    $('solutions').setAttribute('hidden', '');
+    mode = 'running'; updateRun();        // runs behind the panel — the green button reveals it
   }
   $('solarBtn') && $('solarBtn').addEventListener('click', () => loadWorld('solar', 'solarBtn'));
   $('neutronBtn') && $('neutronBtn').addEventListener('click', () => loadWorld('neutron', 'neutronBtn'));
+  // Big green CTA: start the chosen world and reveal it (close the panel)
+  $('runSimBtn') && $('runSimBtn').addEventListener('click', () => {
+    FX.init(); FX.resume();
+    if (mode !== 'running') { if (manualEdited && !systemMode) { autoOrbit(); manualEdited = false; } mode = 'running'; updateRun(); }
+    document.querySelectorAll('.tb-pop').forEach(x => x.setAttribute('hidden', ''));
+  });
   function explore() {
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
     currentPreset = 'explore'; readout(); loadPreset('explore');

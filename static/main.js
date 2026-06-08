@@ -1135,6 +1135,23 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSkull()
   sync();
 })();
 
+// Play the Explore section's Boer-War background only while it's on screen — keeps the
+// phone's video-decoder count low (one clip at a time) and saves bandwidth otherwise.
+(function manageDiscBg() {
+  const v = document.getElementById('discBgVideo');
+  const sec = document.getElementById('section-disc');
+  if (!v || !sec) return;
+  let on = false;
+  const sync = () => {
+    const r = sec.getBoundingClientRect();
+    const vis = r.top < window.innerHeight * 0.85 && r.bottom > window.innerHeight * 0.15;
+    if (vis && !on) { on = true; v.preload = 'auto'; v.play().catch(() => {}); }
+    else if (!vis && on) { on = false; try { v.pause(); } catch (e) {} }
+  };
+  window.addEventListener('scroll', sync, { passive: true });
+  sync();
+})();
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 
 checkAuth();

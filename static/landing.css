@@ -19,13 +19,61 @@
   touch-action: pan-y;
 }
 
+/* Boer War snippet, dimmed, playing behind the Explore card-ring */
+.disc-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.6;
+  filter: saturate(1.05) brightness(0.5) contrast(1.05);
+}
+.disc-bg-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 42%, rgba(0,0,0,0) 25%, rgba(0,0,0,0.55) 100%),
+    linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.2) 45%, rgba(0,0,0,0.6) 100%);
+}
+
 .disc-sky {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   display: block;
-  z-index: 0;
+  z-index: 2;
+}
+
+/* Slim brand divider banner between Explore and the rails */
+.rt-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 22px 22px;
+  background: linear-gradient(180deg, #000 0%, rgba(12,7,4,0.96) 100%);
+  border-top: 1px solid rgba(255,85,0,0.22);
+  border-bottom: 1px solid rgba(255,85,0,0.22);
+}
+.rt-banner-text {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(0.95rem, 2.4vw, 1.5rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--off-white, #f0ede8);
+  white-space: nowrap;
+}
+.rt-banner-text .orange { color: var(--orange, #ff5500); }
+.rt-banner-line {
+  height: 1px;
+  flex: 1 1 auto;
+  max-width: 220px;
+  background: linear-gradient(90deg, transparent, rgba(255,85,0,0.55), transparent);
 }
 
 .disc-head {

@@ -227,6 +227,14 @@ input[type=range] { box-shadow: 0 0 10px rgba(51,182,255,0.35); }
 .tb-neutron.active { color: #08131f; border-color: transparent;
   background: linear-gradient(180deg, #eaf4ff, #8fbcff); box-shadow: 0 0 22px rgba(140,190,255,0.65); }
 
+/* "Run the Simulator" — the green go button */
+.tb-runsim { margin: 4px 0 16px; font-size: 14px; color: #06180e; border-color: transparent;
+  background: linear-gradient(180deg, #8effb0, #18c95a); box-shadow: 0 0 22px rgba(40,220,110,0.55);
+  animation: tbRunSimPulse 2.4s ease-in-out infinite; }
+.tb-runsim:hover { color: #04120a; background: linear-gradient(180deg, #a8ffc4, #20e066); box-shadow: 0 0 30px rgba(50,240,130,0.8); }
+@keyframes tbRunSimPulse { 0%,100% { box-shadow: 0 0 20px rgba(40,220,110,0.5); } 50% { box-shadow: 0 0 32px rgba(60,250,140,0.85); } }
+@media (prefers-reduced-motion: reduce) { .tb-runsim { animation: none; } }
+
 /* best-effort iOS haptic switch — rendered (so the Taptic engine fires) but out of the way */
 .tb-haptic-sink { position: fixed; bottom: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
 
