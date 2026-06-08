@@ -8,6 +8,7 @@
 // tags in index.html and the .hero-mobius / .mobius-labels rules in landing.css.
 
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // The six navigator panels — mirrors the hero card ring (label, kicker, art, action).
 const PANELS = [
@@ -65,9 +66,15 @@ const PANELS = [
     root.add(spinner);
 
     // lights — warm Rex orange key, cool rim, soft fill.
-    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-    const key = new THREE.DirectionalLight(0xffb070, 1.15); key.position.set(120, 160, 220); scene.add(key);
-    const rim = new THREE.DirectionalLight(0x4aa0ff, 0.8);  rim.position.set(-160, -80, -120); scene.add(rim);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const key = new THREE.DirectionalLight(0xffb070, 1.35); key.position.set(120, 160, 220); scene.add(key);
+    const rim = new THREE.DirectionalLight(0x4aa0ff, 0.95); rim.position.set(-160, -80, -120); scene.add(rim);
+
+    // environment — gives the glossy/metal surface something to reflect.
+    try {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    } catch (e) { /* gloss still works off the direct lights */ }
 
     raycaster = new THREE.Raycaster();
     ndc = new THREE.Vector2();
@@ -112,9 +119,12 @@ const PANELS = [
     geo.computeVertexNormals();
 
     const tex = buildTexture();
-    const mat = new THREE.MeshStandardMaterial({
-      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.55,
-      side: THREE.DoubleSide, metalness: 0.15, roughness: 0.62,
+    const mat = new THREE.MeshPhysicalMaterial({
+      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.5,
+      side: THREE.DoubleSide, metalness: 0.25, roughness: 0.32,
+      clearcoat: 1.0, clearcoatRoughness: 0.22,                 // glossy lacquer highlight
+      iridescence: 0.75, iridescenceIOR: 1.3, iridescenceThicknessRange: [120, 480], // oil-slick shimmer
+      envMapIntensity: 0.9,
     });
     band = new THREE.Mesh(geo, mat);
     spinner.add(band);
