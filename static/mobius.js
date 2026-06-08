@@ -59,6 +59,7 @@ const PANELS = [
 
     root = new THREE.Group();
     root.rotation.x = -0.92;        // tilt so the twist reads in 3D
+    root.position.y = 32;           // ride high — top of the band just under the hero top
     scene.add(root);
     spinner = new THREE.Group();     // revolves around the loop axis
     root.add(spinner);
