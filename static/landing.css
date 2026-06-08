@@ -254,9 +254,26 @@
   background: radial-gradient(ellipse 70% 68% at 50% 46%, rgba(6,3,2,.74), rgba(6,3,2,.42) 52%, rgba(6,3,2,0) 100%);
 }
 /* Neon dot-globe corner accent (globe.js) */
+/* Black hole — sits deepest in the hero, centred in the Möbius gap behind the
+   title. Heavily dimmed + masked so it's a presence you can feel, not a focal point. */
+.hero-blackhole {
+  position: absolute;
+  top: 34%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(440px, 70vh, 820px);
+  height: clamp(440px, 70vh, 820px);
+  z-index: 0;                 /* behind globe (z2), Möbius and title — deepest hero layer */
+  background: url('/static/blackhole.jpg') center/cover no-repeat;
+  opacity: 0.6;
+  filter: brightness(0.62) contrast(1.12) saturate(0.9);
+  -webkit-mask-image: radial-gradient(closest-side, #000 52%, transparent 80%);
+          mask-image: radial-gradient(closest-side, #000 52%, transparent 80%);
+  pointer-events: none;
+}
+
 .hero-globe {
   position: absolute;
-  top: 24%; left: 50%;
+  top: 34%; left: 50%;
   transform: translate(-50%, -50%);
   width: clamp(340px, 50vh, 600px);
   height: clamp(340px, 50vh, 600px);
@@ -270,7 +287,8 @@
           mask-image: radial-gradient(closest-side, #000 80%, transparent 100%);
 }
 @media (max-width: 640px) {
-  .hero-globe { top: 22%; width: 86vw; height: 86vw; opacity: 0.9; }
+  .hero-globe { top: 30%; width: 86vw; height: 86vw; opacity: 0.9; }
+  .hero-blackhole { top: 30%; width: 96vw; height: 96vw; }
 }
 .hero-orbit .disc-sky { position: absolute; inset: 0; z-index: 3; }
 
@@ -357,7 +375,7 @@
 /* MEDICI + names overlaid near the top; never blocks the drag */
 .hero-orbit .hero-content {
   position: absolute;
-  top: 30%;                 /* sits inside the Möbius loop's gap */
+  top: 23%;                 /* just above centre, framed in the Möbius loop's gap */
   left: 0; right: 0;
   z-index: 6;
   text-align: center;
@@ -384,7 +402,7 @@
   .disc-section { min-height: 76vh; }
   .disc-stage { perspective: 1100px; }
   .disc-card .card-label { font-size: 1.4rem; }
-  .hero-orbit .hero-content { top: 26%; }
+  .hero-orbit .hero-content { top: 19%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .disc-card { transition: none; }

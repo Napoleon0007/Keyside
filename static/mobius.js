@@ -57,11 +57,11 @@ const PANELS = [
 
     scene  = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(42, 1, 0.1, 4000);
-    camera.position.set(0, 0, 360);
+    camera.position.set(0, 0, 385);
 
     root = new THREE.Group();
     root.rotation.x = -0.78;        // less edge-on → you see more of the band's broad face
-    root.position.y = 40;           // lifted up; the title sits in the loop's gap
+    root.position.y = 46;           // lifted up; the title sits in the loop's gap
     scene.add(root);
     spinner = new THREE.Group();     // revolves around the loop axis
     root.add(spinner);
