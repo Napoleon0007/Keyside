@@ -554,22 +554,23 @@ function boot() {
     for (let i = 0; i < n; i++) {
       if (bodies[i] === dragBody) continue;          // held body is steered by the finger, not gravity
       for (let j = 0; j < n; j++) {
-      if (i === j || bodies[j] === dragBody) continue;   // a held body exerts no pull → its gravity is "taken away"
-      const dx = bodies[j].pos.x - bodies[i].pos.x, dy = bodies[j].pos.y - bodies[i].pos.y, dz = bodies[j].pos.z - bodies[i].pos.z;
-      // soften by at least the pair's combined radius so an overlapping pass gives a
-      // strong-but-finite slingshot, never an infinite-force explosion
-      const soft = Math.max(softening, visRadius(bodies[i].m) + visRadius(bodies[j].m));
-      const r2 = dx * dx + dy * dy + dz * dz + soft * soft;
-      const inv = G * bodies[j].m / (r2 * Math.sqrt(r2));
-      _a[i].x += inv * dx; _a[i].y += inv * dy; _a[i].z += inv * dz;
+        if (i === j || bodies[j] === dragBody) continue;   // a held body exerts no pull → its gravity is "taken away"
+        const dx = bodies[j].pos.x - bodies[i].pos.x, dy = bodies[j].pos.y - bodies[i].pos.y, dz = bodies[j].pos.z - bodies[i].pos.z;
+        // soften by at least the pair's combined radius so an overlapping pass gives a
+        // strong-but-finite slingshot, never an infinite-force explosion
+        const soft = Math.max(softening, visRadius(bodies[i].m) + visRadius(bodies[j].m));
+        const r2 = dx * dx + dy * dy + dz * dz + soft * soft;
+        const inv = G * bodies[j].m / (r2 * Math.sqrt(r2));
+        _a[i].x += inv * dx; _a[i].y += inv * dy; _a[i].z += inv * dz;
+      }
     }
   }
   function integrate(dt) {
     const n = bodies.length;
     accel();
-    for (let i = 0; i < n; i++) { bodies[i].vel.addScaledVector(_a[i], 0.5 * dt); bodies[i].pos.addScaledVector(bodies[i].vel, dt); }
+    for (let i = 0; i < n; i++) { if (bodies[i] === dragBody) continue; bodies[i].vel.addScaledVector(_a[i], 0.5 * dt); bodies[i].pos.addScaledVector(bodies[i].vel, dt); }
     accel();
-    for (let i = 0; i < n; i++) bodies[i].vel.addScaledVector(_a[i], 0.5 * dt);
+    for (let i = 0; i < n; i++) { if (bodies[i] === dragBody) continue; bodies[i].vel.addScaledVector(_a[i], 0.5 * dt); }
   }
 
   // Auto-orbit: from any placement, hand each body a balanced tangential velocity
