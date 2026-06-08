@@ -417,7 +417,7 @@
   .disc-section { min-height: 76vh; }
   .disc-stage { perspective: 1100px; }
   .disc-card .card-label { font-size: 1.4rem; }
-  .hero-orbit .hero-content { top: 22%; }   /* sits in the lifted Möbius gap on phones */
+  .hero-orbit .hero-content { top: 17%; }   /* raised to sit in the bigger lifted Möbius gap on phones */
 }
 @media (prefers-reduced-motion: reduce) {
   .disc-card { transition: none; }

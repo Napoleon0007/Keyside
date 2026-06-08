@@ -67,7 +67,8 @@ function renderNav() {
     const loginB  = navBtn('Login', () => openAuthModal('login'));
     const signupB = navBtn('Sign Up', () => openAuthModal('signup'));
     signupB.classList.add('nav-btn-orange');
-    navRight.append(loginB, signupB);
+    loginB.classList.add('nav-btn-orange-outline');
+    navRight.append(signupB, loginB);   // far right, stacked: Sign Up above Login
   }
 }
 

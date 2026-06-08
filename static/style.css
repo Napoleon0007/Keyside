@@ -183,6 +183,23 @@ body.modal-open {
 }
 .nav-btn-orange:hover { opacity: 0.85; color: var(--black); }
 
+/* Login — orange outline so it reads clearly against the dark bar (opposite of the filled Sign Up above it) */
+.nav-btn-orange-outline {
+  background: none;
+  border-color: var(--orange);
+  color: var(--orange);
+}
+.nav-btn-orange-outline:hover { background: var(--orange); color: var(--black); }
+
+/* Auth buttons live hard against the right edge, stacked: Sign Up above Login */
+#navRight {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+#navRight .nav-btn { text-align: center; }
+
 .nav-skull {
   height: 36px;
   width: auto;

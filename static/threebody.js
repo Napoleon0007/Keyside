@@ -39,6 +39,8 @@ function boot() {
   renderer.setClearColor(0x03040a, 1);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
+  renderer.shadowMap.enabled = true;                 // #1: real cast shadows → planet-on-planet eclipses
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;  // soft penumbra, not hard edges
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x03040a, 0.0009);   // light touch: depth haze without fogging out the starfield
@@ -49,20 +51,26 @@ function boot() {
   // crushing to black and adds rim shape; ambient is low so form survives.
   scene.add(new THREE.AmbientLight(0x35507a, 0.22));
   const keyLight = new THREE.DirectionalLight(0xfff1dd, 1.15);
-  keyLight.position.set(6, 5, 4); scene.add(keyLight);
+  keyLight.position.set(24, 20, 16);                 // pulled out so the shadow frustum brackets the whole field
+  keyLight.castShadow = true;                         // #1: the single shadow caster (cheap, consistent eclipses)
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.camera.near = 1; keyLight.shadow.camera.far = 90;
+  keyLight.shadow.camera.left = -20; keyLight.shadow.camera.right = 20;
+  keyLight.shadow.camera.top = 20; keyLight.shadow.camera.bottom = -20;
+  keyLight.shadow.bias = -0.0004; keyLight.shadow.normalBias = 0.02;
+  scene.add(keyLight);
   const fillLight = new THREE.DirectionalLight(0x4d74c8, 0.4);
   fillLight.position.set(-5, -2, -4); scene.add(fillLight);
-  const starTex = starSprite();                        // shared point-sprite for stars + dust (init before first use)
+  const starTex = starSprite();                        // shared point-sprite for the star layers (init before first use)
   const ambient = new THREE.Group();
   ambient.add(makeStars(9000, 1.4, 0.95, 300, 2200));  // far, very dense field
   ambient.add(makeStars(2600, 2.2, 1.0, 120, 900));    // mid layer
-  ambient.add(makeStars(700, 3.6, 1.0, 80, 480));      // near, bright headline stars
+  const starNear = makeStars(700, 3.6, 1.0, 80, 480);  // near, bright headline stars
+  ambient.add(starNear);                               // #5: drifts a touch faster → parallax shear vs the far field
   ambient.add(makeNebula());
   ambient.add(makeGalaxies());
   const shootingStars = makeShootingStars();           // sporadic streaks across the deep background
   scene.add(shootingStars.group);
-  const dust = makeDust();                              // floaty motes near the action
-  ambient.add(dust);
   scene.add(ambient);
 
   // Real bloom for that sharp neon-in-space glow (loaded lazily; falls back if it fails).
@@ -75,7 +83,7 @@ function boot() {
       ]);
       composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
-      bokeh = new BokehPass(scene, camera, { focus: 5.0, aperture: 0.00018, maxblur: 0.006 });  // #4: cinematic depth of field
+      bokeh = new BokehPass(scene, camera, { focus: 5.0, aperture: 0.00026, maxblur: 0.009 });  // #5: cinematic depth of field (readable rack)
       composer.addPass(bokeh);
       composer.addPass(new UnrealBloomPass(new THREE.Vector2(canvas.clientWidth, canvas.clientHeight), 0.85, 0.65, 0.8));
       composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -208,10 +216,11 @@ function boot() {
 
   function makeBody(x, y, z, vx, vy, vz, m, i) {
     const color = COLORS[i];
-    const mat = new THREE.MeshStandardMaterial({ map: PLANET_TEX[i], bumpMap: PLANET_TEX[i], bumpScale: 0.03, emissive: color, emissiveIntensity: 0.06,
-      roughness: i === 1 ? 0.68 : 0.9, metalness: i === 1 ? 0.18 : 0.05,        // Earth gets a soft ocean sheen
-      envMap: envCube, envMapIntensity: i === 1 ? 0.55 : 0.3 });                // #5: faint cosmic reflection
+    const mat = new THREE.MeshStandardMaterial({ map: PLANET_TEX[i], bumpMap: PLANET_TEX[i], bumpScale: 0.05, emissive: color, emissiveIntensity: 0.05,
+      roughness: i === 1 ? 0.48 : 0.62, metalness: i === 1 ? 0.22 : 0.08,       // #2: lower roughness → a tight specular hotspot that travels as it spins
+      envMap: envCube, envMapIntensity: i === 1 ? 0.7 : 0.45 });                // #5: faint cosmic reflection
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 40), mat);
+    mesh.castShadow = true; mesh.receiveShadow = true;   // #1: occlude + catch eclipses
     let cloud = null, ring = null;
     if (i === 1) { cloud = cloudShell(); mesh.add(cloud); }                    // Earth → drifting clouds
     if (i === 2) { ring = ringSystem(); mesh.add(ring); }                      // gas giant → ring system
@@ -223,8 +232,7 @@ function boot() {
     mesh.add(light);
     scene.add(mesh); scene.add(glow);
 
-    const line = new THREE.Line(new THREE.BufferGeometry(),
-      new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const line = makeRibbon();            // #3: tapered 3D ribbon wake (replaces the flat 1px line)
     scene.add(line);
 
     // generous invisible hit-sphere so the planet is easy to grab/drag
@@ -290,7 +298,9 @@ function boot() {
     tgeo.setAttribute('position', new THREE.Float32BufferAttribute(base.slice(), 3));
     tgeo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(N * N * 3), 3));
     tgeo.setIndex(tidx);
-    const surface = new THREE.Mesh(tgeo, new THREE.MeshBasicMaterial({ color: 0x07172e, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
+    const surfMat = new THREE.MeshStandardMaterial({ color: 0x07172e, roughness: 0.42, metalness: 0.2, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false });
+    const surface = new THREE.Mesh(tgeo, surfMat);   // #4: lit glossy membrane — sheens under the key light + receives planet shadows
+    surface.receiveShadow = true;
     const wells = new THREE.Mesh(tgeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
     const larr = lgeo.attributes.position.array, tarr = tgeo.attributes.position.array, carr = tgeo.attributes.color.array;
     function update(bs) {
@@ -372,7 +382,10 @@ function boot() {
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
       if (i === j) continue;
       const dx = bodies[j].pos.x - bodies[i].pos.x, dy = bodies[j].pos.y - bodies[i].pos.y, dz = bodies[j].pos.z - bodies[i].pos.z;
-      const r2 = dx * dx + dy * dy + dz * dz + softening * softening;
+      // soften by at least the pair's combined radius so an overlapping pass gives a
+      // strong-but-finite slingshot, never an infinite-force explosion
+      const soft = Math.max(softening, visRadius(bodies[i].m) + visRadius(bodies[j].m));
+      const r2 = dx * dx + dy * dy + dz * dz + soft * soft;
       const inv = G * bodies[j].m / (r2 * Math.sqrt(r2));
       _a[i].x += inv * dx; _a[i].y += inv * dy; _a[i].z += inv * dz;
     }
@@ -433,20 +446,41 @@ function boot() {
     camera.lookAt(camTarget);
   }
 
-  // ── trails ─────────────────────────────────────────────────────────────────────
+  // ── trails (#3): rebuild a camera-facing 3D ribbon from the polyline. Each point
+  //    emits two verts offset sideways (⊥ to both the path and the view), tapering
+  //    to a point at the tail and a bright head — a comet wake with real width that
+  //    sorts in depth (passes behind/in front of the planets). ──────────────────────
+  const _rdir = new THREE.Vector3(), _rview = new THREE.Vector3(), _rside = new THREE.Vector3();
   function updateTrail(b) {
-    const t = b.trail, n = t.length;
-    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+    const t = b.trail, n = t.length, rib = b.line;
+    if (!showTrails || n < 2) { rib.visible = false; return; }
+    const headW = visRadius(b.m) * 0.5;       // ribbon half-width at the planet end
+    const cam = camera.position;
+    const pos = rib.geometry.attributes.position.array;
+    const col = rib.geometry.attributes.aColor.array;
+    const alp = rib.geometry.attributes.aAlpha.array;
     for (let k = 0; k < n; k++) {
-      pos[k * 3] = t[k].x; pos[k * 3 + 1] = t[k].y; pos[k * 3 + 2] = t[k].z;
-      const f = k / n, a = f * f * 1.5;         // sharp falloff + bright head → glowing comet-tail (bloom catches it)
-      const w = Math.max(0, f - 0.85) * 4;      // white-hot tip near the planet
-      col[k * 3] = b.color.r * a + w; col[k * 3 + 1] = b.color.g * a + w; col[k * 3 + 2] = b.color.b * a + w;
+      const p = t[k];
+      if (k < n - 1) _rdir.subVectors(t[k + 1], p); else _rdir.subVectors(p, t[k - 1]);
+      _rview.subVectors(cam, p);
+      _rside.crossVectors(_rdir, _rview);
+      if (_rside.lengthSq() < 1e-10) _rside.set(1, 0, 0); else _rside.normalize();
+      const f = k / (n - 1);                   // 0 = tail, 1 = head
+      const w = headW * f;                     // taper to nothing at the tail
+      const bright = f * f * 1.5, white = Math.max(0, f - 0.85) * 4;
+      const a = f * f * 0.95;
+      const cr = b.color.r * bright + white, cg = b.color.g * bright + white, cb = b.color.b * bright + white;
+      const lo = k * 2, hi = lo + 1;
+      pos[lo * 3] = p.x + _rside.x * w; pos[lo * 3 + 1] = p.y + _rside.y * w; pos[lo * 3 + 2] = p.z + _rside.z * w;
+      pos[hi * 3] = p.x - _rside.x * w; pos[hi * 3 + 1] = p.y - _rside.y * w; pos[hi * 3 + 2] = p.z - _rside.z * w;
+      col[lo * 3] = col[hi * 3] = cr; col[lo * 3 + 1] = col[hi * 3 + 1] = cg; col[lo * 3 + 2] = col[hi * 3 + 2] = cb;
+      alp[lo] = alp[hi] = a;
     }
-    b.line.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    b.line.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    b.line.geometry.setDrawRange(0, n);
-    b.line.visible = showTrails && n > 1;
+    rib.geometry.attributes.position.needsUpdate = true;
+    rib.geometry.attributes.aColor.needsUpdate = true;
+    rib.geometry.attributes.aAlpha.needsUpdate = true;
+    rib.geometry.setDrawRange(0, (n - 1) * 6);
+    rib.visible = true;
   }
 
   // ── cinematic eclipse moments ───────────────────────────────────────────────────
@@ -479,32 +513,16 @@ function boot() {
     if (eclipseHud) eclipseHud.style.opacity = (eclipseStrength * 0.92).toFixed(3);
   }
 
-  // ── collisions: bodies ricochet off each other (fully elastic) — they never merge.
-  //    Checked every substep so a fast head-on can't tunnel through. ───────────────
-  const _cn = new THREE.Vector3(), _crv = new THREE.Vector3();
-  function resolveCollisions() {
-    for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
-      const A = bodies[i], B = bodies[j];
-      _cn.subVectors(B.pos, A.pos); const d = _cn.length(), rs = visRadius(A.m) + visRadius(B.m);
-      if (d >= rs || d < 1e-6) continue;
-      _cn.multiplyScalar(1 / d);                                   // unit contact normal A→B
-      const vrel = _crv.subVectors(B.vel, A.vel).dot(_cn);
-      if (vrel < 0) {                                              // approaching → elastic impulse (restitution 1)
-        const jimp = -2 * vrel / (1 / A.m + 1 / B.m);
-        A.vel.addScaledVector(_cn, -jimp / A.m);
-        B.vel.addScaledVector(_cn, jimp / B.m);
-      }
-      const overlap = (rs - d) * 0.5;                              // separate so they don't stick / re-trigger
-      A.pos.addScaledVector(_cn, -overlap); B.pos.addScaledVector(_cn, overlap);
-    }
-  }
+  // ── no collisions: bodies pass through each other and slingshot under pure
+  //    gravity — they never bounce, never merge. A close pass is softened (see
+  //    accel's per-pair floor) so it whips the body away instead of blowing up. ──
 
   // ── render loop ────────────────────────────────────────────────────────────────
   function frame() {
     updateEclipse();
     if (mode === 'running') {
       const dt = 0.001, sub = Math.max(1, Math.round(speed * 12));
-      for (let s = 0; s < sub; s++) { integrate(dt * timeScale); resolveCollisions(); }
+      for (let s = 0; s < sub; s++) integrate(dt * timeScale);
       for (const b of bodies) { b.trail.push(b.pos.clone()); if (b.trail.length > TRAIL_MAX) b.trail.shift(); }
     }
     if (lensflare) { const s = bodies.find(b => b.star); if (s) { lensflare.position.copy(s.pos); lensflare.visible = true; } else lensflare.visible = false; }
@@ -513,9 +531,13 @@ function boot() {
     grid.lines.visible = grid.surface.visible = grid.wells.visible = showGrid;
     if (showGrid) grid.update(bodies);
     updateCamera();
-    if (bokeh) bokeh.uniforms['focus'].value = camera.position.distanceTo(camTarget);  // keep the bodies tack-sharp, blur the deep field
+    if (bokeh) {                            // #5: smooth rack-focus — pulls onto whatever you grab, else the system
+      const fp = dragBody ? dragBody.pos : camTarget;
+      const want = camera.position.distanceTo(fp);
+      bokeh.uniforms['focus'].value += (want - bokeh.uniforms['focus'].value) * 0.1;
+    }
     ambient.rotation.y += 0.00018;          // whole cosmos drifts → floaty parallax
-    dust.rotation.x += 0.0001;
+    starNear.rotation.y += 0.00012;         // #5: near layer shears against the far field for real depth
     shootingStars.update(0.016);
     if (composer) composer.render(); else renderer.render(scene, camera);
     requestAnimationFrame(frame);
@@ -691,6 +713,25 @@ function boot() {
   requestAnimationFrame(frame);
 
   // ── scene assets ───────────────────────────────────────────────────────────────
+  // #3: a pre-allocated ribbon mesh for a body's trail. Two verts per trail point;
+  //     a static quad index covers the whole capacity, draw-range clips to what's used.
+  function makeRibbon() {
+    const cap = TRAIL_MAX;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cap * 2 * 3), 3));
+    g.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array(cap * 2 * 3), 3));
+    g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(cap * 2), 1));
+    const idx = [];
+    for (let q = 0; q < cap - 1; q++) { const a = q * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    g.setIndex(idx); g.setDrawRange(0, 0);
+    const m = new THREE.ShaderMaterial({
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      vertexShader: 'attribute vec3 aColor; attribute float aAlpha; varying vec3 vC; varying float vA; void main(){ vC=aColor; vA=aAlpha; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader: 'varying vec3 vC; varying float vA; void main(){ gl_FragColor=vec4(vC, vA); }',
+    });
+    const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = 3;
+    return mesh;
+  }
   function makeStars(count, size, opacity, rMin, rMax) {
     const pos = new Float32Array(count * 3), col = new Float32Array(count * 3);
     const tint = [new THREE.Color(0xbfd4ff), new THREE.Color(0xffffff), new THREE.Color(0xffe6c0), new THREE.Color(0x9fc4ff)];
@@ -704,13 +745,6 @@ function boot() {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     return new THREE.Points(g, new THREE.PointsMaterial({ size, sizeAttenuation: false, vertexColors: true, map: starTex, transparent: true, opacity, depthWrite: false }));
-  }
-  function makeDust() {                              // soft motes drifting near the action
-    const n = 500, pos = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) { const r = 6 + Math.random() * 44, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = r * Math.sin(ph) * Math.cos(th); pos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th); pos[i * 3 + 2] = r * Math.cos(ph); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    return new THREE.Points(g, new THREE.PointsMaterial({ color: 0x7fb0e0, size: 0.07, sizeAttenuation: true, map: starTex, transparent: true, opacity: 0.55, depthWrite: false }));
   }
   function makeNebula() {
     const grp = new THREE.Group();
