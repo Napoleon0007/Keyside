@@ -100,6 +100,16 @@
     <p class="world-hint">drag to orbit &middot; grab a planet &middot; click art to open &middot; &#x25B6; tour</p>
   </section>
 
+  <!-- The Trinity — three worlds locked in a calm, never-ending figure-8 orbit -->
+  <section class="trinity" id="section-trinity" aria-label="The Trinity">
+    <div class="trinity-head">
+      <h2 class="trinity-title">The <span class="orange">Trinity</span></h2>
+      <p class="trinity-sub">three worlds &middot; one endless orbit</p>
+    </div>
+    <canvas id="trinityCanvas"></canvas>
+    <p class="trinity-hint">a stable three-body dance &middot; drag to look around</p>
+  </section>
+
   <!-- Rolling 3D disc — navigator into the collections -->
   <section class="disc-section" id="section-disc" data-type="disc" aria-label="Explore the collections">
     <div class="disc-head">
@@ -264,6 +274,7 @@
   <script type="module" src="{{ url_for('static', filename='earth-dive.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='globe.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='gallery-galaxy.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='trinity.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='mobius.js') }}"></script>
   <script src="{{ url_for('static', filename='landing.js') }}"></script>
 

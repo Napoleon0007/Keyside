@@ -58,6 +58,69 @@
   pointer-events: none;
 }
 
+/* ---- The Trinity — stable three-body section (under Rex's World) ---- */
+.trinity {
+  position: relative;
+  width: 100%;
+  min-height: 88vh;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border, #151515);
+  background:
+    radial-gradient(120% 90% at 50% 42%, rgba(8,12,30,0.6) 0%, rgba(3,4,10,0.86) 58%, rgba(0,0,0,0.96) 100%),
+    #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+}
+#trinityCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+  cursor: grab;
+  touch-action: pan-y;
+}
+#trinityCanvas:active { cursor: grabbing; }
+.trinity-head {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 3;
+  padding: 30px 26px 0;
+  text-align: center;
+  pointer-events: none;
+}
+.trinity-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.7rem, 4.5vmin, 2.8rem);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--off-white, #f0ede8);
+}
+.trinity-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: .7rem;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: rgba(240,237,232,.45);
+  margin-top: 8px;
+}
+.trinity-hint {
+  position: absolute;
+  bottom: 26px; left: 0; right: 0;
+  z-index: 3;
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-size: .72rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(240,237,232,.4);
+  pointer-events: none;
+}
+
 /* ---- Rolling 3D disc ------------------------------------------------ */
 .disc-stage {
   position: relative;
