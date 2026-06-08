@@ -251,11 +251,15 @@
     </div>
   </div>
 
-  <script>window.LOOP_BASE = {{ loop_base|tojson }};</script>
+  <script>
+    window.LOOP_BASE = {{ loop_base|tojson }};
+    window.GOOGLE_TILES_KEY = {{ google_tiles_key|tojson }};
+  </script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script src="{{ url_for('static', filename='effects.js') }}"></script>
   <script src="{{ url_for('static', filename='herotext.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='world.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='earth-dive.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='globe.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='gallery-galaxy.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='mobius.js') }}"></script>

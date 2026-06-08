@@ -264,10 +264,13 @@ def assign_orders(metadata: dict) -> dict:
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
+GOOGLE_TILES_KEY = os.environ.get("GOOGLE_TILES_KEY", "")
+
 @app.context_processor
 def inject_loops():
-    # loop_url() for templates; LOOP_BASE so the client JS can build CDN loop URLs too
-    return {"loop_url": loop_url, "loop_base": LOOP_BASE}
+    # loop_url() for templates; LOOP_BASE so the client JS can build CDN loop URLs too.
+    # google_tiles_key powers the Earth-dive (Google Photorealistic 3D Tiles).
+    return {"loop_url": loop_url, "loop_base": LOOP_BASE, "google_tiles_key": GOOGLE_TILES_KEY}
 
 
 @app.route("/")

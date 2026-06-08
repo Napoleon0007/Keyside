@@ -836,7 +836,18 @@ async function boot(stage) {
         if (moved) b.vel.multiplyScalar(GRAV.throwGain);   // fling → slingshot
       }
       dragBody = null; inputMode = 'idle';
-      if (b && !moved) focusOn(b, { frameRadius: 170 });   // a tap (no drag) → fly to the planet
+      if (b && !moved) {
+        focusOn(b, { frameRadius: 170 });                  // a tap (no drag) → fly to the planet
+        // Earth (network): first tap flies to it, a second tap dives into Google 3D Earth.
+        if (b.key === 'network' && window.openEarthDive) {
+          if (window._earthArmed) { window._earthArmed = false; window.openEarthDive(); }
+          else {
+            window._earthArmed = true;
+            clearTimeout(window._earthArmT);
+            window._earthArmT = setTimeout(() => { window._earthArmed = false; }, 4000);
+          }
+        } else { window._earthArmed = false; }
+      }
     } else if (dragging && pointers.size === 0) {
       dragging = false; inputMode = 'idle';
       if (!moved) pick(e);   // a tap, not a drag → select
