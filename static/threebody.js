@@ -286,6 +286,7 @@ function boot() {
     bodies.forEach(b => scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit));
     bodies = [];
     solarRings.forEach(r => { scene.remove(r); r.geometry.dispose(); }); solarRings = [];
+    if (solarMode) grid.wells.material.opacity = 1.0;   // restore full well-glow for the 3-body sandbox
     solarMode = false;
   }
 
@@ -302,7 +303,7 @@ function boot() {
       if (b.ring) b.ring.visible = !isStar;
       b.glow.material.color.set(isStar ? 0xffc070 : b.color.getHex());
     }
-    b.light.intensity = isStar ? 6.5 : 0.45;          // star is a strong key for its neighbours; planets only a soft colour bounce
+    b.light.intensity = isStar ? (solarMode ? 3.0 : 6.5) : 0.45;   // softer Sun in solar mode so the sheet + inner planets aren't blown out
     b.light.distance = isStar ? 160 : 70;
     b.mesh.position.copy(b.pos); b.mesh.scale.setScalar(r);
     b.corona.position.copy(b.pos); b.corona.scale.setScalar(r * 1.42);
@@ -319,8 +320,8 @@ function boot() {
     } else {
       b.atmo.material.uniforms.uColor.value.set(b.color.getHex());
     }
-    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (isStar ? 8.5 : 6.5));
-    b.glow.material.opacity = isStar ? 0.6 : 0.6;   // tamed star halo so terminators + eclipses read
+    b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (isStar ? (solarMode ? 2.8 : 4.6) : 6.5));   // small star halo so neighbouring planets stay visible
+    b.glow.material.opacity = isStar ? (solarMode ? 0.26 : 0.4) : 0.6;   // dim the star's glow a lot (it was washing planets out)
     b.hit.position.copy(b.pos); b.hit.scale.setScalar(Math.max(r * 2.8, 0.55));
   }
 
@@ -443,7 +444,8 @@ function boot() {
   }
   function solarSystem() {
     G = 1; softening = 0.02; clearBodies(); solarMode = true;
-    const T = solarTextures(), MSUN = 60;
+    grid.wells.material.opacity = 0.5;        // dim the warm well-glow so the Sun's funnel doesn't flood the scene
+    const T = solarTextures(), MSUN = 42;      // dominant (≥17× any planet) → planets stay calm, but a shallower/narrower well
     // name, texture, colour, orbit radius, mass (≪ Sun), visual radius, ring?, photoreal?
     const defs = [
       ['Mercury', T.mercury, 0x9c8b7a, 1.30, 0.05, 0.12, false, false],
@@ -469,7 +471,11 @@ function boot() {
       addOrbitRing(dist);
     });
     sun.vel.set(-px / MSUN, 0, -pz / MSUN);       // cancel net momentum → Sun (and the frame) stays put
-    camOrbit.radius = 30; camOrbit.phi = 1.0; camOrbit.theta = 0.6;
+    const portrait = canvas.clientHeight > canvas.clientWidth;
+    camOrbit.radius = portrait ? 48 : 32;          // pull back on a phone so the whole disc fits the narrow width
+    camOrbit.phi = 0.82; camOrbit.theta = 0.6;     // flatter, higher view reads the orbital disc
+    speed = 6;                                      // planets crawl at slow-mo speeds — run the system briskly
+    if ($('speed')) { $('speed').value = speed; $('speedVal').textContent = speed.toFixed(1) + '×'; }
   }
 
   let currentPreset = 'figure-8';
