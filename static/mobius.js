@@ -10,15 +10,48 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-// The six navigator panels — mirrors the hero card ring (label, kicker, art, action).
-const PANELS = [
-  { label: "Rex's World", kicker: 'ENTER THE COSMOS', img: '/static/galaxies/andromeda.jpg', tint: '#ff7a2d', action: { type: 'scroll', sel: '#section-world' } },
-  { label: 'Video',       kicker: 'MOTION',           img: '/static/video-thumbs/clouds.jpg',  tint: '#ff8a3d', action: { type: 'filter', val: 'video' } },
-  { label: 'Short Docs',  kicker: 'ARCHIVE',          img: '/static/video-thumbs/boer-commando.jpg', tint: '#3da5ff', action: { type: 'filter', val: 'edit' } },
-  { label: 'Images',      kicker: 'STILLS',           img: '/static/galaxies/sombrero.jpg',    tint: '#8a6cff', action: { type: 'filter', val: 'image' } },
-  { label: 'Music',       kicker: 'SOUND',            img: null, music: true,                  tint: '#2ad1ff', action: { type: 'filter', val: 'music' } },
-  { label: 'Products',    kicker: 'REX TRUEFORM',     img: '/static/products/rex-casino.webp', tint: '#ff5500', action: { type: 'scroll', sel: '#products' } },
+// The six destinations the band navigates to (label, kicker, action).
+const CAT = {
+  world:    { label: "Rex's World", kicker: 'ENTER THE COSMOS', action: { type: 'scroll', sel: '#section-world' } },
+  video:    { label: 'Video',       kicker: 'MOTION',           action: { type: 'filter', val: 'video' } },
+  edit:     { label: 'Short Docs',  kicker: 'ARCHIVE',          action: { type: 'filter', val: 'edit' } },
+  image:    { label: 'Images',      kicker: 'STILLS',           action: { type: 'filter', val: 'image' } },
+  music:    { label: 'Music',       kicker: 'SOUND',            action: { type: 'filter', val: 'music' } },
+  products: { label: 'Products',    kicker: 'REX TRUEFORM',     action: { type: 'scroll', sel: '#products' } },
+};
+
+// The band is densely packed with real, bright artwork so it reads clearly as an
+// image-covered Möbius strip — not an empty ring. Each cell links to its category.
+// Music = the fire cotton ball (Rex Trueform's signature). The deck is rotated by
+// the calendar day so the strip looks fresh — a different image leads each day.
+const DECK = [
+  { img: '/static/video-thumbs/cotton-ball-fire.jpg', cat: 'music' },     // fire cotton ball — Music
+  { img: '/static/galaxies/andromeda.jpg',            cat: 'world' },
+  { img: '/static/video-thumbs/einstein.jpg',         cat: 'edit' },
+  { img: '/static/products/rex-casino.webp',          cat: 'products' },
+  { img: '/static/video-thumbs/clouds.jpg',           cat: 'video' },
+  { img: '/static/video-thumbs/napoleon.jpg',         cat: 'edit' },
+  { img: '/static/galaxies/whirlpool.jpg',            cat: 'image' },
+  { img: '/static/products/the-suppressor.webp',      cat: 'products' },
+  { img: '/static/video-thumbs/picasso.jpg',          cat: 'edit' },
+  { img: '/static/video-thumbs/mercury-acid-trip.jpg',cat: 'video' },
+  { img: '/static/galaxies/sombrero.jpg',             cat: 'image' },
+  { img: '/static/products/surreal-editor.webp',      cat: 'products' },
+  { img: '/static/video-thumbs/mozart.jpg',           cat: 'edit' },
+  { img: '/static/video-thumbs/pattern-acid.jpg',     cat: 'video' },
+  { img: '/static/galaxies/pinwheel.jpg',             cat: 'image' },
+  { img: '/static/products/bpm-key-butler.webp',      cat: 'products' },
+  { img: '/static/video-thumbs/da-vinci.jpg',         cat: 'edit' },
+  { img: '/static/video-thumbs/dark-church.jpg',      cat: 'video' },
+  { img: '/static/video-thumbs/elvis.jpg',            cat: 'edit' },
+  { img: '/static/products/rex-trader.png',           cat: 'products' },
+  { img: '/static/video-thumbs/bird-glide.jpg',       cat: 'video' },
 ];
+// rotate the deck by the day-of-epoch so a different image leads each day
+const DAY = Math.floor(Date.now() / 86400000);
+const _rot = ((DAY % DECK.length) + DECK.length) % DECK.length;
+const PANELS = DECK.slice(_rot).concat(DECK.slice(0, _rot))
+  .map(c => ({ img: c.img, ...CAT[c.cat] }));
 
 (function () {
   const canvas  = document.getElementById('mobiusCanvas');
@@ -124,7 +157,7 @@ const PANELS = [
     const mat = new THREE.MeshPhysicalMaterial({
       // matte + self-lit so the thumbnails read clear and true — no gloss, no
       // iridescence, no reflections filtering the images.
-      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.65,
+      map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 1.15,
       side: THREE.DoubleSide, metalness: 0.0, roughness: 0.85,
       clearcoat: 0.0, iridescence: 0.0, envMapIntensity: 0.0,
     });
@@ -158,7 +191,7 @@ const PANELS = [
         '#include <dithering_fragment>',
         `#include <dithering_fragment>
          float df = smoothstep(470.0, 210.0, vViewZ);
-         gl_FragColor.rgb *= mix(0.32, 1.0, df);`
+         gl_FragColor.rgb *= mix(0.7, 1.0, df);`
       );
       mat.userData.shader = shader;
     };
@@ -203,10 +236,11 @@ const PANELS = [
     return t;
   }
 
-  // A long strip texture: six category cells tiled along U, each a cover-fit
-  // thumbnail under a neon tint + divider. Labels live on hover, not baked in.
+  // A long strip texture: every cell a cover-fit, full-brightness thumbnail tiled
+  // along U with a thin neon divider. Cell width auto-shrinks so the whole strip
+  // stays within the 4096px texture cap mobile GPUs enforce. Labels live on hover.
   function buildTexture() {
-    const CELL = 320, H = 320, W = CELL * N;
+    const CELL = Math.min(320, Math.floor(4080 / N)), H = 320, W = CELL * N;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d');
     const tex = new THREE.CanvasTexture(c);
@@ -403,7 +437,7 @@ const PANELS = [
       // edges, and rides high so REX TRUEFORM sits dead-centre in its gap.
       // (factor = how much of the screen half-width the loop radius fills; >1 = overfill)
       camera.position.z = outerR / (1.45 * aspect * tanHalf);
-      root.position.y = 0.52 * tanHalf * camera.position.z;
+      root.position.y = 0.46 * tanHalf * camera.position.z;
     } else {
       camera.position.z = 330;     // desktop: pulled in → bigger loop (slight side-spill is intentional)
       root.position.y = 58;
