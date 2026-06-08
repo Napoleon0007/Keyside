@@ -245,7 +245,7 @@ function boot() {
           .replace('#include <map_fragment>',                                                // soft drifting cloud shadows on the surface
             '#include <map_fragment>\n{ float _c=fbm(vec3(vMapUv*7.0+vec2(uCloudT*0.012,0.0),0.0)); diffuseColor.rgb*=(1.0-smoothstep(0.52,0.82,_c)*0.32); }')
           .replace('#include <emissivemap_fragment>',                                        // city lights, only on the night side
-            '#include <emissivemap_fragment>\n{ float _n=smoothstep(0.12,-0.18,dot(normalize(vNormal),normalize(uSunView))); totalEmissiveRadiance+=texture2D(uNightMap,vMapUv).rgb*_n*2.4; }');
+            '#include <emissivemap_fragment>\n{ float _n=smoothstep(0.18,-0.12,dot(normalize(vNormal),normalize(uSunView))); totalEmissiveRadiance+=texture2D(uNightMap,vMapUv).rgb*_n*vec3(1.25,1.05,0.7)*4.2; }');
         mat.userData.shader = shader;
       };
       mat.customProgramCacheKey = () => 'earth-photoreal';
