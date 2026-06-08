@@ -74,13 +74,37 @@ async function boot(canvas) {
     const b = 0.78 + t * 0.55;
     colors.push(c.r * b, c.g * b, c.b * b);
   }
+  // every bead gets its own blink phase so the whole globe shimmers continuously
+  const dotPhase = new Float32Array(positions.length / 3);
+  for (let i = 0; i < dotPhase.length; i++) dotPhase[i] = Math.random() * Math.PI * 2;
+
   const dotGeo = new THREE.BufferGeometry();
   dotGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  dotGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  const dots = new THREE.Points(dotGeo, new THREE.PointsMaterial({
-    size: 0.037, map: dotSprite(), vertexColors: true, transparent: true,
-    depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
-  }));
+  dotGeo.setAttribute('aColor', new THREE.Float32BufferAttribute(colors, 3));
+  dotGeo.setAttribute('phase', new THREE.Float32BufferAttribute(dotPhase, 1));
+  const dotMat = new THREE.ShaderMaterial({
+    transparent: true, depthTest: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uT: { value: 0 }, uMap: { value: dotSprite() }, uSize: { value: 0.06 } },
+    vertexShader: `
+      attribute vec3 aColor; attribute float phase;
+      varying vec3 vCol; varying float vTw;
+      uniform float uT, uSize;
+      void main(){
+        vCol = aColor;
+        float b = 0.5 + 0.5 * sin(uT + phase);
+        vTw = 0.30 + 0.70 * pow(b, 1.7);                 // every bead blinks, never fully dark
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = uSize * (0.5 + vTw) * (300.0 / -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform sampler2D uMap; varying vec3 vCol; varying float vTw;
+      void main(){
+        vec4 t = texture2D(uMap, gl_PointCoord);
+        gl_FragColor = vec4(vCol * (0.55 + 1.0 * vTw), t.a * (0.4 + 0.6 * vTw));
+      }`,
+  });
+  const dots = new THREE.Points(dotGeo, dotMat);
   root.add(dots);
 
   // ── atmosphere: fresnel rim glow ──────────────────────────────────────────
@@ -219,6 +243,7 @@ async function boot(canvas) {
     dots.rotation.y += spin; core.rotation.y += spin; atmo.rotation.y += spin;
     sparkles.rotation.y += spin;
     sparkleMat.uniforms.uT.value = t * (reduced ? 0 : 0.08);
+    dotMat.uniforms.uT.value = t * (reduced ? 0 : 0.055);   // continuous neon blink across every bead
     if (!reduced) {
       ringGroup.rotation.z += 0.0026;
       const a = t * 0.012;
