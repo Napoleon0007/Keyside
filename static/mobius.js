@@ -404,7 +404,7 @@ const PANELS = [
       camera.position.z = outerR / (1.2 * aspect * tanHalf);
       root.position.y = 0.40 * tanHalf * camera.position.z;
     } else {
-      camera.position.z = 385;     // desktop unchanged
+      camera.position.z = 330;     // desktop: pulled in → bigger loop (slight side-spill is intentional)
       root.position.y = 58;
     }
     camera.updateProjectionMatrix();

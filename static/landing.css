@@ -58,85 +58,19 @@
   pointer-events: none;
 }
 
-/* ---- The Trinity — stable three-body section (under Rex's World) ---- */
-.trinity {
-  position: relative;
-  width: 100%;
-  min-height: 88vh;
-  overflow: hidden;
-  border-bottom: 1px solid var(--border, #151515);
-  background:
-    radial-gradient(120% 90% at 50% 42%, rgba(8,12,30,0.6) 0%, rgba(3,4,10,0.86) 58%, rgba(0,0,0,0.96) 100%),
-    #000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  touch-action: pan-y;
-}
-.trinity-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-  z-index: 1;
-}
-.trinity-head {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  z-index: 3;
-  padding: 30px 26px 0;
-  text-align: center;
-  pointer-events: none;
-}
-.trinity-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(1.7rem, 4.5vmin, 2.8rem);
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--off-white, #f0ede8);
-}
-.trinity-sub {
-  font-family: 'Space Mono', monospace;
-  font-size: .7rem;
-  letter-spacing: .24em;
-  text-transform: uppercase;
-  color: rgba(240,237,232,.45);
-  margin-top: 8px;
-}
-.trinity-hint {
-  position: absolute;
-  bottom: 26px; left: 0; right: 0;
-  z-index: 3;
-  text-align: center;
-  font-family: 'Space Mono', monospace;
-  font-size: .72rem;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: rgba(240,237,232,.4);
-  pointer-events: none;
-}
-.trinity-reset {
-  position: absolute;
-  top: 22px; right: 22px;
-  z-index: 4;
-  cursor: pointer;
-  background: rgba(8,4,2,.6);
-  color: #fff;
-  border: 1px solid var(--orange, #ff5500);
-  border-radius: 999px;
-  padding: 9px 16px;
-  font-family: 'Space Mono', monospace;
-  font-size: .68rem;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 0 22px rgba(255,85,0,.3);
-  transition: background .2s ease, color .2s ease;
-}
-.trinity-reset:hover { background: var(--orange, #ff5500); color: #000; }
+/* ---- Animated Three-Body nav logo — three planets orbiting each other ---- */
+.tb3-link { display: inline-flex; align-items: center; gap: 8px; }
+.tb3-logo { position: relative; width: 22px; height: 22px; display: inline-block; flex: 0 0 auto; }
+.tb3-orb { position: absolute; top: 50%; left: 50%; width: 0; height: 0; }
+.tb3-orb::before { content: ''; position: absolute; border-radius: 50%; }
+.tb3-o1 { animation: tb3spin 2.8s linear infinite; }
+.tb3-o2 { animation: tb3spin 3.6s linear infinite reverse; animation-delay: -1.2s; }
+.tb3-o3 { animation: tb3spin 2.1s linear infinite; animation-delay: -0.7s; }
+.tb3-o1::before { width: 6px; height: 6px; left: 5px; top: -3px; background: #ff5500; box-shadow: 0 0 7px #ff5500; }
+.tb3-o2::before { width: 5px; height: 5px; left: 7px; top: -2.5px; background: #33b6ff; box-shadow: 0 0 7px #33b6ff; }
+.tb3-o3::before { width: 4px; height: 4px; left: 3px; top: -2px; background: #b06bff; box-shadow: 0 0 7px #b06bff; }
+@keyframes tb3spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .tb3-orb { animation: none; } }
 
 /* ---- Rolling 3D disc ------------------------------------------------ */
 .disc-stage {
@@ -407,6 +341,7 @@
   display: block;
   touch-action: pan-y;       /* vertical swipes scroll the page; drag spins the band */
   cursor: grab;
+  transform: translateY(-7%);  /* shift the loop up so it sits higher in the hero */
 }
 .hero-mobius:active { cursor: grabbing; }
 .hero-mobius.is-grabbing { cursor: grabbing; }

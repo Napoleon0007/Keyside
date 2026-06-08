@@ -327,6 +327,7 @@ body.modal-open {
 .hero-content {
   position: relative;
   z-index: 3;
+  top: -5vh;                 /* lift the title to sit centered in the (raised) Möbius loop */
   padding: 64px 36px 52px;
   will-change: transform, opacity;
   perspective: 1100px;
