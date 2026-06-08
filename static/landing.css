@@ -357,7 +357,7 @@
 /* MEDICI + names overlaid near the top; never blocks the drag */
 .hero-orbit .hero-content {
   position: absolute;
-  top: 12%;
+  top: 30%;                 /* sits inside the Möbius loop's gap */
   left: 0; right: 0;
   z-index: 6;
   text-align: center;
@@ -384,7 +384,7 @@
   .disc-section { min-height: 76vh; }
   .disc-stage { perspective: 1100px; }
   .disc-card .card-label { font-size: 1.4rem; }
-  .hero-orbit .hero-content { top: 9%; }
+  .hero-orbit .hero-content { top: 26%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .disc-card { transition: none; }

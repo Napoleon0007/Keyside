@@ -37,8 +37,8 @@ const PANELS = [
 
   // Geometry constants.
   const N = PANELS.length;
-  const R = 146;           // loop radius — wide, spanning across the page
-  const WIDTH = 22;        // half-width of the ribbon — thin + streamlined
+  const R = 158;           // loop radius — big, frames the title in its gap
+  const WIDTH = 26;        // half-width of the ribbon — broad enough to read the face
   const SEG_U = 260;       // segments around the loop (smoothness)
   const SEG_V = 16;        // segments across the ribbon
 
@@ -57,11 +57,11 @@ const PANELS = [
 
     scene  = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(42, 1, 0.1, 4000);
-    camera.position.set(0, 0, 330);
+    camera.position.set(0, 0, 360);
 
     root = new THREE.Group();
-    root.rotation.x = -1.05;        // flatter tilt → wide, streamlined ribbon across the page
-    root.position.y = 34;           // ride high — top of the band just under the hero top
+    root.rotation.x = -0.78;        // less edge-on → you see more of the band's broad face
+    root.position.y = 40;           // lifted up; the title sits in the loop's gap
     scene.add(root);
     spinner = new THREE.Group();     // revolves around the loop axis
     root.add(spinner);
