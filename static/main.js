@@ -7,6 +7,11 @@ const loopUrl = (rel) => {
     : '/static/' + rel;
 };
 
+// Phones have a tiny simultaneous-video-decoder budget — too many at once and iOS
+// kills ("reloads") the tab. On small screens we run lighter: section background
+// clips don't play (poster only) and the fixed page background pauses off the hero.
+const LIGHT_MEDIA = window.matchMedia('(max-width: 768px)').matches;
+
 const content     = document.getElementById('content');
 const galleryLoad = document.getElementById('galleryLoading');
 const modal       = document.getElementById('modal');
@@ -348,7 +353,7 @@ function attachSectionBg(section, src, poster) {
   const v = document.createElement('video');
   v.className = 'section-bg-video';
   v.muted = true; v.defaultMuted = true; v.loop = true;
-  v.playsInline = true; v.preload = 'auto';   // small loop: pre-buffer now so it's ready on scroll
+  v.playsInline = true; v.preload = LIGHT_MEDIA ? 'none' : 'auto';   // desktop pre-buffers; phones don't load it at all
   // attributes too (some engines only honor the attribute form for muted/playsinline)
   v.setAttribute('muted', '');
   v.setAttribute('playsinline', '');
@@ -400,7 +405,10 @@ function liveLoadSection(section) {
   let restTimer = null;
   const enter = () => {
     const bg = section._bgVideo;
-    if (!bg) { startRest(); return; }
+    // On phones, never spin up the section's background clip — just show its poster
+    // and bring the cards in. Keeps the simultaneous-decoder count low enough not to
+    // crash the tab when you scroll through the rails.
+    if (!bg || LIGHT_MEDIA) { startRest(); return; }
     kickBg(bg);
     if (bg.readyState >= 3 || (!bg.paused && bg.currentTime > 0)) { startRest(); return; }
     bg.addEventListener('playing', startRest, { once: true });
@@ -1101,6 +1109,22 @@ if (skullBtn)   skullBtn.addEventListener('click', openSkull);
 if (skullClose) skullClose.addEventListener('click', closeSkull);
 if (skullBg)    skullBg.addEventListener('click', closeSkull);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSkull(); });
+
+// Pause the fixed full-page background video once you've scrolled past the hero — it's
+// hidden behind the content down there anyway, and freeing its decoder keeps the gallery
+// from exhausting the phone's video budget and reloading the tab. Resume near the top.
+(function manageHeroBg() {
+  const bg = document.getElementById('heroBgVideo');
+  if (!bg) return;
+  let off = false;
+  const sync = () => {
+    const pastHero = window.scrollY > window.innerHeight * 0.85;
+    if (pastHero && !off) { off = true; try { bg.pause(); } catch (e) {} }
+    else if (!pastHero && off) { off = false; bg.play().catch(() => {}); }
+  };
+  window.addEventListener('scroll', sync, { passive: true });
+  sync();
+})();
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 
