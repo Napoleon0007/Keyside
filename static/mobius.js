@@ -42,8 +42,9 @@ const PANELS = [
   const SEG_U = 260;       // segments around the loop (smoothness)
   const SEG_V = 16;        // segments across the ribbon
 
-  let renderer, scene, camera, root, spinner, band, edge, raycaster, ndc;
+  let renderer, scene, camera, root, spinner, band, edge, raycaster, ndc, edgeCurve, bead;
   let inited = false, running = false, raf = 0;
+  let lastHoverU = -1, hoverActive = false, edgeS = 0;
 
   function init() {
     inited = true;
@@ -129,6 +130,29 @@ const PANELS = [
       iridescence: 1.0, iridescenceIOR: 1.35, iridescenceThicknessRange: [100, 600], // oil-slick shimmer
       envMapIntensity: 1.1,
     });
+    // tactile hover — bulge the touched spot outward along its normal and make
+    // it glow. Injected into the physical shader so it's GPU-cheap.
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uHoverU = { value: -1 };
+      shader.uniforms.uHoverAmt = { value: 0 };
+      shader.uniforms.uLift = { value: 16 };
+      shader.vertexShader = 'uniform float uHoverU, uHoverAmt, uLift;\nvarying float vHover;\n' + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+         float du = uv.x - uHoverU; du = du - floor(du + 0.5);   // wrap around the loop
+         float g = exp(-du * du / 0.0022) * uHoverAmt;
+         vHover = g;
+         transformed += normalize(objectNormal) * g * uLift;`
+      );
+      shader.fragmentShader = 'varying float vHover;\n' + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+         totalEmissiveRadiance += vec3(1.0, 0.55, 0.18) * vHover * 1.8;`
+      );
+      mat.userData.shader = shader;
+    };
     band = new THREE.Mesh(geo, mat);
     spinner.add(band);
   }
@@ -144,10 +168,30 @@ const PANELS = [
       const rad = R + WIDTH * Math.cos(t);   // outer edge (v = +1)
       pts.push(new THREE.Vector3(rad * Math.cos(u), rad * Math.sin(u), WIDTH * Math.sin(t)));
     }
-    const curve = new THREE.CatmullRomCurve3(pts, true);
-    const geo = new THREE.TubeGeometry(curve, STEPS, 1.6, 8, true);
+    edgeCurve = new THREE.CatmullRomCurve3(pts, true);
+    const geo = new THREE.TubeGeometry(edgeCurve, STEPS, 1.4, 8, true);
     edge = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xff5500 }));
     spinner.add(edge);
+
+    // a bright sparkle that rides the single Möbius edge round and round
+    bead = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: beadSprite(), color: 0xffd9a0, transparent: true,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    bead.scale.set(11, 11, 1);
+    spinner.add(bead);
+  }
+
+  function beadSprite() {
+    const s = 64, c = document.createElement('canvas'); c.width = c.height = s;
+    const g = c.getContext('2d');
+    const rg = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    rg.addColorStop(0, 'rgba(255,255,255,1)');
+    rg.addColorStop(0.3, 'rgba(255,210,150,0.9)');
+    rg.addColorStop(1, 'rgba(255,140,40,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, s, s);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    return t;
   }
 
   // A long strip texture: six category cells tiled along U, each a cover-fit
@@ -252,8 +296,10 @@ const PANELS = [
     return raycaster.intersectObject(band, false)[0];
   }
   function cellOf(hit) {
-    // uv.x runs 0..1 around the loop → six cells.
-    let f = hit.uv.x % 1; if (f < 0) f += 1;
+    // the texture scrolls (flowing imagery), so the visible thumbnail at this
+    // spot is the geometry uv plus the current scroll offset.
+    const off = band ? band.material.map.offset.x : 0;
+    let f = (hit.uv.x + off) % 1; if (f < 0) f += 1;
     return Math.min(N - 1, Math.floor(f * N));
   }
 
@@ -263,11 +309,13 @@ const PANELS = [
     if (!hit) { clearHover(); return; }
     const i = cellOf(hit);
     canvas.style.cursor = 'pointer';
+    lastHoverU = hit.uv.x;        // bulge follows the exact spot you touch
+    hoverActive = true;
     if (i !== hoverCell) { hoverCell = i; showLabel(i); }
     moveLabel(e);
   }
   function clearHover() {
-    hoverCell = -1; canvas.style.cursor = 'grab';
+    hoverCell = -1; hoverActive = false; canvas.style.cursor = 'grab';
     const el = labels.firstChild; if (el) el.classList.remove('show');
   }
   function showLabel(i) {
@@ -315,6 +363,20 @@ const PANELS = [
       // thumbnails stream around the loop like a film reel feeding the twist
       const m = band.material.map;
       m.offset.x = (m.offset.x + 0.0007) % 1;
+    }
+    // tactile hover: ease the bulge/glow toward the touched spot
+    const sh = band && band.material.userData.shader;
+    if (sh) {
+      const tgt = hoverActive ? 1 : 0;
+      sh.uniforms.uHoverAmt.value += (tgt - sh.uniforms.uHoverAmt.value) * 0.15;
+      if (hoverActive) sh.uniforms.uHoverU.value = lastHoverU;
+    }
+    // sparkle riding the single Möbius edge
+    if (bead && edgeCurve) {
+      edgeS = (edgeS + (reduced ? 0 : 0.0011)) % 1;
+      bead.position.copy(edgeCurve.getPointAt(edgeS));
+      const tw = 0.8 + 0.35 * Math.sin(edgeS * 44.0);
+      bead.scale.set(11 * tw, 11 * tw, 1);
     }
     renderer.render(scene, camera);
   }
