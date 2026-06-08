@@ -437,7 +437,7 @@ const PANELS = DECK.slice(_rot).concat(DECK.slice(0, _rot))
       // edges, and rides high so REX TRUEFORM sits dead-centre in its gap.
       // (factor = how much of the screen half-width the loop radius fills; >1 = overfill)
       camera.position.z = outerR / (1.45 * aspect * tanHalf);
-      root.position.y = 0.46 * tanHalf * camera.position.z;
+      root.position.y = 0.40 * tanHalf * camera.position.z;
     } else {
       camera.position.z = 330;     // desktop: pulled in → bigger loop (slight side-spill is intentional)
       root.position.y = 58;
