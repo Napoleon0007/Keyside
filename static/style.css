@@ -518,6 +518,40 @@ body.modal-open {
   letter-spacing: 0.06em;
 }
 
+/* Hero kicker — the lead line above the name */
+.hero-kicker {
+  display: block;
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(11px, 1.6vw, 15px);
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-bottom: 10px;
+  text-shadow: 0 0 14px rgba(255,85,0,0.55);
+  animation: kickerFlicker 6s infinite;
+}
+@keyframes kickerFlicker { 0%,97%,100%{opacity:1;} 98%{opacity:.55;} 99%{opacity:1;} }
+
+/* Hero breadth — the cycling "We build …" line under the name */
+.hero-breadth {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(12px, 1.9vw, 18px);
+  letter-spacing: 0.12em;
+  color: rgba(240,237,232,0.78);
+  margin-top: 14px;
+}
+.hero-cycle {
+  color: var(--orange);
+  font-weight: 700;
+  text-shadow: 0 0 14px rgba(255,85,0,0.6);
+  display: inline-block;
+  min-width: 6.5em;
+  text-align: left;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.hero-cycle.swap { opacity: 0; transform: translateY(-6px); }
+.nowrap { white-space: nowrap; }
+
 .site-sub {
   font-family: 'Bebas Neue', sans-serif;
   font-size: clamp(9px, 1.4vw, 19px);

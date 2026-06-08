@@ -1139,4 +1139,4 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSkull()
 
 checkAuth();
 init();
-initProducts();
+// initProducts();  // products taken down for now — re-enable when they're fixed/working

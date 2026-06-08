@@ -28,23 +28,23 @@ const DECK = [
   { img: '/static/video-thumbs/mercury-acid-trip.jpg', cat: 'music' },    // mercury / liquid-silver — Music
   { img: '/static/galaxies/andromeda.jpg',            cat: 'world' },
   { img: '/static/video-thumbs/einstein.jpg',         cat: 'edit' },
-  { img: '/static/products/rex-casino.webp',          cat: 'products' },
+  { img: '/static/video-thumbs/ali.jpg',              cat: 'edit' },
   { img: '/static/video-thumbs/clouds.jpg',           cat: 'video' },
   { img: '/static/video-thumbs/napoleon.jpg',         cat: 'edit' },
   { img: '/static/galaxies/whirlpool.jpg',            cat: 'image' },
-  { img: '/static/products/the-suppressor.webp',      cat: 'products' },
+  { img: '/static/video-thumbs/jfk.jpg',              cat: 'edit' },
   { img: '/static/video-thumbs/picasso.jpg',          cat: 'edit' },
   { img: '/static/video-thumbs/cotton-ball-fire.jpg', cat: 'video' },     // fire cotton ball
   { img: '/static/galaxies/sombrero.jpg',             cat: 'image' },
-  { img: '/static/products/surreal-editor.webp',      cat: 'products' },
+  { img: '/static/video-thumbs/ghandi.jpg',           cat: 'edit' },
   { img: '/static/video-thumbs/mozart.jpg',           cat: 'edit' },
   { img: '/static/video-thumbs/pattern-acid.jpg',     cat: 'video' },
   { img: '/static/galaxies/pinwheel.jpg',             cat: 'image' },
-  { img: '/static/products/bpm-key-butler.webp',      cat: 'products' },
+  { img: '/static/video-thumbs/charlie-chaplin.jpg',  cat: 'edit' },
   { img: '/static/video-thumbs/da-vinci.jpg',         cat: 'edit' },
   { img: '/static/video-thumbs/dark-church.jpg',      cat: 'video' },
   { img: '/static/video-thumbs/elvis.jpg',            cat: 'edit' },
-  { img: '/static/products/rex-trader.png',           cat: 'products' },
+  { img: '/static/video-thumbs/neil-armstrong.jpg',   cat: 'edit' },
   { img: '/static/video-thumbs/bird-glide.jpg',       cat: 'video' },
 ];
 // rotate the deck by the day-of-epoch so a different image leads each day

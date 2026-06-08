@@ -17,6 +17,23 @@
   );
 })();
 
+// Hero breadth cycler — "We build galleries · casinos · oracles · songs · worlds",
+// one word at a time, showing the range of the house.
+(() => {
+  const el = document.getElementById('heroCycle');
+  if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const words = ['galleries', 'casinos', 'oracles', 'songs', 'worlds', 'machines', 'empires'];
+  let i = 0;
+  setInterval(() => {
+    el.classList.add('swap');
+    setTimeout(() => {
+      i = (i + 1) % words.length;
+      el.textContent = words[i];
+      el.classList.remove('swap');
+    }, 300);
+  }, 2200);
+})();
+
 (() => {
   const title = document.querySelector('.site-title');
   if (!title) return;

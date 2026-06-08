@@ -11,11 +11,10 @@
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ---- Panels (mirror the filter bar) ------------------------------- */
-  // Video / Images / Music rails were removed, so the ring only offers what still exists.
+  // Video / Images / Music / Products were removed, so the ring only offers what's live.
   var PANELS = [
     { label: "Rex's World", kicker: "ENTER THE COSMOS", img: "/static/galaxies/andromeda.jpg",   action: { type: "scroll", sel: "#section-world" } },
-    { label: "Short Docs",  kicker: "ARCHIVE",          img: "/static/video-thumbs/boer-war.jpg", action: { type: "filter", val: "edit" } },
-    { label: "Products",    kicker: "REX TRUEFORM",     img: "/static/products/rex-casino.webp",  action: { type: "scroll", sel: "#products" } }
+    { label: "Short Docs",  kicker: "ARCHIVE",          img: "/static/video-thumbs/boer-war.jpg", action: { type: "filter", val: "edit" } }
   ];
 
   /* ---- Disc factory -------------------------------------------------- */
