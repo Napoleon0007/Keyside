@@ -455,7 +455,7 @@ body.modal-open {
 
 .site-sub-name {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(22px, 3.5vw, 48px);
+  font-size: clamp(27px, 4.4vw, 58px);
   color: var(--white);
   margin-top: 8px;
   letter-spacing: 0.06em;

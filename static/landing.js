@@ -205,5 +205,4 @@
 
   /* ---- Mounts ------------------------------------------------------- */
   createDisc({ section: "#hero", ring: "#heroRing", sky: "#heroSky", autoRevolve: true, cardW: 230, spread: 1.7 });
-  createDisc({ section: "#section-disc", ring: "#discRing", sky: "#discSky", autoRevolve: false });
 })();

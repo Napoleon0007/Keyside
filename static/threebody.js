@@ -232,7 +232,8 @@ function boot() {
     mesh.add(light);
     scene.add(mesh); scene.add(glow);
 
-    const line = makeRibbon();            // #3: tapered 3D ribbon wake (replaces the flat 1px line)
+    const line = new THREE.Line(new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     scene.add(line);
 
     // generous invisible hit-sphere so the planet is easy to grab/drag
@@ -446,48 +447,27 @@ function boot() {
     camera.lookAt(camTarget);
   }
 
-  // ── trails (#3): rebuild a camera-facing 3D ribbon from the polyline. Each point
-  //    emits two verts offset sideways (⊥ to both the path and the view), tapering
-  //    to a point at the tail and a bright head — a comet wake with real width that
-  //    sorts in depth (passes behind/in front of the planets). ──────────────────────
-  const _rdir = new THREE.Vector3(), _rview = new THREE.Vector3(), _rside = new THREE.Vector3();
+  // ── trails: a thin glowing polyline tracing each body's path ─────────────────────
   function updateTrail(b) {
-    const t = b.trail, n = t.length, rib = b.line;
-    if (!showTrails || n < 2) { rib.visible = false; return; }
-    const headW = visRadius(b.m) * 0.5;       // ribbon half-width at the planet end
-    const cam = camera.position;
-    const pos = rib.geometry.attributes.position.array;
-    const col = rib.geometry.attributes.aColor.array;
-    const alp = rib.geometry.attributes.aAlpha.array;
+    const t = b.trail, n = t.length;
+    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
     for (let k = 0; k < n; k++) {
-      const p = t[k];
-      if (k < n - 1) _rdir.subVectors(t[k + 1], p); else _rdir.subVectors(p, t[k - 1]);
-      _rview.subVectors(cam, p);
-      _rside.crossVectors(_rdir, _rview);
-      if (_rside.lengthSq() < 1e-10) _rside.set(1, 0, 0); else _rside.normalize();
-      const f = k / (n - 1);                   // 0 = tail, 1 = head
-      const w = headW * f;                     // taper to nothing at the tail
-      const bright = f * f * 1.5, white = Math.max(0, f - 0.85) * 4;
-      const a = f * f * 0.95;
-      const cr = b.color.r * bright + white, cg = b.color.g * bright + white, cb = b.color.b * bright + white;
-      const lo = k * 2, hi = lo + 1;
-      pos[lo * 3] = p.x + _rside.x * w; pos[lo * 3 + 1] = p.y + _rside.y * w; pos[lo * 3 + 2] = p.z + _rside.z * w;
-      pos[hi * 3] = p.x - _rside.x * w; pos[hi * 3 + 1] = p.y - _rside.y * w; pos[hi * 3 + 2] = p.z - _rside.z * w;
-      col[lo * 3] = col[hi * 3] = cr; col[lo * 3 + 1] = col[hi * 3 + 1] = cg; col[lo * 3 + 2] = col[hi * 3 + 2] = cb;
-      alp[lo] = alp[hi] = a;
+      pos[k * 3] = t[k].x; pos[k * 3 + 1] = t[k].y; pos[k * 3 + 2] = t[k].z;
+      const f = k / n, a = f * f * 1.5;         // sharp falloff + bright head
+      const w = Math.max(0, f - 0.85) * 4;      // white-hot tip near the planet
+      col[k * 3] = b.color.r * a + w; col[k * 3 + 1] = b.color.g * a + w; col[k * 3 + 2] = b.color.b * a + w;
     }
-    rib.geometry.attributes.position.needsUpdate = true;
-    rib.geometry.attributes.aColor.needsUpdate = true;
-    rib.geometry.attributes.aAlpha.needsUpdate = true;
-    rib.geometry.setDrawRange(0, (n - 1) * 6);
-    rib.visible = true;
+    b.line.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    b.line.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    b.line.geometry.setDrawRange(0, n);
+    b.line.visible = showTrails && n > 1;
   }
 
   // ── cinematic eclipse moments ───────────────────────────────────────────────────
   // When one body slips in front of another (or the star) from the camera's view,
   // ease into slow-mo + a gentle push-in + a HUD cue so the alignment is witnessed,
   // not missed. Pure overlays — never alters the user's speed or camera permanently.
-  let cinematic = true, timeScale = 1, eclipseZoom = 1, eclipseStrength = 0;
+  let cinematic = true, timeScale = 1, eclipseZoom = 1, eclipseStrength = 0, _eclipseHot = false;
   const eclipseHud = document.getElementById('eclipseHud');
   const _ev1 = new THREE.Vector3(), _ev2 = new THREE.Vector3();
   function updateEclipse() {
@@ -508,6 +488,8 @@ function boot() {
       raw = Math.pow(Math.max(0, Math.min(1, raw)), 1.2);    // punchy: only real overlaps register
     }
     eclipseStrength += (raw - eclipseStrength) * 0.12;
+    if (!_eclipseHot && eclipseStrength > 0.55) { _eclipseHot = true; FX.chime(); }   // ring the bell once per alignment
+    else if (_eclipseHot && eclipseStrength < 0.25) _eclipseHot = false;
     timeScale += ((1 - 0.82 * eclipseStrength) - timeScale) * 0.08;   // slow-mo at the peak
     eclipseZoom += ((1 - 0.16 * eclipseStrength) - eclipseZoom) * 0.06; // subtle push-in
     if (eclipseHud) eclipseHud.style.opacity = (eclipseStrength * 0.92).toFixed(3);
@@ -524,6 +506,7 @@ function boot() {
       const dt = 0.001, sub = Math.max(1, Math.round(speed * 12));
       for (let s = 0; s < sub; s++) integrate(dt * timeScale);
       for (const b of bodies) { b.trail.push(b.pos.clone()); if (b.trail.length > TRAIL_MAX) b.trail.shift(); }
+      checkSlingshots();
     }
     if (lensflare) { const s = bodies.find(b => b.star); if (s) { lensflare.position.copy(s.pos); lensflare.visible = true; } else lensflare.visible = false; }
     starUniforms.uTime.value += 0.016;      // boil the plasma + flicker the corona
@@ -635,6 +618,7 @@ function boot() {
       const launch = flickVel.clone().multiplyScalar(THROW_GAIN); launch.clampLength(0, THROW_MAX);
       if (launch.length() > THROW_MIN) {           // a real flick → throw it and let it fly
         dragBody.vel.copy(launch); manualEdited = false;
+        FX.pluck(launch.length() / THROW_MAX);     // tactile launch: pluck + buzz scaled by strength
         if (mode !== 'running') { mode = 'running'; updateRun(); }
       } else { dragBody.vel.set(0, 0, 0); }        // gentle drop → just placed
     }
@@ -704,6 +688,68 @@ function boot() {
     explore();
   });
 
+  // ── FX: ambient audio bed + event sounds + haptics ─────────────────────────────
+  //    A low space hum (starts on the first gesture, per autoplay rules), a bell on
+  //    eclipse alignment, a soft pluck on launch, a whoosh on a close slingshot.
+  //    Haptics buzz on Android via the Vibration API; iOS gets a best-effort tap.
+  const FX = (() => {
+    let ctx = null, master = null, muted = false;
+    const iosSink = $('iosHaptic');
+    function init() {
+      if (ctx) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      try { ctx = new AC(); } catch (_) { ctx = null; return; }
+      master = ctx.createGain(); master.gain.value = muted ? 0 : 1; master.connect(ctx.destination);
+      // ambient pad: two low sines + a sub, through a slowly-swept lowpass
+      const pad = ctx.createGain(); pad.gain.value = 0.0; pad.connect(master);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; lp.Q.value = 0.7; lp.connect(pad);
+      [55, 82.41, 41].forEach((f, i) => { const o = ctx.createOscillator(); o.type = i === 2 ? 'triangle' : 'sine'; o.frequency.value = f; o.detune.value = i * 5; const g = ctx.createGain(); g.gain.value = i === 2 ? 0.5 : 0.35; o.connect(g).connect(lp); o.start(); });
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 0.05; const lg = ctx.createGain(); lg.gain.value = 150; lfo.connect(lg).connect(lp.frequency); lfo.start();
+      pad.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 3.5);   // fade the bed in
+    }
+    function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
+    function tone(freqs, peak, dur, type) {
+      if (!ctx) return; const t = ctx.currentTime, g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); g.connect(master);
+      freqs.forEach((f, i) => { const o = ctx.createOscillator(); o.type = type || 'sine'; o.frequency.value = f; o.detune.value = i * 4; o.connect(g); o.start(t); o.stop(t + dur + 0.05); });
+    }
+    function noise(peak, dur, f0, f1) {
+      if (!ctx) return; const t = ctx.currentTime, n = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2;
+      bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      const g = ctx.createGain(); g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(bp).connect(g).connect(master); src.start(t); src.stop(t + dur + 0.02);
+    }
+    function buzz(ms) {
+      try { if (navigator.vibrate) navigator.vibrate(ms); } catch (_) {}
+      try { if (iosSink) iosSink.click(); } catch (_) {}   // best-effort iOS haptic (switch trick)
+    }
+    return {
+      init, resume,
+      chime() { tone([880, 1318.5], 0.12, 1.2); buzz(22); },          // eclipse bell (a fifth)
+      pluck(s) { tone([300 + s * 120], Math.min(0.09, 0.04 + s * 0.04), 0.18, 'triangle'); buzz(10 + Math.round(s * 10)); },
+      whoosh() { noise(0.07, 0.32, 320, 1400); buzz(14); },
+      toggleMute() { muted = !muted; if (master) master.gain.value = muted ? 0 : 1; return muted; },
+    };
+  })();
+
+  // Slingshot detector: fire a whoosh+buzz the moment a pair enters a close pass
+  // (debounced per pair so it triggers once on entry, not every frame).
+  const _pairNear = [false, false, false];
+  function checkSlingshots() {
+    let pk = 0;
+    for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+      const d = bodies[i].pos.distanceTo(bodies[j].pos), rs = visRadius(bodies[i].m) + visRadius(bodies[j].m);
+      const near = d < rs * 1.9;
+      if (near && !_pairNear[pk]) FX.whoosh();
+      _pairNear[pk] = near; pk++;
+    }
+  }
+
   // ── boot ──────────────────────────────────────────────────────────────────────
   resize();
   $('grav').value = G; $('gravVal').textContent = G.toFixed(2);
@@ -713,25 +759,6 @@ function boot() {
   requestAnimationFrame(frame);
 
   // ── scene assets ───────────────────────────────────────────────────────────────
-  // #3: a pre-allocated ribbon mesh for a body's trail. Two verts per trail point;
-  //     a static quad index covers the whole capacity, draw-range clips to what's used.
-  function makeRibbon() {
-    const cap = TRAIL_MAX;
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cap * 2 * 3), 3));
-    g.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array(cap * 2 * 3), 3));
-    g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(cap * 2), 1));
-    const idx = [];
-    for (let q = 0; q < cap - 1; q++) { const a = q * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
-    g.setIndex(idx); g.setDrawRange(0, 0);
-    const m = new THREE.ShaderMaterial({
-      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-      vertexShader: 'attribute vec3 aColor; attribute float aAlpha; varying vec3 vC; varying float vA; void main(){ vC=aColor; vA=aAlpha; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-      fragmentShader: 'varying vec3 vC; varying float vA; void main(){ gl_FragColor=vec4(vC, vA); }',
-    });
-    const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = 3;
-    return mesh;
-  }
   function makeStars(count, size, opacity, rMin, rMax) {
     const pos = new Float32Array(count * 3), col = new Float32Array(count * 3);
     const tint = [new THREE.Color(0xbfd4ff), new THREE.Color(0xffffff), new THREE.Color(0xffe6c0), new THREE.Color(0x9fc4ff)];

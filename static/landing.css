@@ -188,7 +188,7 @@
 /* "REX TRUEFORM" title — longer than MEDICI, so size to fit and keep
    each word unbreakable (wraps cleanly between words on narrow screens). */
 .site-title.title-rex {
-  font-size: clamp(46px, 9.5vw, 132px);
+  font-size: clamp(56px, 11.8vw, 152px);
   transform: perspective(900px) rotateX(11deg);   /* lean back so the extrusion reads 3D */
   transform-origin: 50% 100%;
 }
@@ -417,7 +417,7 @@
   .disc-section { min-height: 76vh; }
   .disc-stage { perspective: 1100px; }
   .disc-card .card-label { font-size: 1.4rem; }
-  .hero-orbit .hero-content { top: 23%; }   /* sits in the bigger lifted Möbius gap on phones */
+  .hero-orbit .hero-content { top: 19%; }   /* raised; sits in the upper Möbius gap on phones */
 }
 @media (prefers-reduced-motion: reduce) {
   .disc-card { transition: none; }
