@@ -131,6 +131,7 @@ function boot() {
   const texLoader = new THREE.TextureLoader();
   const loadTex = (n) => { const t = texLoader.load(`/static/textures/${n}.jpg`); t.colorSpace = THREE.SRGBColorSpace; return t; };
   const PLANET_TEX = [loadTex('marsmap1k'), loadTex('earthmap1k'), loadTex('jupitermap')];
+  const EARTH_NIGHT = texLoader.load('/static/textures/earthlights1k.jpg');   // NASA Black Marble city lights (sampled raw → leave linear)
   const STAR_MASS = 5.5;                 // a body this heavy (or heavier) ignites into a star
 
   // #5: a cheap procedural cosmic cube-map so planets reflect the nebula/starfield
@@ -204,13 +205,25 @@ function boot() {
 
   function visRadius(m) { return Math.max(0.18, Math.cbrt(m) * 0.2); }
 
-  // Fresnel atmosphere shell — soft rim-glow halo in the body's colour.
+  // Atmospheric-scattering shell: a Fresnel limb that glows blue on the lit side,
+  // reddens to a sunset where it meets the day/night terminator, and fades to
+  // nothing on the night limb. uSun is the light direction in VIEW space (matches
+  // the shell's view-space normal, so the effect is invariant to camera orbit).
   function atmosphere(colorInt) {
-    return new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.ShaderMaterial({
+    return new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48), new THREE.ShaderMaterial({
       transparent: true, blending: THREE.AdditiveBlending, side: THREE.BackSide, depthWrite: false,
-      uniforms: { uColor: { value: new THREE.Color(colorInt) } },
+      uniforms: { uColor: { value: new THREE.Color(colorInt) }, uSun: { value: new THREE.Vector3(0, 0, 1) } },
       vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vP=mv.xyz; gl_Position=projectionMatrix*mv; }',
-      fragmentShader: 'varying vec3 vN; varying vec3 vP; uniform vec3 uColor; void main(){ float f=pow(1.0-abs(dot(normalize(vN),normalize(-vP))),2.4); gl_FragColor=vec4(uColor, f*0.9); }',
+      fragmentShader: `varying vec3 vN; varying vec3 vP; uniform vec3 uColor; uniform vec3 uSun;
+        void main(){
+          vec3 N = normalize(vN), V = normalize(-vP);
+          float fres = pow(1.0 - abs(dot(N, V)), 2.6);
+          float ndl = dot(N, normalize(uSun));
+          float day = smoothstep(-0.25, 0.35, ndl);
+          float sunset = smoothstep(0.55, 0.0, abs(ndl)) * smoothstep(-0.45, 0.05, ndl);
+          vec3 col = mix(uColor, vec3(1.0, 0.45, 0.18), sunset * 0.85);
+          gl_FragColor = vec4(col, fres * (0.12 + 0.95 * day) * 0.95);
+        }`,
     }));
   }
 
@@ -219,6 +232,24 @@ function boot() {
     const mat = new THREE.MeshStandardMaterial({ map: PLANET_TEX[i], bumpMap: PLANET_TEX[i], bumpScale: 0.05, emissive: color, emissiveIntensity: 0.05,
       roughness: i === 1 ? 0.48 : 0.62, metalness: i === 1 ? 0.22 : 0.08,       // #2: lower roughness → a tight specular hotspot that travels as it spins
       envMap: envCube, envMapIntensity: i === 1 ? 0.7 : 0.45 });                // #5: faint cosmic reflection
+    if (i === 1) {                       // Earth → photoreal: night city lights, ocean-only specular, cloud shadows
+      mat.onBeforeCompile = (shader) => {
+        shader.uniforms.uNightMap = { value: EARTH_NIGHT };
+        shader.uniforms.uSunView = { value: new THREE.Vector3(0, 0, 1) };
+        shader.uniforms.uCloudT = starUniforms.uTime;       // share the boil clock so shadows drift
+        shader.fragmentShader = NOISE_GLSL +
+          '\nuniform sampler2D uNightMap; uniform vec3 uSunView; uniform float uCloudT;\n' + shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <roughnessmap_fragment>',                                       // oceans glint, land stays matte
+            '#include <roughnessmap_fragment>\n{ vec3 _d=texture2D(map,vMapUv).rgb; float _o=smoothstep(0.02,0.16,_d.b-max(_d.r,_d.g)); roughnessFactor=mix(roughnessFactor,0.18,_o); }')
+          .replace('#include <map_fragment>',                                                // soft drifting cloud shadows on the surface
+            '#include <map_fragment>\n{ float _c=fbm(vec3(vMapUv*7.0+vec2(uCloudT*0.012,0.0),0.0)); diffuseColor.rgb*=(1.0-smoothstep(0.52,0.82,_c)*0.32); }')
+          .replace('#include <emissivemap_fragment>',                                        // city lights, only on the night side
+            '#include <emissivemap_fragment>\n{ float _n=smoothstep(0.12,-0.18,dot(normalize(vNormal),normalize(uSunView))); totalEmissiveRadiance+=texture2D(uNightMap,vMapUv).rgb*_n*2.4; }');
+        mat.userData.shader = shader;
+      };
+      mat.customProgramCacheKey = () => 'earth-photoreal';
+    }
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 40), mat);
     mesh.castShadow = true; mesh.receiveShadow = true;   // #1: occlude + catch eclipses
     let cloud = null, ring = null;
@@ -245,6 +276,7 @@ function boot() {
 
   function clearBodies() { bodies.forEach(b => scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit)); bodies = []; }
 
+  const _sunWorld = new THREE.Vector3(), _sunView = new THREE.Vector3();
   function applyVisual(b) {
     const r = visRadius(b.m);
     const isStar = b.m >= STAR_MASS;
@@ -261,8 +293,19 @@ function boot() {
     b.light.distance = isStar ? 160 : 70;
     b.mesh.position.copy(b.pos); b.mesh.scale.setScalar(r);
     b.corona.position.copy(b.pos); b.corona.scale.setScalar(r * 1.42);
-    b.atmo.position.copy(b.pos); b.atmo.scale.setScalar(r * 1.28);
-    b.atmo.material.uniforms.uColor.value.set(b.color.getHex());
+    b.atmo.position.copy(b.pos); b.atmo.scale.setScalar(r * (b.idx === 1 ? 1.34 : 1.26));
+    // light direction toward the dominant source (a star if present, else the key light), in view space
+    _sunWorld.set(24, 20, 16);
+    const star = bodies.find(s => s.star && s !== b);
+    if (star) _sunWorld.subVectors(star.pos, b.pos);
+    _sunView.copy(_sunWorld).transformDirection(camera.matrixWorldInverse);
+    b.atmo.material.uniforms.uSun.value.copy(_sunView);
+    if (b.idx === 1) {                                         // Earth → blue sky + feed the surface shader
+      b.atmo.material.uniforms.uColor.value.set(0x6fb3ff);
+      if (b.mat.userData.shader) b.mat.userData.shader.uniforms.uSunView.value.copy(_sunView);
+    } else {
+      b.atmo.material.uniforms.uColor.value.set(b.color.getHex());
+    }
     b.glow.position.copy(b.pos); b.glow.scale.setScalar(r * (isStar ? 8.5 : 6.5));
     b.glow.material.opacity = isStar ? 0.6 : 0.6;   // tamed star halo so terminators + eclipses read
     b.hit.position.copy(b.pos); b.hit.scale.setScalar(Math.max(r * 2.8, 0.55));

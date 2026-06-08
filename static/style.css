@@ -19,6 +19,8 @@ html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   background: #000;
+  /* stop mobile pull-to-refresh / overscroll from reloading the whole page mid-scroll */
+  overscroll-behavior-y: contain;
 }
 
 /* Full-page zuma video backdrop — fixed behind the whole landing page */
@@ -32,7 +34,7 @@ html {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: saturate(1.12) brightness(0.62);
+  filter: saturate(1.12) brightness(0.82);
 }
 .page-bg::after {
   content: "";
@@ -40,8 +42,8 @@ html {
   inset: 0;
   background:
     repeating-linear-gradient(0deg, rgba(120,200,255,0.035) 0px, rgba(120,200,255,0.035) 1px, transparent 2px, transparent 4px),
-    radial-gradient(120% 90% at 50% 30%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.45) 100%),
-    linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.6) 100%);
+    radial-gradient(120% 90% at 50% 30%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.32) 100%),
+    linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0.45) 100%);
 }
 
 body {
@@ -50,6 +52,7 @@ body {
   font-family: 'Space Mono', monospace;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: contain;   /* belt-and-braces: no pull-to-refresh reload on phones */
 }
 
 body.modal-open {
@@ -203,10 +206,10 @@ body.modal-open {
 /* Floating Order-of-the-Skull crest — hovers just above the REX chat orb (bottom-right) */
 .skull-float {
   position: fixed;
-  right: 30px;
+  right: 26px;              /* same right + width as the REX orb → perfectly column-aligned above it */
   bottom: 102px;            /* the orb sits at bottom:26px, 64px tall — this floats just above it */
-  width: 54px;
-  height: 54px;
+  width: 64px;
+  height: 64px;
   padding: 0;
   border: none;
   background: none;
@@ -222,6 +225,36 @@ body.modal-open {
 @keyframes skullFloat {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-7px); }
+}
+/* match the REX orb's mobile position (right:16px) so the skull stays column-aligned above it */
+@media (max-width: 520px) {
+  .skull-float { right: 16px; bottom: 92px; }
+}
+
+/* Three-Body — top of the right-edge stack (orb → skull → three-body), same column */
+.tb3-float {
+  position: fixed;
+  right: 26px;
+  bottom: 178px;            /* sits one slot above the skull (102 + 64 + 12) */
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  text-decoration: none;
+  background: radial-gradient(circle at 50% 38%, rgba(22,12,6,.92), rgba(8,5,10,.94));
+  border: 1px solid rgba(255,85,0,.5);
+  box-shadow: 0 0 16px rgba(255,85,0,.32), inset 0 0 12px rgba(255,85,0,.1);
+  z-index: 99997;
+  animation: skullFloat 3.6s ease-in-out infinite;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb3-float:hover { transform: scale(1.1); box-shadow: 0 0 22px rgba(255,85,0,.6), inset 0 0 12px rgba(255,85,0,.16); }
+.tb3-logo-lg { transform: scale(2.1); }   /* blow the 22px nav logo up to fill the button */
+@media (max-width: 520px) {
+  .tb3-float { right: 16px; bottom: 168px; }
 }
 
 .nav-skull {
