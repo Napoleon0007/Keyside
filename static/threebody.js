@@ -122,7 +122,8 @@ function boot() {
   })();
 
   // ── simulation state ────────────────────────────────────────────────────────
-  let G = 1.0, softening = 0.03, speed = 0.4, showTrails = true;
+  let G = 1.0, softening = 0.03, speed = 0.4, showTrails = true, solarMode = false;
+  let solarRings = [], SOLAR_TEX = null;
   let mode = 'setup';                     // 'setup' | 'running' | 'paused'
   let bodies = [];
   let manualEdited = false;               // user moved/resized a planet → auto-orbit on Run
@@ -227,12 +228,19 @@ function boot() {
     }));
   }
 
-  function makeBody(x, y, z, vx, vy, vz, m, i) {
-    const color = COLORS[i];
-    const mat = new THREE.MeshStandardMaterial({ map: PLANET_TEX[i], bumpMap: PLANET_TEX[i], bumpScale: 0.05, emissive: color, emissiveIntensity: 0.05,
-      roughness: i === 1 ? 0.48 : 0.62, metalness: i === 1 ? 0.22 : 0.08,       // #2: lower roughness → a tight specular hotspot that travels as it spins
-      envMap: envCube, envMapIntensity: i === 1 ? 0.7 : 0.45 });                // #5: faint cosmic reflection
-    if (i === 1) {                       // Earth → photoreal: night city lights, ocean-only specular, cloud shadows
+  function makeBody(x, y, z, vx, vy, vz, m, i, opts) {
+    opts = opts || {};                   // opts lets the Solar System place arbitrary planets; 3-body presets pass none
+    const color = opts.color != null ? opts.color : COLORS[i];
+    const tex = opts.tex !== undefined ? opts.tex : PLANET_TEX[i];
+    const name = opts.name != null ? opts.name : NAMES[i];
+    const photoreal = opts.photoreal != null ? opts.photoreal : (i === 1);       // Earth treatment
+    const hasRing = opts.ring != null ? opts.ring : (i === 2);
+    const hasCloud = opts.cloud != null ? opts.cloud : (i === 1);
+    const noLight = !!opts.noLight;      // Solar planets skip their own point light (Sun lights them) → far cheaper on mobile
+    const mat = new THREE.MeshStandardMaterial({ map: tex, bumpMap: tex, bumpScale: 0.05, emissive: color, emissiveIntensity: 0.05,
+      roughness: photoreal ? 0.48 : 0.62, metalness: photoreal ? 0.22 : 0.08,    // #2: lower roughness → a tight specular hotspot that travels as it spins
+      envMap: envCube, envMapIntensity: photoreal ? 0.7 : 0.45 });               // #5: faint cosmic reflection
+    if (photoreal) {                     // Earth → photoreal: night city lights, ocean-only specular, cloud shadows
       mat.onBeforeCompile = (shader) => {
         shader.uniforms.uNightMap = { value: EARTH_NIGHT };
         shader.uniforms.uSunView = { value: new THREE.Vector3(0, 0, 1) };
@@ -253,14 +261,14 @@ function boot() {
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 40), mat);
     mesh.castShadow = true; mesh.receiveShadow = true;   // #1: occlude + catch eclipses
     let cloud = null, ring = null;
-    if (i === 1) { cloud = cloudShell(); mesh.add(cloud); }                    // Earth → drifting clouds
-    if (i === 2) { ring = ringSystem(); mesh.add(ring); }                      // gas giant → ring system
+    if (hasCloud) { cloud = cloudShell(); mesh.add(cloud); }                    // Earth → drifting clouds
+    if (hasRing) { ring = ringSystem(); mesh.add(ring); }                       // ringed giant → ring system
     const corona = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48), coronaMat);   // flames, shown only when this body is a star
     corona.visible = false; scene.add(corona);
     const atmo = atmosphere(color); scene.add(atmo);
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     const light = new THREE.PointLight(color, 1.2, 80, 2);
-    mesh.add(light);
+    if (!noLight) mesh.add(light);
     scene.add(mesh); scene.add(glow);
 
     const line = new THREE.Line(new THREE.BufferGeometry(),
@@ -271,14 +279,19 @@ function boot() {
     const hit = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 12), new THREE.MeshBasicMaterial({ visible: false }));
     scene.add(hit);
 
-    return { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), m, idx: i, color: new THREE.Color(color), name: NAMES[i], mesh, mat, cloud, ring, corona, atmo, glow, line, light, hit, trail: [], star: null };
+    return { pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(vx, vy, vz), m, idx: i, color: new THREE.Color(color), name, photoreal, rVis: opts.rVis || 0, mesh, mat, cloud, ring, corona, atmo, glow, line, light, hit, trail: [], star: null };
   }
 
-  function clearBodies() { bodies.forEach(b => scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit)); bodies = []; }
+  function clearBodies() {
+    bodies.forEach(b => scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit));
+    bodies = [];
+    solarRings.forEach(r => { scene.remove(r); r.geometry.dispose(); }); solarRings = [];
+    solarMode = false;
+  }
 
   const _sunWorld = new THREE.Vector3(), _sunView = new THREE.Vector3();
   function applyVisual(b) {
-    const r = visRadius(b.m);
+    const r = b.rVis || visRadius(b.m);    // Solar bodies carry an explicit visual size (decoupled from their light mass)
     const isStar = b.m >= STAR_MASS;
     if (isStar !== b.star) {               // swap planet⇄star look only when it flips
       b.star = isStar;
@@ -293,14 +306,14 @@ function boot() {
     b.light.distance = isStar ? 160 : 70;
     b.mesh.position.copy(b.pos); b.mesh.scale.setScalar(r);
     b.corona.position.copy(b.pos); b.corona.scale.setScalar(r * 1.42);
-    b.atmo.position.copy(b.pos); b.atmo.scale.setScalar(r * (b.idx === 1 ? 1.34 : 1.26));
+    b.atmo.position.copy(b.pos); b.atmo.scale.setScalar(r * (b.photoreal ? 1.34 : 1.26));
     // light direction toward the dominant source (a star if present, else the key light), in view space
     _sunWorld.set(24, 20, 16);
     const star = bodies.find(s => s.star && s !== b);
     if (star) _sunWorld.subVectors(star.pos, b.pos);
     _sunView.copy(_sunWorld).transformDirection(camera.matrixWorldInverse);
     b.atmo.material.uniforms.uSun.value.copy(_sunView);
-    if (b.idx === 1) {                                         // Earth → blue sky + feed the surface shader
+    if (b.photoreal) {                                        // Earth → blue sky + feed the surface shader
       b.atmo.material.uniforms.uColor.value.set(0x6fb3ff);
       if (b.mat.userData.shader) b.mat.userData.shader.uniforms.uSunView.value.copy(_sunView);
     } else {
@@ -407,9 +420,62 @@ function boot() {
       camOrbit.radius = 6; },
   };
 
+  // ── our Solar System (realistic, Sun-dominated) ──────────────────────────────────
+  //    The Sun + 8 planets on circular orbits (v=√(GM/r)). Distances/sizes are
+  //    visually compressed (true scale is unwatchable), but the PHYSICS is honest:
+  //    the Sun outweighs the planets ~25–1000×, so dragging one out of line wrecks
+  //    ITS orbit while the rest keep sailing — exactly as the real system behaves.
+  function solarTextures() {
+    if (SOLAR_TEX) return SOLAR_TEX;
+    SOLAR_TEX = {                       // earth/mars/jupiter already loaded in PLANET_TEX — reuse
+      mercury: loadTex('mercurymap'), venus: loadTex('venusmap'), earth: PLANET_TEX[1],
+      mars: PLANET_TEX[0], jupiter: PLANET_TEX[2], saturn: loadTex('saturnmap'),
+      uranus: loadTex('uranusmap'), neptune: loadTex('neptunemap'),
+    };
+    return SOLAR_TEX;
+  }
+  function addOrbitRing(radius) {
+    const seg = 160, pts = [];
+    for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius)); }
+    const ring = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: 0x6f8fbf, transparent: true, opacity: 0.16, depthWrite: false }));
+    scene.add(ring); solarRings.push(ring);
+  }
+  function solarSystem() {
+    G = 1; softening = 0.02; clearBodies(); solarMode = true;
+    const T = solarTextures(), MSUN = 60;
+    // name, texture, colour, orbit radius, mass (≪ Sun), visual radius, ring?, photoreal?
+    const defs = [
+      ['Mercury', T.mercury, 0x9c8b7a, 1.30, 0.05, 0.12, false, false],
+      ['Venus',   T.venus,   0xd9b78a, 1.95, 0.30, 0.20, false, false],
+      ['Earth',   T.earth,   0x6fb3ff, 2.65, 0.32, 0.21, false, true ],
+      ['Mars',    T.mars,    0xd0683a, 3.45, 0.12, 0.16, false, false],
+      ['Jupiter', T.jupiter, 0xcaa37a, 5.30, 2.40, 0.50, false, false],
+      ['Saturn',  T.saturn,  0xd8c08a, 7.20, 1.80, 0.44, true,  false],
+      ['Uranus',  T.uranus,  0x9fe0e6, 9.10, 0.90, 0.32, false, false],
+      ['Neptune', T.neptune, 0x4f6cff, 11.0, 0.95, 0.31, false, false],
+    ];
+    const sun = makeBody(0, 0, 0, 0, 0, 0, MSUN, 0, { name: 'Sun', color: 0xffc070, tex: null, rVis: 1.1 });
+    bodies = [sun];
+    let px = 0, pz = 0;
+    defs.forEach((d, k) => {
+      const [name, tex, color, dist, mass, rVis, ring, photoreal] = d;
+      const ang = k * 0.9 + 0.4;        // fan them around so they don't start in a line
+      const x = Math.cos(ang) * dist, z = Math.sin(ang) * dist;
+      const v = Math.sqrt(G * MSUN / dist);     // circular-orbit speed, tangential in the XZ plane
+      const vx = -Math.sin(ang) * v, vz = Math.cos(ang) * v;
+      bodies.push(makeBody(x, 0, z, vx, 0, vz, mass, k + 1, { name, tex, color, rVis, ring, photoreal, cloud: photoreal, noLight: true }));
+      px += mass * vx; pz += mass * vz;
+      addOrbitRing(dist);
+    });
+    sun.vel.set(-px / MSUN, 0, -pz / MSUN);       // cancel net momentum → Sun (and the frame) stays put
+    camOrbit.radius = 30; camOrbit.phi = 1.0; camOrbit.theta = 0.6;
+  }
+
   let currentPreset = 'figure-8';
   function loadPreset(name) {
     if (name === 'explore') symmetric(+$('vx').value, +$('vy').value);
+    else if (name === 'solar') solarSystem();
     else if (SYM[name]) { symmetric(SYM[name][0], SYM[name][1]); if ($('vx')) { $('vx').value = SYM[name][0]; $('vy').value = SYM[name][1]; readout(); } }
     else PRESETS[name]();
     mode = 'setup';
@@ -419,9 +485,10 @@ function boot() {
   }
 
   // ── physics ──────────────────────────────────────────────────────────────────
-  const _a = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  const _a = [];                                   // grows to match the body count (3 sandbox · 9 solar)
   function accel() {
     const n = bodies.length;
+    while (_a.length < n) _a.push(new THREE.Vector3());
     for (let i = 0; i < n; i++) _a[i].set(0, 0, 0);
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
       if (i === j) continue;
@@ -549,7 +616,8 @@ function boot() {
       const dt = 0.001, sub = Math.max(1, Math.round(speed * 12));
       for (let s = 0; s < sub; s++) integrate(dt * timeScale);
       for (const b of bodies) { b.trail.push(b.pos.clone()); if (b.trail.length > TRAIL_MAX) b.trail.shift(); }
-      checkSlingshots();
+      if (!solarMode) checkSlingshots();   // planets sitting near the Sun aren't slingshots — skip the whoosh
+
     }
     if (lensflare) { const s = bodies.find(b => b.star); if (s) { lensflare.position.copy(s.pos); lensflare.visible = true; } else lensflare.visible = false; }
     starUniforms.uTime.value += 0.016;      // boil the plasma + flicker the corona
@@ -698,7 +766,7 @@ function boot() {
   $('run').addEventListener('click', () => {
     FX.init(); FX.resume();
     if (mode === 'running') { mode = 'paused'; }
-    else { if (manualEdited) { autoOrbit(); manualEdited = false; } mode = 'running'; }
+    else { if (manualEdited && !solarMode) { autoOrbit(); manualEdited = false; } mode = 'running'; }   // solar: keep the real orbits, don't auto-swirl
     updateRun();
   });
   $('reset').addEventListener('click', () => loadPreset(currentPreset));
@@ -721,8 +789,18 @@ function boot() {
 
   document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+    $('solarBtn') && $('solarBtn').classList.remove('active');
     btn.classList.add('active'); currentPreset = btn.dataset.preset; loadPreset(currentPreset);
   }));
+  // Our Solar System — a selectable "world" that loads the Sun + 8 planets and runs straight away
+  $('solarBtn') && $('solarBtn').addEventListener('click', () => {
+    FX.init(); FX.resume();
+    document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+    $('solarBtn').classList.add('active');
+    currentPreset = 'solar'; loadPreset('solar');
+    mode = 'running'; updateRun();
+    $('solutions').setAttribute('hidden', '');
+  });
   function explore() {
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
     currentPreset = 'explore'; readout(); loadPreset('explore');

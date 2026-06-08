@@ -206,10 +206,10 @@ body.modal-open {
 /* Floating Order-of-the-Skull crest — hovers just above the REX chat orb (bottom-right) */
 .skull-float {
   position: fixed;
-  right: 26px;              /* same right + width as the REX orb → perfectly column-aligned above it */
-  bottom: 102px;            /* the orb sits at bottom:26px, 64px tall — this floats just above it */
-  width: 64px;
-  height: 64px;
+  right: 33px;              /* 50px wide → right:33 keeps it centred on the 64px orb's column */
+  bottom: 164px;            /* TOP of the stack (above the Three-Body button) */
+  width: 50px;
+  height: 50px;
   padding: 0;
   border: none;
   background: none;
@@ -226,18 +226,18 @@ body.modal-open {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-7px); }
 }
-/* match the REX orb's mobile position (right:16px) so the skull stays column-aligned above it */
+/* match the REX orb's mobile column; skull is the TOP of the stack */
 @media (max-width: 520px) {
-  .skull-float { right: 16px; bottom: 92px; }
+  .skull-float { right: 23px; bottom: 154px; }
 }
 
-/* Three-Body — top of the right-edge stack (orb → skull → three-body), same column */
+/* Three-Body — sits directly above the REX orb (middle of the stack), same column */
 .tb3-float {
   position: fixed;
-  right: 26px;
-  bottom: 178px;            /* sits one slot above the skull (102 + 64 + 12) */
-  width: 64px;
-  height: 64px;
+  right: 33px;             /* 50px wide → centred on the 64px orb's column */
+  bottom: 102px;           /* just above the REX orb */
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -252,9 +252,9 @@ body.modal-open {
   -webkit-tap-highlight-color: transparent;
 }
 .tb3-float:hover { transform: scale(1.1); box-shadow: 0 0 22px rgba(255,85,0,.6), inset 0 0 12px rgba(255,85,0,.16); }
-.tb3-logo-lg { transform: scale(2.1); }   /* blow the 22px nav logo up to fill the button */
+.tb3-logo-lg { transform: scale(1.65); }   /* blow the 22px nav logo up to fill the smaller button */
 @media (max-width: 520px) {
-  .tb3-float { right: 16px; bottom: 168px; }
+  .tb3-float { right: 23px; bottom: 92px; }
 }
 
 .nav-skull {

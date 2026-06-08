@@ -591,9 +591,9 @@ function makeCoverflow(items) {
   }
 
   function setActiveMedia(card, on) {
-    if ((card._type !== 'video' && card._type !== 'edit') || !card._media) return;
-    if (on) { card._media.play().catch(() => {}); }
-    else { try { card._media.pause(); card._media.currentTime = 0; } catch (e) {} }
+    if (!card._videoSrc) return;                 // image cards + clip-less tiles: nothing to mount
+    if (on) mountCardVideo(card, el._inView);    // active + on-screen → bring the clip to life
+    else    unmountCardVideo(card);              // anything else → still thumbnail, no live <video>
   }
 
   // Pull a deferred video source in once the card is near the centre.
@@ -653,6 +653,41 @@ function arrowBtn(cls, glyph, onClick) {
   return b;
 }
 
+// ── Lazy card video ───────────────────────────────────────────────────────────
+// Cards render a still thumbnail by default; a real <video> is mounted ONLY for the
+// active, on-screen card and torn down the moment it leaves. iOS Safari crashes a
+// page that holds dozens of <video> elements at once ("Can't open this page"), so we
+// keep live <video>s to a handful — active cards + the few section backgrounds.
+function mountCardVideo(card, play) {
+  if (!card || !card._videoSrc) return null;
+  let v = card._cardVideo;
+  if (!v) {
+    v = document.createElement('video');
+    v.className = card._videoClass || 'card-video';
+    v.muted = true; v.defaultMuted = true; v.loop = true; v.playsInline = true;
+    v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
+    v.preload = 'metadata';
+    if (card._thumb) v.poster = card._thumb;
+    v.src = card._videoSrc;
+    const host = card._videoHost || card;
+    const ref  = (card._posterEl && card._posterEl.parentNode === host) ? card._posterEl : host.firstChild;
+    host.insertBefore(v, ref || null);
+    if (card._posterEl) card._posterEl.style.visibility = 'hidden';
+    v.addEventListener('loadeddata', () => v.play().catch(() => {}));
+    card._cardVideo = v;
+  }
+  if (play) v.play().catch(() => {});
+  return v;
+}
+function unmountCardVideo(card) {
+  const v = card && card._cardVideo;
+  if (!v) return;
+  try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}   // release the decoder + buffer
+  if (v.parentNode) v.parentNode.removeChild(v);
+  card._cardVideo = null;
+  if (card._posterEl) card._posterEl.style.visibility = '';
+}
+
 function buildCard(item, opts = {}) {
   const { title, style, src, type } = item;
   const cf = !!opts.coverflow;
@@ -679,32 +714,31 @@ function buildCard(item, opts = {}) {
       media.classList.add('has-thumb');
       media.style.backgroundImage = `url("${item.thumb}")`;
     }
-    if (item.cover) {                                 // animated cover → loop the art clip behind the tile
-      const bg = document.createElement('video');
-      bg.className   = 'card-audio-video';
-      bg.src         = item.cover;
-      bg.muted       = true;
-      bg.loop        = true;
-      bg.playsInline = true;
-      bg.preload     = 'none';                         // liveLoadSection starts it when on screen
-      if (item.thumb) bg.poster = item.thumb;         // show the still until the clip is ready
-      bg.addEventListener('loadeddata', () => bg.play().catch(() => {}));
-      media.appendChild(bg);
+    if (item.cover) {                                 // animated cover → mounted only when active
+      card._videoSrc   = item.cover;
+      card._thumb      = item.thumb || '';
+      card._videoClass = 'card-audio-video';
+      card._videoHost  = media;                        // the clip loops behind the scrim + ♫
+      card._posterEl   = null;                          // the thumb is a CSS background; nothing to hide
     }
     media.insertAdjacentHTML('beforeend', '<span class="card-audio-note">&#9835;</span>');
   } else {
-    media = document.createElement('video');
-    media.className   = 'card-video';
-    if (item.thumb) media.poster = item.thumb;   // show the thumbnail until the clip loads/plays
-    if (cf) { media.dataset.src = src; }   // deferred — the rail loads it when near centre
-    else    { media.src = src; }
-    media.muted       = true;
-    media.loop        = true;
-    media.preload     = 'metadata';
-    media.playsInline = true;
+    // Still thumbnail by default; the clip is mounted only when this card is the
+    // active, on-screen one (mountCardVideo). This is what keeps the gallery from
+    // holding ~60 live <video> elements and crashing the tab on phones.
+    media = document.createElement('img');
+    media.className = 'card-video';
+    media.alt = title;
+    media.loading = 'lazy';
+    if (item.thumb) media.src = item.thumb;
+    card._videoSrc   = src;
+    card._thumb      = item.thumb || '';
+    card._videoClass = 'card-video';
+    card._videoHost  = inner;
+    card._posterEl   = media;
     if (!cf) {
-      card.addEventListener('mouseenter', () => media.play().catch(() => {}));
-      card.addEventListener('mouseleave', () => { media.pause(); media.currentTime = 0; });
+      card.addEventListener('mouseenter', () => mountCardVideo(card, true));
+      card.addEventListener('mouseleave', () => unmountCardVideo(card));
     }
   }
   card._media = media;

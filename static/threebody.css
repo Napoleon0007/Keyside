@@ -213,6 +213,13 @@ input[type=range] { box-shadow: 0 0 10px rgba(51,182,255,0.35); }
 #sound { font-size: 14px; }
 #sound.is-muted { opacity: 0.5; }
 
+/* "Our Solar System" — a selectable world, styled like a small sun */
+.tb-solar { margin-bottom: 14px; border-color: rgba(255,180,90,0.5);
+  background: linear-gradient(180deg, rgba(60,40,16,0.55), rgba(30,18,8,0.55)); color: #ffd9a8; }
+.tb-solar:hover { color: #fff; border-color: #ffb15a; box-shadow: 0 0 18px rgba(255,140,40,0.45); }
+.tb-solar.active { color: #2a1606; border-color: transparent;
+  background: linear-gradient(180deg, #ffe0a8, #ff9b3a); box-shadow: 0 0 22px rgba(255,140,40,0.6); }
+
 /* best-effort iOS haptic switch — rendered (so the Taptic engine fires) but out of the way */
 .tb-haptic-sink { position: fixed; bottom: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1; }
 
