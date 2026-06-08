@@ -666,8 +666,14 @@ function arrowBtn(cls, glyph, onClick) {
 // active, on-screen card and torn down the moment it leaves. iOS Safari crashes a
 // page that holds dozens of <video> elements at once ("Can't open this page"), so we
 // keep live <video>s to a handful — active cards + the few section backgrounds.
+let CURRENT_CARD_VIDEO = null;   // at most ONE card clip alive at a time across the whole page
 function mountCardVideo(card, play) {
   if (!card || !card._videoSrc) return null;
+  // Hard cap: only one card video may be live at once. When several rail sections are
+  // partially in view at the same time (mid-scroll) this stops 3-4 decoders spinning up
+  // together and crashing the phone.
+  if (CURRENT_CARD_VIDEO && CURRENT_CARD_VIDEO !== card) unmountCardVideo(CURRENT_CARD_VIDEO);
+  CURRENT_CARD_VIDEO = card;
   let v = card._cardVideo;
   if (!v) {
     v = document.createElement('video');
@@ -693,6 +699,7 @@ function unmountCardVideo(card) {
   try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}   // release the decoder + buffer
   if (v.parentNode) v.parentNode.removeChild(v);
   card._cardVideo = null;
+  if (CURRENT_CARD_VIDEO === card) CURRENT_CARD_VIDEO = null;
   if (card._posterEl) card._posterEl.style.visibility = '';
 }
 

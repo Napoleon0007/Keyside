@@ -27,7 +27,9 @@ async function boot(stage) {
     revealFallback();
     return;
   }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // Phones: render at 1× — a 2× framebuffer for this big, texture-heavy scene blows the
+  // GPU memory budget and crashes the tab when you interact/zoom. Desktop stays crisp.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth <= 768 ? 1 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearAlpha(0);
   stage.appendChild(renderer.domElement);

@@ -21,6 +21,12 @@ let loading = false, openInstance = null;
 
 window.openEarthDive = async function (lat = DEFAULT_LAT, lon = DEFAULT_LON) {
   if (openInstance || loading) return;
+  // Google's photoreal 3D Tiles stream hundreds of MB of mesh+texture — that crashes a
+  // phone ("Can't open this page"). Keep the dive to desktops where there's memory for it.
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    toast('🌍 Earth dive is a desktop feature — it streams heavy 3D tiles. Open Keyside on a computer to fly in.');
+    return;
+  }
   const key = window.GOOGLE_TILES_KEY;
   if (!key) { toast('Earth dive isn’t configured yet (missing tiles key).'); return; }
 
