@@ -356,21 +356,21 @@ function boot() {
     tgeo.setAttribute('position', new THREE.Float32BufferAttribute(base.slice(), 3));
     tgeo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(N * N * 3), 3));
     tgeo.setIndex(tidx);
-    const surfMat = new THREE.MeshStandardMaterial({ color: 0x07172e, roughness: 0.42, metalness: 0.2, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false });
-    const surface = new THREE.Mesh(tgeo, surfMat);   // #4: lit glossy membrane — sheens under the key light + receives planet shadows
-    surface.receiveShadow = true;
+    const surfMat = new THREE.MeshBasicMaterial({ color: 0x0c213f, transparent: true, opacity: 0.36, side: THREE.DoubleSide, depthWrite: false });
+    const surface = new THREE.Mesh(tgeo, surfMat);   // unlit transparent blue sheet → never catches the star's warm light
     const wells = new THREE.Mesh(tgeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
     const larr = lgeo.attributes.position.array, tarr = tgeo.attributes.position.array, carr = tgeo.attributes.color.array;
+    const WELL = new THREE.Color(0x4f9bff);                     // uniform sky-blue well-glow (never the star's orange)
     function update(bs) {
       for (let v = 0; v < N * N; v++) {
         const x = base[v * 3], z = base[v * 3 + 2];
-        let d = 0, cr = 0, cg = 0, cb = 0;
+        let d = 0, wsum = 0;
         for (const b of bs) {
           const dx = x - b.pos.x, dz = z - b.pos.z, inv = b.m / (dx * dx + dz * dz + 0.35);
           d += 1.4 * inv;
-          const w = Math.min(0.55 * inv, 1.7);                 // glow weight in this body's colour
-          cr += b.color.r * w; cg += b.color.g * w; cb += b.color.b * w;
+          wsum += Math.min(0.55 * inv, 1.7);                   // glow weight by depth (colour is always blue)
         }
+        const cr = WELL.r * wsum, cg = WELL.g * wsum, cb = WELL.b * wsum;
         const y = y0 - Math.min(d, 6);
         larr[v * 3 + 1] = y; tarr[v * 3 + 1] = y;
         carr[v * 3] = cr; carr[v * 3 + 1] = cg; carr[v * 3 + 2] = cb;
