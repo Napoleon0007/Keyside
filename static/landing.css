@@ -120,6 +120,25 @@
   color: rgba(240,237,232,.4);
   pointer-events: none;
 }
+.trinity-reset {
+  position: absolute;
+  top: 22px; right: 22px;
+  z-index: 4;
+  cursor: pointer;
+  background: rgba(8,4,2,.6);
+  color: #fff;
+  border: 1px solid var(--orange, #ff5500);
+  border-radius: 999px;
+  padding: 9px 16px;
+  font-family: 'Space Mono', monospace;
+  font-size: .68rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 22px rgba(255,85,0,.3);
+  transition: background .2s ease, color .2s ease;
+}
+.trinity-reset:hover { background: var(--orange, #ff5500); color: #000; }
 
 /* ---- Rolling 3D disc ------------------------------------------------ */
 .disc-stage {
