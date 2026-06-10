@@ -36,6 +36,11 @@ const SECTIONS = [
 const PREVIEW_COUNT = 6;
 let currentType = 'all';
 
+// #1 Search + style filter state
+let allEditItems  = [];
+let styleFilter   = '';
+let searchQuery   = '';
+
 let currentFilter  = 'all';
 let hideTimers     = [];
 let scrollY        = 0;
@@ -331,14 +336,85 @@ async function init() {
     else (groups[v.type] || groups.video).push(v);
   });
 
-  content.innerHTML = '';
-  // Only Short Docs remains as a content rail — Video, Images and Music were removed to
-  // keep phones from crashing. Browse the rest via the Explore card ring under Rex's World.
-  buildSection('edit', 'Short Docs', groups.edit,
-    { src: loopUrl('pattern-hero.mp4'), poster: '/static/video-thumbs/pattern-acid.jpg' });  // Pattern Acid bg
+  // Store full list for search/filter rebuilds; mark the latest item
+  allEditItems = groups.edit;
+  if (allEditItems.length) allEditItems[allEditItems.length - 1]._latest = true;
 
-  countNum.textContent = groups.edit.length;
+  content.innerHTML = '';
+  rebuildEditSection();
   applyTypeFilter(currentType);
+}
+
+// ── #1 Search + style filter ─────────────────────────────────────────────────
+
+function rebuildEditSection() {
+  const q = searchQuery.trim().toLowerCase();
+  const filtered = allEditItems.filter(item => {
+    const okStyle  = !styleFilter || item.style === styleFilter;
+    const okSearch = !q || item.title.toLowerCase().includes(q) || (item.style || '').toLowerCase().includes(q);
+    return okStyle && okSearch;
+  });
+
+  const existing = document.getElementById('section-edit');
+  if (existing) existing.remove();
+
+  buildSection('edit', 'Short Docs', filtered,
+    { src: loopUrl('pattern-hero.mp4'), poster: '/static/video-thumbs/pattern-acid.jpg' });
+
+  countNum.textContent = filtered.length;
+}
+
+// Wire up search input
+(function initSearch() {
+  const input = document.getElementById('gallerySearch');
+  const row   = document.getElementById('gallerySearchRow');
+  if (!input || !row) return;
+
+  input.addEventListener('input', () => {
+    searchQuery = input.value;
+    rebuildEditSection();
+    applyTypeFilter(currentType);
+  });
+
+  // Show search row only when Short Docs tab is active or all
+  function syncSearchVis() {
+    const show = currentType === 'all' || currentType === 'edit';
+    row.style.display = show ? '' : 'none';
+  }
+  syncSearchVis();
+
+  document.querySelectorAll('.style-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.style-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      styleFilter = pill.dataset.style;
+      rebuildEditSection();
+      applyTypeFilter(currentType);
+    });
+  });
+})();
+
+// ── #3 Brand footer — render social links from /api/links ────────────────────
+
+async function initFooter() {
+  const nav = document.getElementById('footerLinks');
+  if (!nav) return;
+  try {
+    const res  = await fetch('/api/links');
+    if (!res.ok) return;
+    const { links } = await res.json();
+    links.forEach(link => {
+      if (!link.url) return;  // skip placeholders
+      const a = document.createElement('a');
+      a.className = 'footer-link';
+      a.href      = link.url;
+      a.target    = '_blank';
+      a.rel       = 'noopener noreferrer';
+      a.textContent = link.name;
+      a.style.setProperty('--link-color', link.color || '#fff');
+      nav.appendChild(a);
+    });
+  } catch (e) { /* network; footer just stays empty */ }
 }
 
 // Mount a muted, looping background video into a section. It does NOT fetch until the
@@ -456,6 +532,45 @@ function buildSection(type, label, items, bg /* optional {src, poster} bg video 
     content.appendChild(section);
     liveLoadSection(section);                       // still drive the bg video, if any
     return;
+  }
+
+  // #5 Latest drop — pin the last (most recently added) item as a featured card
+  const latestItem = allEditItems.length ? allEditItems[allEditItems.length - 1] : null;
+  if (type === 'edit' && latestItem && latestItem._latest && items.includes(latestItem)) {
+    const feat = document.createElement('div');
+    feat.className = 'latest-drop';
+    feat.addEventListener('click', () => openModal(latestItem));
+
+    const thumb = document.createElement('div');
+    thumb.className = 'latest-drop-thumb';
+    if (latestItem.thumb) {
+      const img = document.createElement('img');
+      img.src = latestItem.thumb; img.alt = latestItem.title; img.loading = 'lazy';
+      thumb.appendChild(img);
+    }
+
+    const info = document.createElement('div');
+    info.className = 'latest-drop-info';
+
+    const badge = document.createElement('span');
+    badge.className = 'latest-badge';
+    badge.textContent = 'Latest Drop';
+
+    const title = document.createElement('h3');
+    title.className = 'latest-drop-title';
+    title.textContent = latestItem.title;
+
+    const tag = document.createElement('span');
+    tag.className = 'latest-drop-tag';
+    tag.textContent = latestItem.style || 'edit';
+
+    const cta = document.createElement('span');
+    cta.className = 'latest-drop-cta';
+    cta.textContent = 'Watch →';
+
+    info.append(badge, title, tag, cta);
+    feat.append(thumb, info);
+    section.appendChild(feat);
   }
 
   const cf = makeCoverflow(items);
@@ -990,6 +1105,9 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.classList.add('active');
     const type = btn.dataset.type;
     applyTypeFilter(type);
+    // Sync search row visibility
+    const row = document.getElementById('gallerySearchRow');
+    if (row) row.style.display = (type === 'all' || type === 'edit') ? '' : 'none';
     const hub = HUB_OF[type];
     if (hub && window.worldFocusHub) window.worldFocusHub(hub);   // swoop the cosmos to that planet
     if (type !== 'all') {
@@ -1156,4 +1274,5 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSkull()
 
 checkAuth();
 init();
+initFooter();
 // initProducts();  // products taken down for now — re-enable when they're fixed/working

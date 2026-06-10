@@ -3,7 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Medici</title>
+  <title>Rex Trueform — The Medici Art Hub</title>
+  <!-- #3 Brand: SEO + social share meta -->
+  <meta name="description" content="Rex Trueform — The Medici Art Hub. AI-directed film, music, surreal imagery and interactive 3D worlds by Luke Viviers.">
+  <meta property="og:title" content="Rex Trueform — The Medici Art Hub">
+  <meta property="og:description" content="AI-directed film, music, surreal imagery and interactive 3D worlds.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://keyside-production.up.railway.app">
+  <meta property="og:image" content="https://keyside-production.up.railway.app/static/zuma-bg-poster.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Rex Trueform — The Medici Art Hub">
+  <meta name="twitter:image" content="https://keyside-production.up.railway.app/static/zuma-bg-poster.jpg">
+  <!-- #3 Brand: favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='5' fill='%23000'/><text y='25' x='3' font-size='26' font-family='Arial Black,sans-serif' font-weight='900' fill='%23ff5500'>R</text></svg>">
+  <!-- #4 Perf: warm connections before first paint -->
+  <link rel="preconnect" href="https://raw.githubusercontent.com">
+  <link rel="dns-prefetch" href="https://raw.githubusercontent.com">
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,300;1,400;1,500&family=Space+Mono&display=swap" rel="stylesheet">
@@ -58,6 +74,7 @@
         <h1 class="site-title title-rex"><span class="hero-word"><span class="hero-letter">R</span><span class="hero-letter">E</span><span class="hero-letter">X</span></span> <span class="hero-word"><span class="hero-letter side">T</span><span class="hero-letter side">R</span><span class="hero-letter side">U</span><span class="hero-letter side">E</span><span class="hero-letter side">F</span><span class="hero-letter side">O</span><span class="hero-letter side">R</span><span class="hero-letter side">M</span></span></h1>
         <p class="site-sub-name">The <span class="orange floaty">Medici</span> Family Art Hub</p>
         <p class="hero-breadth">We build <span class="hero-cycle" id="heroCycle">galleries</span></p>
+        <a class="hero-cta" href="#section-disc" id="heroCta">Explore</a>
       </div>
       <div class="hero-scroll-cue" aria-hidden="true">scroll &#9662;</div>
     </div>
@@ -71,6 +88,18 @@
     </div>
     <div class="filter-count">
       <span id="countNum">—</span>&thinsp;works
+    </div>
+  </div>
+  <!-- #1 Search + smart style filters -->
+  <div class="gallery-search-row" id="gallerySearchRow">
+    <input type="search" class="gallery-search" id="gallerySearch" placeholder="search works…" autocomplete="off" spellcheck="false">
+    <div class="style-pills" id="stylePills">
+      <button class="style-pill active" data-style="">All</button>
+      <button class="style-pill" data-style="historical">Historical</button>
+      <button class="style-pill" data-style="abstract">Abstract</button>
+      <button class="style-pill" data-style="surrealism">Surrealism</button>
+      <button class="style-pill" data-style="atmospheric">Atmospheric</button>
+      <button class="style-pill" data-style="psychedelic">Psychedelic</button>
     </div>
   </div>
 
@@ -250,6 +279,20 @@
       </div>
     </div>
   </div>
+
+  <!-- #3 Brand footer -->
+  <footer class="site-footer" id="siteFooter">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="footer-logo-text">Rex <span class="orange">Trueform</span></span>
+        <span class="footer-tagline">a house that builds worlds</span>
+      </div>
+      <nav class="footer-links" id="footerLinks" aria-label="Find Rex Trueform online"></nav>
+      <div class="footer-legal">
+        <span class="footer-copy">&copy; Rex Trueform &mdash; all works reserved</span>
+      </div>
+    </div>
+  </footer>
 
   <!-- Right-edge floating stack: REX chat orb (bottom) · Three-Body · Gargantua · Skull (top) -->
   <button class="skull-float" id="skullBtn" type="button" aria-label="The Order of the Skull" title="The Order of the Skull — enter">
