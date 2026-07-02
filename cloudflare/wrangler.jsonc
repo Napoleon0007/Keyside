@@ -1,0 +1,20 @@
+{
+  // Keyside on Cloudflare Workers.
+  // Build first (generates ./public), then deploy:
+  //   python3 build.py && npx wrangler deploy
+  // Secret (once): npx wrangler secret put OPENROUTER_API_KEY
+  // Custom domain rextrueform.co.za: add via dashboard once the zone is active
+  // (domain is mid-transfer to HostAfrica as of 2026-07-03).
+  "name": "keyside",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-01-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "vars": {
+    "GITHUB_VIDEO_REPO": "Napoleon0007/Art-Hub",
+    "GITHUB_VIDEO_BRANCH": "main",
+    "OPENROUTER_MODEL": "openai/gpt-oss-120b:free"
+  }
+}
