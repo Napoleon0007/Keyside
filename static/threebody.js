@@ -24,7 +24,12 @@ for (const o of [
   try { renderer = new THREE.WebGLRenderer(o); break; } catch (e) { renderer = null; }
 }
 if (!renderer) {
-  document.getElementById('glfail')?.removeAttribute('hidden');
+  // WebGL is a total no-go → load the Canvas2D fallback (the same move the probe
+  // in three_body.html makes); it shows #glfail itself if 2D can't start either.
+  const s = document.createElement('script');
+  s.src = '/static/threebody2d.js';
+  s.onerror = () => document.getElementById('glfail')?.removeAttribute('hidden');
+  document.body.appendChild(s);
 } else {
   canvas = renderer.domElement;          // use the renderer's own working canvas
   canvas.id = 'sim';
@@ -127,7 +132,8 @@ function boot() {
   let mode = 'setup';                     // 'setup' | 'running' | 'paused'
   let bodies = [];
   let manualEdited = false;               // user moved/resized a planet → auto-orbit on Run
-  const TRAIL_MAX = 1100;   // long enough to trace most of an orbit so every body shows its path
+  let simDirty = true;                    // something changed while paused → refresh grid/trails for one frame
+  const TRAIL_MAX = reduced ? 550 : 1100;   // long enough to trace most of an orbit; halved under reduced-motion
   const glowTex = makeGlowTexture();
   const texLoader = new THREE.TextureLoader();
   const loadTex = (n) => { const t = texLoader.load(`/static/textures/${n}.jpg`); t.colorSpace = THREE.SRGBColorSpace; return t; };
@@ -311,6 +317,11 @@ function boot() {
 
     const line = new THREE.Line(new THREE.BufferGeometry(),
       new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    // one fixed-capacity buffer per trail, rewritten in place each frame — no per-frame allocations, no leaked GPU attributes
+    line.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 3), 3));
+    line.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 3), 3));
+    line.geometry.setDrawRange(0, 0);
+    line.frustumCulled = false;           // drawRange-managed → the auto bounding sphere would be stale
     scene.add(line);
 
     // generous invisible hit-sphere so the planet is easy to grab/drag
@@ -321,9 +332,21 @@ function boot() {
   }
 
   function clearBodies() {
-    bodies.forEach(b => scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit, b.beams));
+    bodies.forEach(b => {
+      scene.remove(b.mesh, b.corona, b.atmo, b.glow, b.line, b.hit, b.beams);
+      // free the per-body GPU resources; shared ones (textures, star/neutron/corona materials) survive preset switches
+      b.mesh.geometry.dispose(); b.mat.dispose();
+      if (b.cloud) { b.cloud.geometry.dispose(); b.cloud.material.dispose(); }
+      if (b.ring) { b.ring.geometry.dispose(); b.ring.material.dispose(); }
+      b.corona.geometry.dispose();
+      b.atmo.geometry.dispose(); b.atmo.material.dispose();
+      b.glow.material.dispose();
+      b.line.geometry.dispose(); b.line.material.dispose();
+      b.hit.geometry.dispose(); b.hit.material.dispose();
+      if (b.beams) b.beams.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    });
     bodies = [];
-    solarRings.forEach(r => { scene.remove(r); r.geometry.dispose(); }); solarRings = [];
+    solarRings.forEach(r => { scene.remove(r); r.geometry.dispose(); r.material.dispose(); }); solarRings = [];
     grid.wells.material.opacity = 1.0;     // restore full well-glow for the 3-body sandbox
     solarMode = systemMode = false;
   }
@@ -559,6 +582,7 @@ function boot() {
     camOrbit.follow = -1; camTarget.set(0, 0, 0);
     cinemaHomeR = camOrbit.radius; cinemaHomePhi = camOrbit.phi; idleFrames = 0;   // re-home the auto-cinema to this world's framing
     bodies.forEach(b => { b.trail.length = 0; applyVisual(b); });
+    simDirty = true;                      // new world while paused → re-bend the grid once
     updateRun();
   }
 
@@ -618,7 +642,7 @@ function boot() {
   const camTarget = new THREE.Vector3();
   let velTheta = 0, velPhi = 0;          // #4: fling inertia carried after you let go of a drag
   // auto-cinema: when idle, the camera pans 360°, tilts, and dollies on its own.
-  let cinema = true, idleFrames = 0, _ct = 0, cinemaHomeR = 5, cinemaHomePhi = 1.0;
+  let cinema = !reduced, idleFrames = 0, _ct = 0, cinemaHomeR = 5, cinemaHomePhi = 1.0;   // reduced-motion → no auto-cinema by default
   function wake() { idleFrames = 0; }    // any user input takes the wheel back
   function updateCamera() {
     // target eases to followed body, else to the system's centre of mass
@@ -654,15 +678,16 @@ function boot() {
   // ── trails: a thin glowing polyline tracing each body's path ─────────────────────
   function updateTrail(b) {
     const t = b.trail, n = t.length;
-    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+    const posAttr = b.line.geometry.attributes.position, colAttr = b.line.geometry.attributes.color;
+    const pos = posAttr.array, col = colAttr.array;   // fixed TRAIL_MAX-capacity buffers, written in place
     for (let k = 0; k < n; k++) {
       pos[k * 3] = t[k].x; pos[k * 3 + 1] = t[k].y; pos[k * 3 + 2] = t[k].z;
       const f = k / n, a = f * f * 1.3 + 0.35 * f;   // brighter with a glowing floor so even tiny/dim bodies show a clear trail
       const w = Math.max(0, f - 0.85) * 4;      // white-hot tip near the planet
       col[k * 3] = b.color.r * a + w; col[k * 3 + 1] = b.color.g * a + w; col[k * 3 + 2] = b.color.b * a + w;
     }
-    b.line.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    b.line.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
     b.line.geometry.setDrawRange(0, n);
     b.line.visible = showTrails && n > 1;
   }
@@ -684,8 +709,8 @@ function boot() {
         const dj = _ev2.subVectors(bodies[j].pos, cam), lj = dj.length();
         if (li >= lj) continue;                              // i must be the nearer (occluding) body
         const ang = di.angleTo(dj);
-        const ai = Math.asin(Math.min(1, visRadius(bodies[i].m) / Math.max(li, 1e-3)));
-        const aj = Math.asin(Math.min(1, visRadius(bodies[j].m) / Math.max(lj, 1e-3)));
+        const ai = Math.asin(Math.min(1, (bodies[i].rVis || visRadius(bodies[i].m)) / Math.max(li, 1e-3)));   // solar/neutron bodies carry a decoupled visual radius
+        const aj = Math.asin(Math.min(1, (bodies[j].rVis || visRadius(bodies[j].m)) / Math.max(lj, 1e-3)));
         const s = 1 - ang / (ai + aj);                       // 1 = dead-centre overlap, <0 = no overlap
         if (s > raw) raw = s;
       }
@@ -704,8 +729,13 @@ function boot() {
   //    accel's per-pair floor) so it whips the body away instead of blowing up. ──
 
   // ── render loop ────────────────────────────────────────────────────────────────
+  let raf = 0;                            // rAF handle so the visibility handler can halt/resume the loop
   function frame() {
     updateEclipse();
+    // paused/setup with hands off → the bodies are static, so skip the physics-driven
+    // work (grid re-bend, trail rebuild) but keep rendering so the camera and backdrop stay alive
+    const active = mode === 'running' || !!dragBody || simDirty;
+    simDirty = false;
     if (mode === 'running') {
       const dt = 0.001, sub = Math.max(1, Math.round(speed * 12));
       for (let s = 0; s < sub; s++) integrate(dt * timeScale);
@@ -715,9 +745,9 @@ function boot() {
     }
     if (lensflare) { const s = bodies.find(b => b.star); if (s) { lensflare.position.copy(s.pos); lensflare.visible = true; } else lensflare.visible = false; }
     starUniforms.uTime.value += 0.016;      // boil the plasma + flicker the corona
-    bodies.forEach(b => { applyVisual(b); updateTrail(b); b.mesh.rotation.y += 0.0025; if (b.beams) b.beams.rotation.y += 0.05; });
+    bodies.forEach(b => { applyVisual(b); if (active) updateTrail(b); b.mesh.rotation.y += 0.0025; if (b.beams) b.beams.rotation.y += 0.05; });
     grid.lines.visible = grid.surface.visible = grid.wells.visible = showGrid;
-    if (showGrid) grid.update(bodies);
+    if (showGrid && active) grid.update(bodies);
     updateCamera();
     if (bokeh) {                            // #5: smooth rack-focus — pulls onto whatever you grab, else the system
       const fp = dragBody ? dragBody.pos : camTarget;
@@ -728,7 +758,7 @@ function boot() {
     starNear.rotation.y += 0.00012;         // #5: near layer shears against the far field for real depth
     shootingStars.update(0.016);
     if (composer) composer.render(); else renderer.render(scene, camera);
-    requestAnimationFrame(frame);
+    raf = requestAnimationFrame(frame);
   }
 
   // ── interaction ────────────────────────────────────────────────────────────────
@@ -841,13 +871,26 @@ function boot() {
     e.preventDefault();
     wake();
     const b = pickBody(e);
-    if (b) { b.m = Math.max(0.2, Math.min(40, b.m * (e.deltaY < 0 ? 1.12 : 0.89))); manualEdited = true; applyVisual(b); }
+    if (b) { b.m = Math.max(0.2, Math.min(40, b.m * (e.deltaY < 0 ? 1.12 : 0.89))); manualEdited = true; applyVisual(b); simDirty = true; }
     else { camOrbit.radius = Math.max(1.2, Math.min(120, camOrbit.radius * (e.deltaY < 0 ? 0.9 : 1.1))); cinemaHomeR = camOrbit.radius; }
   }, { passive: false });
 
   canvas.addEventListener('dblclick', (e) => {
     const b = pickBody(e);
     camOrbit.follow = b ? bodies.indexOf(b) : -1;
+  });
+  // iOS Safari never synthesizes dblclick on a touch-action:none canvas → detect a
+  // double-tap ourselves (two clean taps within 350ms/30px) and take the same follow path.
+  let tapT = 0, tapX = 0, tapY = 0, tapDownX = 0, tapDownY = 0;
+  canvas.addEventListener('pointerdown', (e) => { tapDownX = e.clientX; tapDownY = e.clientY; });
+  canvas.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'mouse' || pointers.size > 0) return;   // desktop keeps dblclick; >0 = pinch remnant
+    if (Math.hypot(e.clientX - tapDownX, e.clientY - tapDownY) > 12) { tapT = 0; return; }   // a drag/flick, not a tap
+    if (e.timeStamp - tapT < 350 && Math.hypot(e.clientX - tapX, e.clientY - tapY) < 30) {
+      tapT = 0;
+      const b = pickBody(e);
+      camOrbit.follow = b ? bodies.indexOf(b) : -1;
+    } else { tapT = e.timeStamp; tapX = e.clientX; tapY = e.clientY; }
   });
 
   // ── resize ───────────────────────────────────────────────────────────────────
@@ -875,14 +918,15 @@ function boot() {
     bodies.forEach(b => { b.trail.length = 0; applyVisual(b); });
     manualEdited = false; mode = 'running'; updateRun();
   });
-  $('clear').addEventListener('click', () => bodies.forEach(b => b.trail.length = 0));
+  $('clear').addEventListener('click', () => { bodies.forEach(b => b.trail.length = 0); simDirty = true; });
   $('speed').addEventListener('input', (e) => { speed = +e.target.value; $('speedVal').textContent = speed.toFixed(1) + '×'; });
   $('grav').addEventListener('input', (e) => { G = +e.target.value; $('gravVal').textContent = G.toFixed(2); });
-  $('trails').addEventListener('change', (e) => { showTrails = e.target.checked; });
-  $('grid') && $('grid').addEventListener('change', (e) => { showGrid = e.target.checked; });
+  $('trails').addEventListener('change', (e) => { showTrails = e.target.checked; simDirty = true; });
+  $('grid') && $('grid').addEventListener('change', (e) => { showGrid = e.target.checked; simDirty = true; });
   $('sound') && $('sound').addEventListener('click', () => { FX.init(); FX.resume(); const m = FX.toggleMute(); $('sound').innerHTML = m ? '&#128263;' : '&#128266;'; $('sound').classList.toggle('is-muted', m); });
   $('cinematic') && $('cinematic').addEventListener('change', (e) => { cinematic = e.target.checked; });
   $('autocam') && $('autocam').addEventListener('change', (e) => { cinema = e.target.checked; wake(); });
+  if (reduced && $('autocam')) $('autocam').checked = false;   // reflect the reduced-motion default (still opt-in-able)
 
   function clearWorldActive() {
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
@@ -925,7 +969,7 @@ function boot() {
   //    eclipse alignment, a soft pluck on launch, a whoosh on a close slingshot.
   //    Haptics buzz on Android via the Vibration API; iOS gets a best-effort tap.
   const FX = (() => {
-    let ctx = null, master = null, muted = false;
+    let ctx = null, master = null, muted = false, resumeOnShow = false;
     const iosSink = $('iosHaptic');
     function init() {
       if (ctx) return;
@@ -941,6 +985,9 @@ function boot() {
       pad.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 3.5);   // fade the bed in
     }
     function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
+    // tab hidden → silence the hum; restore only if it was actually running before
+    function suspend() { resumeOnShow = !!(ctx && ctx.state === 'running'); if (resumeOnShow) ctx.suspend(); }
+    function restore() { if (resumeOnShow) { resumeOnShow = false; resume(); } }
     function tone(freqs, peak, dur, type) {
       if (!ctx) return; const t = ctx.currentTime, g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); g.connect(master);
@@ -957,11 +1004,14 @@ function boot() {
       src.connect(bp).connect(g).connect(master); src.start(t); src.stop(t + dur + 0.02);
     }
     function buzz(ms) {
-      try { if (navigator.vibrate) navigator.vibrate(ms); } catch (_) {}
+      // Browsers block vibrate() before the first tap and log a console warning —
+      // only try once the user has actually interacted (userActivation is Chrome/Safari 16+).
+      const activated = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+      try { if (activated && navigator.vibrate) navigator.vibrate(ms); } catch (_) {}
       try { if (iosSink) iosSink.click(); } catch (_) {}   // best-effort iOS haptic (switch trick)
     }
     return {
-      init, resume,
+      init, resume, suspend, restore,
       chime() { tone([880, 1318.5], 0.12, 1.2); buzz(22); },          // eclipse bell (a fifth)
       pluck(s) { tone([300 + s * 120], Math.min(0.09, 0.04 + s * 0.04), 0.18, 'triangle'); buzz(10 + Math.round(s * 10)); },
       whoosh() { noise(0.07, 0.32, 320, 1400); buzz(14); },
@@ -988,7 +1038,13 @@ function boot() {
   $('speed').value = speed; $('speedVal').textContent = speed.toFixed(1) + '×';
   loadPreset('figure-8');
   mode = 'running'; updateRun();             // greet the user with motion, not a still frame
-  requestAnimationFrame(frame);
+  raf = requestAnimationFrame(frame);
+
+  // tab hidden → halt the rAF loop and the ambient hum; both come back on return
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { cancelAnimationFrame(raf); FX.suspend(); }
+    else { raf = requestAnimationFrame(frame); FX.restore(); }
+  });
 
   // ── scene assets ───────────────────────────────────────────────────────────────
   function makeStars(count, size, opacity, rMin, rMax) {

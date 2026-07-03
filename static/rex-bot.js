@@ -42,13 +42,16 @@
     if (e) { e.scrollIntoView({ behavior: "smooth", block: "start" }); return true; }
     return false;
   }
+  // Video/Images/Music/Products live on planets in Rex's World now (their page
+  // sections were removed) — those buttons swoop the cosmos to the planet.
+  function goPlanet(key) { scrollTo("#section-world"); if (window.worldFocusHub) window.worldFocusHub(key); }
   var ACTIONS = Object.assign({
     world:     { label: "Enter Rex's World",       run: function () { clickFilter("world"); scrollTo("#section-world"); } },
-    video:     { label: "Open the Films",          run: function () { clickFilter("video"); scrollTo("#content"); } },
-    images:    { label: "Open the Images",         run: function () { clickFilter("image"); scrollTo("#content"); } },
-    music:     { label: "Open the Music",          run: function () { clickFilter("music"); scrollTo("#content"); } },
+    video:     { label: "Open the Films",          run: function () { goPlanet("video"); } },
+    images:    { label: "Open the Images",         run: function () { goPlanet("images"); } },
+    music:     { label: "Open the Music",          run: function () { goPlanet("music"); } },
     shortdocs: { label: "Open Short Docs",         run: function () { clickFilter("edit"); scrollTo("#content"); } },
-    products:  { label: "Rex Trueform Products",   run: function () { clickFilter("products"); scrollTo("#products"); } },
+    products:  { label: "Rex Trueform Products",   run: function () { goPlanet("products"); } },
     skull:     { label: "The Order of the Skull",  run: function () { var s = document.querySelector("#skullBtn"); if (s) s.click(); } },
     top:       { label: "Back to the top",         run: function () { if (!scrollTo("#hero")) window.scrollTo({ top: 0, behavior: "smooth" }); } }
   }, CFG.actions || {});
@@ -213,7 +216,7 @@
   .rexbot-mic:hover { border-color:var(--rb-orange); color:#fff; box-shadow:0 0 14px rgba(255,122,24,.4); }
   .rexbot-mic.rb-listening { color:#fff; border-color:#ff3b3b; background:rgba(255,59,59,.18); box-shadow:0 0 18px rgba(255,59,59,.6); animation: rb-pulse 1s ease-in-out infinite; }
   .rexbot-input { flex:1 1 auto; resize:none; max-height:90px; min-height:42px; padding:11px 12px;
-    font-family:'Space Mono', monospace; font-size:12.5px; line-height:1.4; color:var(--rb-ink);
+    font-family:'Space Mono', monospace; font-size:16px; line-height:1.4; color:var(--rb-ink);
     background:rgba(0,0,0,.4); border:1px solid rgba(255,122,24,.38); border-radius:10px; outline:none; transition: all .2s; }
   .rexbot-input::placeholder { color:#7d6f63; }
   .rexbot-input:focus { border-color:var(--rb-orange); box-shadow:0 0 0 1px var(--rb-orange), 0 0 20px rgba(255,122,24,.3); }

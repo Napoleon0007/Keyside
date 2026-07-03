@@ -110,6 +110,14 @@ const TYPE_COLOR = { video: '#ff8a3d', edit: '#3da5ff', image: '#8a6cff', music:
     bindControls();
     resize();
     window.addEventListener('resize', resize);
+    // Pause the render loop whenever the section scrolls out of view (it used to
+    // run forever once Galaxy mode was toggled on, even from the footer).
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(([en]) => {
+        if (!active) return;
+        if (en.isIntersecting) start(); else stop();
+      }, { threshold: 0.01 }).observe(section);
+    }
     start();
   }
 

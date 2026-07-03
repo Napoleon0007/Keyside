@@ -83,6 +83,9 @@ async function handleChat(request, env) {
     method: "POST",
     headers: openrouterHeaders(env),
     body: JSON.stringify(payload),
+    // A hung upstream must not hold the visitor's connection open forever —
+    // the catch paths below already emit the in-character fallback.
+    signal: AbortSignal.timeout(45_000),
   });
 
   if (!wantStream) {
@@ -158,7 +161,13 @@ async function serveData(env, request, name) {
   url.pathname = `/data/${name}.json`;
   const r = await env.ASSETS.fetch(new Request(url.toString()));
   if (!r.ok) return json({ error: "not found" }, 404);
-  return new Response(r.body, { headers: JSON_HEADERS });
+  // Keep the asset's validators so /api/*.json can 304 like any other asset.
+  const headers = new Headers(JSON_HEADERS);
+  for (const h of ["etag", "cache-control", "last-modified"]) {
+    const v = r.headers.get(h);
+    if (v) headers.set(h, v);
+  }
+  return new Response(r.body, { headers });
 }
 
 // Endpoints retired in the static edition (accounts/admin/uploads dropped).
@@ -182,7 +191,7 @@ export default {
     if (path === "/api/chat/health")
       return json({ ok: true, chat: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || DEFAULT_MODEL });
 
-    if (method === "GET") {
+    if (method === "GET" || method === "HEAD") {
       if (path === "/api/videos") return serveData(env, request, "videos");
       if (path === "/api/products") return serveData(env, request, "products");
       if (path === "/api/links") return serveData(env, request, "links");
@@ -193,7 +202,9 @@ export default {
       // Downloads: edits live in our assets; everything else is on the GitHub raw CDN.
       const dl = path.match(/^\/api\/videos\/(.+)\/download$/);
       if (dl) {
-        const file = decodeURIComponent(dl[1]);
+        let file;
+        try { file = decodeURIComponent(dl[1]); }
+        catch { return json({ error: "bad path" }, 400); }   // malformed %-sequence
         if (file.includes("..")) return json({ error: "bad path" }, 400);
         if (file.startsWith("edits/")) {
           const assetPath = "/" + file.split("/").map(encodeURIComponent).join("/");

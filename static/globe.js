@@ -234,18 +234,22 @@ async function boot(canvas) {
   }
 
   // ── run / pause off-screen ────────────────────────────────────────────────
-  let running = true, raf = 0, t = 0;
-  const tick = () => {
+  // dtF = elapsed frames at a 60fps reference, so motion runs the same speed on
+  // 120Hz ProMotion phones as on 60Hz screens (clamped so a lag spike can't lurch).
+  let running = true, raf = 0, t = 0, lastNow = 0;
+  const tick = (now) => {
     if (!running) return;
     raf = requestAnimationFrame(tick);
-    t += 1;
-    const spin = reduced ? 0 : 0.0016;
+    const dtF = (now && lastNow) ? Math.min(3, (now - lastNow) / 16.667) : 1;
+    if (now) lastNow = now;
+    t += dtF;
+    const spin = reduced ? 0 : 0.0016 * dtF;
     dots.rotation.y += spin; core.rotation.y += spin; atmo.rotation.y += spin;
     sparkles.rotation.y += spin;
     sparkleMat.uniforms.uT.value = t * (reduced ? 0 : 0.08);
     dotMat.uniforms.uT.value = t * (reduced ? 0 : 0.055);   // continuous neon blink across every bead
     if (!reduced) {
-      ringGroup.rotation.z += 0.0026;
+      ringGroup.rotation.z += 0.0026 * dtF;
       const a = t * 0.012;
       bead.position.set(Math.cos(a) * 1.46, Math.sin(a) * 1.46, 0);
       px += (tx - px) * 0.05; py += (ty - py) * 0.05;
@@ -257,7 +261,7 @@ async function boot(canvas) {
     renderer.render(scene, camera);
   };
   const io = new IntersectionObserver(([en]) => {
-    if (en.isIntersecting && !running) { running = true; tick(); }
+    if (en.isIntersecting && !running) { running = true; lastNow = 0; tick(); }
     else if (!en.isIntersecting) { running = false; cancelAnimationFrame(raf); }
   }, { threshold: 0.01 });
   io.observe(canvas);

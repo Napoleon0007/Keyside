@@ -46,7 +46,9 @@
       var small = window.innerWidth < 760;
       var w = small ? Math.min(window.innerWidth * 0.58, 210) : (cfg.cardW || 250);
       var h = w * 1.42;
-      var radius = Math.round((w / 2) / Math.tan(Math.PI / N) * (cfg.spread || 1.55));
+      // tan(π/N) explodes toward 0 radius at N=2 (both cards stack at one point) —
+      // clamp so a small panel set still reads as a ring with real depth.
+      var radius = Math.round(Math.max((w / 2) / Math.tan(Math.PI / N), w * 0.72) * (cfg.spread || 1.55));
       ring.style.setProperty("--card-w", w + "px");
       ring.style.setProperty("--card-h", h + "px");
       cards.forEach(function (card, i) {
@@ -56,6 +58,7 @@
 
     var spin = 8, vel = 0, dragging = false, lastX = 0;
     var idleActive = !!cfg.autoRevolve, idleTimer = null, raf = null;
+    var ringDisabled = false;   // set when the WebGL Möbius replaces this ring (hero only)
 
     function render() {
       ring.style.setProperty("--spin", spin.toFixed(2) + "deg");
@@ -64,6 +67,7 @@
     }
 
     function tick() {
+      if (ringDisabled) { raf = null; return; }
       if (!dragging) {
         spin += vel;
         vel *= 0.93;
@@ -172,12 +176,21 @@
 
     function setRunning(on) {
       if (on) {
-        if (!raf) tick();
+        if (!raf && !ringDisabled) tick();
         if (sky && !skyOn) { skyOn = true; if (skyDraw) skyDraw(); }
       } else {
         if (raf) { cancelAnimationFrame(raf); raf = null; }
         skyOn = false;
       }
+    }
+
+    // When the WebGL Möbius takes over the hero it hides #heroRing — stop burning a
+    // frame loop on the invisible card ring, but keep the starfield sky twinkling.
+    if (cfg.ring === "#heroRing") {
+      window.addEventListener("keyside:mobius-active", function () {
+        ringDisabled = true;
+        if (raf) { cancelAnimationFrame(raf); raf = null; }
+      });
     }
 
     /* ---- Bind + boot ----------------------------------------------- */
@@ -191,7 +204,9 @@
     startSky();
     wake();
 
-    if ("IntersectionObserver" in window && !reduced) {
+    // Observe even for reduced-motion users — they especially shouldn't have an
+    // off-screen loop running forever.
+    if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (entries) {
         setRunning(entries[0].isIntersecting);
       }, { threshold: 0.02 }).observe(section);

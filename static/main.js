@@ -24,16 +24,7 @@ const modalTag    = document.getElementById('modalStyleTag');
 const modalClose  = document.getElementById('modalClose');
 const modalBg     = document.getElementById('modalBg');
 const countNum    = document.getElementById('countNum');
-const dlFormats   = document.getElementById('dlFormats');
-const navRight    = document.getElementById('navRight');
 
-// Media sections shown on the one page, in this order.
-const SECTIONS = [
-  { type: 'video', label: 'Video'  },
-  { type: 'image', label: 'Images' },
-  { type: 'music', label: 'Music'  },
-];
-const PREVIEW_COUNT = 6;
 let currentType = 'all';
 
 // #1 Search + style filter state
@@ -41,276 +32,8 @@ let allEditItems  = [];
 let styleFilter   = '';
 let searchQuery   = '';
 
-let currentFilter  = 'all';
-let hideTimers     = [];
 let scrollY        = 0;
 let currentFile    = null;
-let currentUser    = null;
-
-// ── Auth state ──────────────────────────────────────────────────────────────
-
-async function checkAuth() {
-  const res  = await fetch('/api/me');
-  const data = await res.json();
-  currentUser = data.logged_in ? data : null;
-  renderNav();
-}
-
-function renderNav() {
-  navRight.innerHTML = '';
-
-  if (currentUser) {
-    if (currentUser.is_admin) {
-      const a = navBtn('Admin Panel', () => window.location.href = '/admin');
-      navRight.appendChild(a);
-    } else {
-      const emailEl = document.createElement('span');
-      emailEl.className = 'nav-user-email';
-      emailEl.textContent = currentUser.email;
-
-      const uploadB = navBtn('↑ Upload', openUploadModal);
-      navRight.append(emailEl, uploadB);
-    }
-    const logoutB = navBtn('Logout', doLogout);
-    navRight.appendChild(logoutB);
-  } else {
-    const loginB  = navBtn('Login', () => openAuthModal('login'));
-    const signupB = navBtn('Sign Up', () => openAuthModal('signup'));
-    signupB.classList.add('nav-btn-orange');
-    loginB.classList.add('nav-btn-orange-outline');
-    navRight.append(signupB, loginB);   // far right, stacked: Sign Up above Login
-  }
-}
-
-function navBtn(label, onClick) {
-  const b = document.createElement('button');
-  b.className   = 'nav-btn';
-  b.textContent = label;
-  b.addEventListener('click', onClick);
-  return b;
-}
-
-async function doLogout() {
-  await fetch('/api/logout', { method: 'POST' });
-  currentUser = null;
-  renderNav();
-}
-
-// ── Auth modal ───────────────────────────────────────────────────────────────
-
-const authModal  = document.getElementById('authModal');
-const authModalBg = document.getElementById('authModalBg');
-const authClose  = document.getElementById('authClose');
-const authTabs   = document.querySelectorAll('.auth-tab');
-const authForm   = document.getElementById('authForm');
-const authEmail  = document.getElementById('authEmail');
-const authPass   = document.getElementById('authPassword');
-const authError  = document.getElementById('authError');
-const authSubmit = document.getElementById('authSubmit');
-
-let authMode = 'login';
-
-function openAuthModal(mode) {
-  authMode = mode;
-  authError.textContent = '';
-  authEmail.value = '';
-  authPass.value  = '';
-  authTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === mode));
-  authSubmit.textContent = mode === 'login' ? 'Login' : 'Create Account';
-  authModal.classList.add('open');
-  authModal.setAttribute('aria-hidden', 'false');
-  setTimeout(() => authEmail.focus(), 80);
-}
-
-function closeAuthModal() {
-  authModal.classList.remove('open');
-  authModal.setAttribute('aria-hidden', 'true');
-}
-
-authClose.addEventListener('click', closeAuthModal);
-authModalBg.addEventListener('click', closeAuthModal);
-
-authTabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    authMode = tab.dataset.tab;
-    authTabs.forEach(t => t.classList.toggle('active', t === tab));
-    authSubmit.textContent = authMode === 'login' ? 'Login' : 'Create Account';
-    authError.textContent  = '';
-  });
-});
-
-authForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  authError.textContent = '';
-  authSubmit.disabled   = true;
-
-  const endpoint = authMode === 'login' ? '/api/login' : '/api/signup';
-  const res  = await fetch(endpoint, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ email: authEmail.value, password: authPass.value }),
-  });
-  const data = await res.json();
-
-  authSubmit.disabled = false;
-
-  if (data.ok) {
-    if (authMode === 'signup') {
-      // Auto-login after signup
-      const loginRes  = await fetch('/api/login', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email: authEmail.value, password: authPass.value }),
-      });
-      const loginData = await loginRes.json();
-      if (!loginData.ok) { authError.textContent = 'Signed up — please login.'; return; }
-    }
-    closeAuthModal();
-    await checkAuth();
-  } else {
-    authError.textContent = data.error || 'Something went wrong';
-  }
-});
-
-// ── Upload modal ─────────────────────────────────────────────────────────────
-
-const uploadModal  = document.getElementById('uploadModal');
-const uploadModalBg = document.getElementById('uploadModalBg');
-const uploadClose  = document.getElementById('uploadClose');
-const uploadDrop   = document.getElementById('uploadDrop');
-const uploadFile   = document.getElementById('uploadFile');
-const uploadName   = document.getElementById('uploadName');
-const uploadError  = document.getElementById('uploadError');
-const uploadSubmit = document.getElementById('uploadSubmit');
-const uploadProgress = document.getElementById('uploadProgress');
-const uploadBar    = document.getElementById('uploadBar');
-
-let pendingFile = null;
-
-function openUploadModal() {
-  pendingFile = null;
-  uploadName.textContent = '';
-  uploadError.textContent = '';
-  uploadSubmit.disabled = true;
-  uploadProgress.style.display = 'none';
-  uploadBar.style.width = '0';
-  uploadModal.classList.add('open');
-  uploadModal.setAttribute('aria-hidden', 'false');
-}
-
-function closeUploadModal() {
-  uploadModal.classList.remove('open');
-  uploadModal.setAttribute('aria-hidden', 'true');
-}
-
-uploadClose.addEventListener('click', closeUploadModal);
-uploadModalBg.addEventListener('click', closeUploadModal);
-
-uploadFile.addEventListener('change', () => {
-  const f = uploadFile.files[0];
-  if (!f) return;
-  pendingFile = f;
-  uploadName.textContent = f.name;
-  uploadSubmit.disabled  = false;
-  uploadError.textContent = '';
-});
-
-['dragover', 'dragenter'].forEach(evt =>
-  uploadDrop.addEventListener(evt, e => { e.preventDefault(); uploadDrop.classList.add('dragging'); })
-);
-['dragleave', 'dragend', 'drop'].forEach(evt =>
-  uploadDrop.addEventListener(evt, e => { e.preventDefault(); uploadDrop.classList.remove('dragging'); })
-);
-uploadDrop.addEventListener('drop', e => {
-  const f = e.dataTransfer.files[0];
-  if (!f) return;
-  pendingFile = f;
-  uploadName.textContent = f.name;
-  uploadSubmit.disabled  = false;
-  uploadError.textContent = '';
-});
-
-uploadSubmit.addEventListener('click', async () => {
-  if (!pendingFile) return;
-  uploadSubmit.disabled = true;
-  uploadError.textContent = '';
-  uploadProgress.style.display = 'block';
-
-  const fd = new FormData();
-  fd.append('file', pendingFile);
-
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', '/api/videos/upload');
-
-  xhr.upload.addEventListener('progress', e => {
-    if (e.lengthComputable) uploadBar.style.width = `${(e.loaded / e.total) * 100}%`;
-  });
-
-  xhr.addEventListener('load', async () => {
-    const data = JSON.parse(xhr.responseText);
-    if (data.ok) {
-      closeUploadModal();
-      // Reload sections to show the new upload
-      content.innerHTML = '<div class="gallery-loading" id="galleryLoading"><span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span></div>';
-      await init();
-    } else {
-      uploadError.textContent = data.error || 'Upload failed';
-      uploadSubmit.disabled   = false;
-      uploadProgress.style.display = 'none';
-    }
-  });
-
-  xhr.addEventListener('error', () => {
-    uploadError.textContent = 'Upload failed — network error';
-    uploadSubmit.disabled   = false;
-    uploadProgress.style.display = 'none';
-  });
-
-  xhr.send(fd);
-});
-
-// ── Download ─────────────────────────────────────────────────────────────────
-
-// Format options offered per media type (server converts on the fly).
-const DL_FORMATS = {
-  music: ['MP3', 'WAV'],
-  image: ['PNG', 'JPG', 'WEBP'],
-  video: ['MP4'],
-};
-
-function buildDownloadOptions(type) {
-  if (!dlFormats) return;
-  dlFormats.innerHTML = '';
-  if (!currentUser || !currentFile) { dlFormats.style.display = 'none'; return; }   // members only; skip the file-less intro
-  dlFormats.style.display = 'flex';
-
-  const label = document.createElement('span');
-  label.className = 'dl-label';
-  label.textContent = '↓';
-  dlFormats.appendChild(label);
-
-  (DL_FORMATS[type] || ['MP4']).forEach(f => {
-    const b = document.createElement('button');
-    b.className = 'dl-chip';
-    b.type = 'button';
-    b.textContent = f;
-    b.addEventListener('click', () => downloadCurrent(f.toLowerCase(), b));
-    dlFormats.appendChild(b);
-  });
-}
-
-function downloadCurrent(fmt, btn) {
-  if (!currentFile || !currentUser) return;
-  // Preserve sub-folder slashes (e.g. ai-music/track.wav) while escaping each part.
-  const safePath = currentFile.split('/').map(encodeURIComponent).join('/');
-  if (btn) { btn.classList.add('working'); setTimeout(() => btn.classList.remove('working'), 1400); }
-  const a = document.createElement('a');
-  a.href = `/api/videos/${safePath}/download?format=${encodeURIComponent(fmt)}`;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
 
 // ── Build gallery from API ──────────────────────────────────────────────────
 
@@ -341,6 +64,7 @@ async function init() {
   if (allEditItems.length) allEditItems[allEditItems.length - 1]._latest = true;
 
   content.innerHTML = '';
+  renderStylePills();
   rebuildEditSection();
   applyTypeFilter(currentType);
 }
@@ -356,12 +80,41 @@ function rebuildEditSection() {
   });
 
   const existing = document.getElementById('section-edit');
-  if (existing) existing.remove();
+  if (existing) {
+    if (existing._teardown) existing._teardown();   // release window listeners + observers
+    existing.remove();
+  }
 
   buildSection('edit', 'Short Docs', filtered,
     { src: loopUrl('pattern-hero.mp4'), poster: '/static/video-thumbs/pattern-acid.jpg' });
 
   countNum.textContent = filtered.length;
+}
+
+// Style pills are generated from the styles actually present in the gallery,
+// so a pill can never point at a style with zero matches.
+function renderStylePills() {
+  const wrap = document.getElementById('stylePills');
+  if (!wrap) return;
+  const styles = [...new Set(allEditItems.map(i => i.style).filter(Boolean))].sort();
+  wrap.innerHTML = '';
+  wrap.style.display = styles.length > 1 ? '' : 'none';
+  const mk = (label, val) => {
+    const b = document.createElement('button');
+    b.className = 'style-pill' + (styleFilter === val ? ' active' : '');
+    b.type = 'button';
+    b.dataset.style = val;
+    b.textContent = label;
+    b.addEventListener('click', () => {
+      styleFilter = val;
+      wrap.querySelectorAll('.style-pill').forEach(p => p.classList.toggle('active', p === b));
+      rebuildEditSection();
+      applyTypeFilter(currentType);
+    });
+    wrap.appendChild(b);
+  };
+  mk('All', '');
+  styles.forEach(s => mk(s.replace(/\b\w/g, c => c.toUpperCase()), s));
 }
 
 // Wire up search input
@@ -370,10 +123,15 @@ function rebuildEditSection() {
   const row   = document.getElementById('gallerySearchRow');
   if (!input || !row) return;
 
+  // Debounced: rebuilding the rail per keystroke would churn DOM + listeners.
+  let searchTimer = null;
   input.addEventListener('input', () => {
-    searchQuery = input.value;
-    rebuildEditSection();
-    applyTypeFilter(currentType);
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      searchQuery = input.value;
+      rebuildEditSection();
+      applyTypeFilter(currentType);
+    }, 150);
   });
 
   // Show search row only when Short Docs tab is active or all
@@ -382,16 +140,6 @@ function rebuildEditSection() {
     row.style.display = show ? '' : 'none';
   }
   syncSearchVis();
-
-  document.querySelectorAll('.style-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      document.querySelectorAll('.style-pill').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      styleFilter = pill.dataset.style;
-      rebuildEditSection();
-      applyTypeFilter(currentType);
-    });
-  });
 })();
 
 // ── #3 Brand footer — render social links from /api/links ────────────────────
@@ -453,7 +201,7 @@ function kickBg(v) {
 // coverflow rails (load + play their videos); when it leaves, pause everything so the
 // page isn't loading a dozen clips at once. This is what makes the on-screen bg actually
 // play immediately instead of starving behind off-screen card videos.
-function liveLoadSection(section) {
+function liveLoadSection(section, signal /* optional AbortSignal: releases window listeners + IO */) {
   // Start the section's secondary clips (coverflow cards + music cover tiles). These are
   // big art clips, so we hold them back until the BACKGROUND is actually playing — the bg
   // is the priority and must not be starved by them.
@@ -494,15 +242,19 @@ function liveLoadSection(section) {
     pauseRest();
   };
   if (!('IntersectionObserver' in window)) { enter(); return; }
-  new IntersectionObserver((entries) => {
+  const io = new IntersectionObserver((entries) => {
     for (const e of entries) e.isIntersecting ? enter() : leave();
-  }, { rootMargin: '60px 0px', threshold: 0.01 }).observe(section);
+  }, { rootMargin: '60px 0px', threshold: 0.01 });
+  io.observe(section);
+  if (signal) signal.addEventListener('abort', () => io.disconnect());
   // first user gesture also kicks the bg, in case autoplay is blocked outright
+  // (never on phones — enter() deliberately skips bg clips there to save decoders)
   ['pointerdown', 'touchstart', 'keydown'].forEach(ev =>
     window.addEventListener(ev, () => {
+      if (LIGHT_MEDIA) return;
       const r = section.getBoundingClientRect();
       if (r.top < innerHeight && r.bottom > 0) kickBg(section._bgVideo);
-    }, { passive: true }));
+    }, { passive: true, signal }));
 }
 
 function buildSection(type, label, items, bg /* optional {src, poster} bg video */) {
@@ -510,6 +262,10 @@ function buildSection(type, label, items, bg /* optional {src, poster} bg video 
   section.className = 'media-section';
   section.dataset.type = type;
   section.id = `section-${type}`;
+  // Search rebuilds replace this section — the controller releases its window
+  // listeners + observers so rebuilds don't accumulate orphans (rebuildEditSection).
+  const ac = new AbortController();
+  section._teardown = () => ac.abort();
 
   if (bg) attachSectionBg(section, bg.src, bg.poster);
 
@@ -530,7 +286,7 @@ function buildSection(type, label, items, bg /* optional {src, poster} bg video 
     empty.textContent = `Nothing here yet`;
     section.appendChild(empty);
     content.appendChild(section);
-    liveLoadSection(section);                       // still drive the bg video, if any
+    liveLoadSection(section, ac.signal);            // still drive the bg video, if any
     return;
   }
 
@@ -573,64 +329,18 @@ function buildSection(type, label, items, bg /* optional {src, poster} bg video 
     section.appendChild(feat);
   }
 
-  const cf = makeCoverflow(items);
+  const cf = makeCoverflow(items, ac.signal);
   section.appendChild(cf.el);
   section._cfs = [cf];                            // rails to relayout on filter/resize
   content.appendChild(section);
   requestAnimationFrame(() => cf.layout());       // lay out once it has width in the DOM
-  liveLoadSection(section);                         // load/play videos only when on screen
-}
-
-// Build a rail into `parent`, or an empty-state note if there's nothing. Returns the rail (or null).
-function railOrEmpty(items, parent) {
-  if (!items.length) {
-    const empty = document.createElement('p');
-    empty.className = 'section-empty';
-    empty.textContent = 'Nothing here yet';
-    parent.appendChild(empty);
-    return null;
-  }
-  const cf = makeCoverflow(items);
-  parent.appendChild(cf.el);
-  requestAnimationFrame(() => cf.layout());
-  return cf;
-}
-
-// A single Music rail of Rex's songs (the old "AI Music" sub-section was removed).
-function buildMusicSection(mine /* ai, introSrc removed — AI Music section taken out */) {
-  const section = document.createElement('section');
-  section.className = 'media-section';
-  section.dataset.type = 'music';
-  section.id = 'section-music';
-  section._cfs = [];
-
-  // Cotton Ball Fire loop behind everything so the section reads as one dark cinematic
-  // space. Poster paints instantly; the clip is kicked into playing by attachSectionBg.
-  // Served from our own /static (guaranteed present) rather than the loop CDN.
-  attachSectionBg(section, '/static/covers/cotton-ball-fire.mp4', '/static/video-thumbs/cotton-ball-fire.jpg');
-
-  const head = document.createElement('div');
-  head.className = 'section-head';
-  const h2 = document.createElement('h2');
-  h2.className = 'section-title';
-  h2.textContent = 'Music';
-  const count = document.createElement('span');
-  count.className = 'section-count';
-  count.textContent = mine.length;
-  head.append(h2, count);
-  section.appendChild(head);
-
-  const cf = railOrEmpty(mine, section);
-  if (cf) section._cfs.push(cf);
-
-  content.appendChild(section);
-  liveLoadSection(section);                         // load/play the Zuma bg only when on screen
+  liveLoadSection(section, ac.signal);              // load/play videos only when on screen
 }
 
 // ── 3D Coverflow rail ─────────────────────────────────────────────────────────
 // A horizontal carousel: the centre card faces you, neighbours angle back into Z.
 // Drag, trackpad-swipe, arrow keys, arrow buttons, or click a side card to glide.
-function makeCoverflow(items) {
+function makeCoverflow(items, signal /* optional AbortSignal for the window drag listeners */) {
   const el = document.createElement('div');
   el.className = 'coverflow';
   el.tabIndex = 0;
@@ -735,8 +445,8 @@ function makeCoverflow(items) {
     const steps = Math.round(-dx / (el.clientWidth * 0.16));
     const ni = Math.max(0, Math.min(items.length - 1, startActive + steps));
     if (ni !== active) go(ni);
-  });
-  window.addEventListener('pointerup', () => { down = false; el.classList.remove('grabbing'); });
+  }, { signal });
+  window.addEventListener('pointerup', () => { down = false; el.classList.remove('grabbing'); }, { signal });
 
   // ── Trackpad horizontal swipe (vertical wheel left for page scroll) ──────────
   let wheelAcc = 0, wheelLock = false;
@@ -972,10 +682,10 @@ function openModal(item, opts = {}) {
   modal.classList.remove('controls-hidden');   // visible on open; auto-hide kicks in once a clip plays
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
-  buildDownloadOptions(type);
 }
 
 function closeModal() {
+  if (!modal.classList.contains('open')) return;   // Escape with no modal open must not scroll-jump
   modal.classList.remove('open');
   modal.classList.remove('controls-hidden');
   clearTimeout(modalCtrlsTimer);
@@ -1057,7 +767,7 @@ function closeAppModal() {
   if (!appModal.classList.contains('open')) return;
   appModal.classList.remove('open');
   appModal.setAttribute('aria-hidden', 'true');
-  appModalFrame.removeAttribute('src');   // stop the embedded app (audio/video/network)
+  appModalFrame.src = 'about:blank';   // actually unload the embedded app (removeAttribute doesn't)
   document.body.classList.remove('modal-open');
   document.body.style.top = '';
   window.scrollTo(0, scrollY);
@@ -1118,97 +828,6 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
   });
 });
 
-// ── Rex's Products ────────────────────────────────────────────────────────────
-
-async function initProducts() {
-  const grid = document.getElementById('productsGrid');
-  const countEl = document.getElementById('productsCount');
-  if (!grid) return;
-  let products = [];
-  try {
-    const res = await fetch('/api/products');
-    if (res.ok) ({ products } = await res.json());
-  } catch (e) { /* leave empty */ }
-
-  grid.innerHTML = '';
-  if (countEl) countEl.textContent = products.length;
-  if (!products.length) {
-    const p = document.createElement('p');
-    p.className = 'section-empty';
-    p.textContent = 'Coming soon';
-    grid.appendChild(p);
-    return;
-  }
-  products.forEach(prod => grid.appendChild(buildProductCard(prod)));
-}
-
-function buildProductCard(p) {
-  const card = document.createElement('div');
-  card.className = 'product-card reveal';
-
-  const thumb = document.createElement('div');
-  thumb.className = 'product-thumb';
-  if (p.thumb) {
-    const img = document.createElement('img');
-    img.src = p.thumb; img.alt = p.name || ''; img.loading = 'lazy';
-    thumb.appendChild(img);
-  } else {
-    thumb.classList.add('placeholder');
-    thumb.textContent = (p.name || '?').trim().charAt(0).toUpperCase();
-  }
-  card.appendChild(thumb);
-
-  const body = document.createElement('div');
-  body.className = 'product-body';
-
-  const h3 = document.createElement('h3');
-  h3.className = 'product-name';
-  h3.textContent = p.name || 'Untitled';
-
-  const blurb = document.createElement('p');
-  blurb.className = 'product-blurb';
-  blurb.textContent = p.blurb || '';
-  body.append(h3, blurb);
-
-  if (Array.isArray(p.tags) && p.tags.length) {
-    const tags = document.createElement('div');
-    tags.className = 'product-tags';
-    p.tags.forEach(t => {
-      const s = document.createElement('span');
-      s.className = 'product-tag';
-      s.textContent = t;
-      tags.appendChild(s);
-    });
-    body.appendChild(tags);
-  }
-
-  const cta = document.createElement('a');
-  cta.className = 'product-cta';
-  const labels = { app: 'Open', link: 'Open', repo: 'View code', download: 'Download' };
-  if (p.url) {
-    cta.textContent = labels[p.kind] || 'Open';
-    cta.href = p.url;
-    if (p.kind === 'app') {
-      // Opens inside the site in an iframe modal rather than leaving Keyside.
-      card.classList.add('is-app');
-      cta.addEventListener('click', e => { e.preventDefault(); openAppModal(p); });
-      card.addEventListener('click', e => {
-        if (e.target.closest('.product-cta')) return;  // CTA handles its own click
-        openAppModal(p);
-      });
-    } else if (p.kind === 'download') { cta.setAttribute('download', ''); }
-    else { cta.target = '_blank'; cta.rel = 'noopener'; }
-  } else {
-    cta.textContent = 'Coming soon';
-    cta.classList.add('disabled');
-    cta.setAttribute('aria-disabled', 'true');
-  }
-  body.appendChild(cta);
-
-  card.appendChild(body);
-  revealObserver.observe(card);
-  return card;
-}
 
 // ── The Order of the Skull — secret manifesto (nav skull → old manuscript) ────
 const skullBtn   = document.getElementById('skullBtn');
@@ -1272,7 +891,5 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSkull()
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 
-checkAuth();
 init();
 initFooter();
-// initProducts();  // products taken down for now — re-enable when they're fixed/working

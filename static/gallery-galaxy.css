@@ -47,7 +47,7 @@
   width: 100%;
   height: 100%;
   display: block;
-  touch-action: none;
+  touch-action: pan-y;   /* vertical swipes scroll the page; horizontal drags morph the galaxy */
   cursor: grab;
 }
 #galaxyCanvas:active { cursor: grabbing; }

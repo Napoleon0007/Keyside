@@ -144,56 +144,6 @@ body.modal-open {
   gap: 8px;
 }
 
-.nav-link {
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #cfe1ff;
-  text-decoration: none;
-  white-space: nowrap;
-  border: 1px solid rgba(94, 234, 255, 0.4);
-  border-radius: 999px;
-  padding: 6px 13px;
-  transition: box-shadow 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-.nav-link:hover {
-  color: #fff;
-  border-color: #33b6ff;
-  box-shadow: 0 0 16px rgba(51, 182, 255, 0.4);
-}
-
-.nav-btn {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--dim);
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
-  white-space: nowrap;
-}
-
-.nav-btn:hover { color: var(--white); border-color: #333; }
-
-.nav-btn-orange {
-  background: var(--orange);
-  border-color: var(--orange);
-  color: var(--black);
-}
-.nav-btn-orange:hover { opacity: 0.85; color: var(--black); }
-
-/* Login — orange outline so it reads clearly against the dark bar (opposite of the filled Sign Up above it) */
-.nav-btn-orange-outline {
-  background: none;
-  border-color: var(--orange);
-  color: var(--orange);
-}
-.nav-btn-orange-outline:hover { background: var(--orange); color: var(--black); }
-
 /* Auth buttons live hard against the right edge, stacked: Sign Up above Login */
 #navRight {
   display: flex;
@@ -201,7 +151,6 @@ body.modal-open {
   align-items: stretch;
   gap: 6px;
 }
-#navRight .nav-btn { text-align: center; }
 
 /* Floating Order-of-the-Skull crest — hovers just above the REX chat orb (bottom-right) */
 .skull-float {
@@ -298,29 +247,11 @@ body.modal-open {
   .tb3-float { right: 23px; bottom: 92px; }
 }
 
-.nav-skull {
-  height: 36px;
-  width: auto;
-  display: block;
-  flex-shrink: 0;
-  object-fit: contain;
-}
-
 .nav-meside-logo {
   height: 40px;
   width: auto;
   display: block;
   flex-shrink: 0;
-}
-
-.nav-user-email {
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  color: var(--dim);
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ── Hero ────────────────────────────────── */
@@ -329,23 +260,6 @@ body.modal-open {
   overflow: hidden;
   padding: 0;
   min-height: clamp(420px, 62vh, 760px);
-}
-
-.hero-bg-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  will-change: transform;
-}
-
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.55) 100%);
 }
 
 /* Cinematic vignette — frames the hero, darkens the corners (over the moon/video,
@@ -359,37 +273,6 @@ body.modal-open {
   background: radial-gradient(ellipse at 42% 42%, transparent 38%, rgba(0,0,0,0.62) 100%);
 }
 
-/* Real-life full moon: a small disc tucked in the top-left corner, behind the lettering */
-.hero-moon {
-  /* one knob for the whole moon (keeps width/height/centre offset in sync). */
-  --moon-size: clamp(96px, 15vmin, 190px);    /* much smaller — a corner accent */
-  position: absolute;
-  top: 4%;                    /* up in the top-left corner */
-  left: 3%;
-  z-index: 2;                 /* above the dark overlay, behind the lettering (text is z-index 3) */
-  width: var(--moon-size);
-  height: var(--moon-size);
-  margin: 0;
-  pointer-events: none;
-  animation: moonFloat 14s ease-in-out infinite;
-  /* soft real moonlight spilling off the surface */
-  filter: drop-shadow(0 0 80px rgba(255, 248, 235, 0.28))
-          drop-shadow(0 0 160px rgba(255, 240, 220, 0.16));
-}
-
-.hero-moon-img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  /* brighten so it reads clearly against the dark hero */
-  filter: brightness(1.45) contrast(1.06) saturate(1.05);
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 64%, transparent 76%);
-          mask-image: radial-gradient(circle at 50% 50%, #000 64%, transparent 76%);
-  animation: moonSpin 120s linear infinite;   /* slow, but visibly turning on its axis */
-  will-change: transform;
-}
-
 @keyframes moonSpin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
@@ -398,26 +281,6 @@ body.modal-open {
 @keyframes moonFloat {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-22px); }
-}
-
-/* Molten sun: mirrors the moon on the far right — a hot, churning ball that
-   slowly spins on its axis, ringed by flickering solar flares. A touch bigger
-   than the moon, as requested. */
-.hero-sun {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  z-index: 2;                 /* same plane as the moon: above overlay, behind the lettering */
-  width: clamp(420px, 82vmin, 1040px);
-  height: clamp(420px, 82vmin, 1040px);
-  /* vertically centred; pushed hard to the right to mirror the moon's left tuck */
-  margin: calc(clamp(420px, 82vmin, 1040px) / -2) calc(clamp(420px, 82vmin, 1040px) * -0.42) 0 0;
-  pointer-events: none;
-  border-radius: 50%;
-  animation: sunFloat 16s ease-in-out infinite;
-  /* hot corona spilling off the surface */
-  filter: drop-shadow(0 0 70px rgba(255, 120, 20, 0.55))
-          drop-shadow(0 0 170px rgba(255, 70, 0, 0.35));
 }
 
 /* the molten body is rendered on a canvas (see sun.js): churning photosphere,
@@ -431,12 +294,6 @@ body.modal-open {
 @keyframes sunFloat {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-26px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-moon { animation: none; }
-  .hero-moon-img { animation: none; }
-  .hero-sun { animation: none; }
 }
 
 .hero-content {
@@ -500,11 +357,6 @@ body.modal-open {
   display: inline-block;
   will-change: transform;
 }
-
-.shake {
-  display: inline-block;
-  will-change: transform;
-}
 .shake1 { animation: shake1 0.16s linear infinite; }
 .shake2 { animation: shake2 0.11s linear infinite; }
 .shake3 { animation: shake3 0.19s linear infinite; }
@@ -537,14 +389,6 @@ body.modal-open {
   50%  { transform: translate(-1px, -1px) rotate(1deg); }
   75%  { transform: translate(1px, -1px) rotate(-0.5deg); }
   100% { transform: translate(0, 0) rotate(0deg); }
-}
-
-.title-underline {
-  width: 0;
-  height: 3px;
-  background: var(--orange);
-  margin-top: 18px;
-  animation: growLine 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
 }
 
 @keyframes growLine {
@@ -592,14 +436,6 @@ body.modal-open {
 }
 .hero-cycle.swap { opacity: 0; transform: translateY(-6px); }
 .nowrap { white-space: nowrap; }
-
-.site-sub {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(9px, 1.4vw, 19px);
-  color: var(--white);
-  margin-top: 14px;
-  letter-spacing: 0.06em;
-}
 
 /* ── Filter bar ──────────────────────────── */
 .filter-bar {
@@ -1088,13 +924,6 @@ body.modal-open {
      very bottom so the section edge blends into the page */
   background: linear-gradient(to bottom, rgba(0,0,0,0) 70%, rgba(0,0,0,0.18) 100%);
 }
-.media-section.has-bg-video > .section-head,
-.media-section.has-bg-video > .coverflow,
-.media-section.has-bg-video > .card-grid,
-.media-section.has-bg-video > .section-empty {
-  position: relative;
-  z-index: 1;
-}
 .section-head {
   display: flex;
   align-items: baseline;
@@ -1120,33 +949,6 @@ body.modal-open {
   font-size: 11px;
   letter-spacing: 0.15em;
 }
-
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
-  padding: 2px;
-}
-@media (max-width: 960px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 560px) { .card-grid { grid-template-columns: 1fr; } }
-
-.card.beyond-preview { display: none; }
-
-.view-all {
-  display: block;
-  margin: 16px auto 34px;
-  background: none;
-  border: 1px solid var(--orange);
-  color: var(--orange);
-  font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  padding: 11px 24px;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-}
-.view-all:hover { background: var(--orange); color: var(--black); }
 
 /* Modal — image + audio variants */
 .modal-image {
@@ -1328,27 +1130,6 @@ body.modal-open {
   gap: 4px;
 }
 
-.download-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: 1px solid var(--orange);
-  color: var(--orange);
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 8px 16px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.2s, color 0.2s;
-}
-.download-btn:hover {
-  background: var(--orange);
-  color: var(--black);
-}
-
 .modal-title {
   font-family: 'Cormorant Garamond', serif;
   font-size: 22px;
@@ -1443,200 +1224,10 @@ body.modal-open {
   }
 }
 
-/* ── Auth modal ──────────────────────────── */
-.auth-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  align-items: center;
-  justify-content: center;
-}
-.auth-modal.open { display: flex; }
-
-.auth-modal-bg {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.94);
-  cursor: pointer;
-  animation: bgFadeIn 0.25s ease forwards;
-}
-
-.auth-box {
-  position: relative;
-  z-index: 1;
-  width: 360px;
-  background: #050505;
-  border: 1px solid var(--border);
-  padding: 36px 32px;
-  animation: boxIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.auth-brand {
-  position: absolute;
-  top: 12px;
-  left: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.auth-logo {
-  width: 32px;
-  height: 32px;
-  object-fit: cover;
-  border-radius: 3px;
-  pointer-events: none;
-  flex-shrink: 0;
-}
-.auth-brand-name {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 15px;
-  letter-spacing: 0.08em;
-  color: #fff;
-  line-height: 1;
-}
-
-.auth-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  background: none;
-  border: none;
-  color: var(--dim);
-  font-size: 14px;
-  cursor: pointer;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s;
-}
-.auth-close:hover { color: var(--white); }
-
-.auth-heading {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 22px;
-  letter-spacing: 0.12em;
-  margin-bottom: 24px;
-}
-
-.auth-tabs {
-  display: flex;
-  gap: 0;
-  margin-bottom: 28px;
-  border-bottom: 1px solid var(--border);
-}
-
-.auth-tab {
-  flex: 1;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  color: var(--dim);
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  padding: 10px 0;
-  cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
-}
-.auth-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
-
-.auth-field {
-  margin-bottom: 18px;
-}
-.auth-field label {
-  display: block;
-  font-size: 9px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--dim);
-  margin-bottom: 6px;
-}
-.auth-field input {
-  width: 100%;
-  background: #0a0a0a;
-  border: 1px solid var(--border);
-  color: var(--white);
-  font-family: 'Space Mono', monospace;
-  font-size: 13px;
-  padding: 10px 12px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-.auth-field input:focus { border-color: var(--orange); }
-
-.auth-error {
-  font-size: 10px;
-  color: #ff4444;
-  letter-spacing: 0.1em;
-  min-height: 16px;
-  margin-bottom: 14px;
-}
-
-.auth-submit {
-  width: 100%;
-  background: var(--orange);
-  color: var(--black);
-  border: none;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 18px;
-  letter-spacing: 0.12em;
-  padding: 12px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-.auth-submit:hover { opacity: 0.85; }
-.auth-submit:disabled { opacity: 0.4; cursor: default; }
-
-/* ── Upload drop zone ────────────────────── */
-.upload-drop {
-  border: 1px dashed var(--border);
-  padding: 32px 24px;
-  text-align: center;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--dim);
-  margin-bottom: 18px;
-  transition: border-color 0.2s;
-}
-.upload-drop.dragging { border-color: var(--orange); color: var(--white); }
-
-.upload-pick {
-  color: var(--orange);
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.upload-name {
-  margin-top: 10px;
-  font-size: 10px;
-  color: var(--white);
-  letter-spacing: 0.08em;
-  word-break: break-all;
-}
-
-.upload-progress {
-  height: 2px;
-  background: var(--border);
-  margin-top: 14px;
-}
-.upload-bar {
-  height: 100%;
-  background: var(--orange);
-  width: 0;
-  transition: width 0.1s linear;
-}
-
 /* Mobile nav tweaks */
 @media (max-width: 560px) {
   .top-bar { padding: 12px 16px; }
   .nav-label { display: none; }
-  .nav-btn { padding: 7px 10px; font-size: 8px; }
-  .auth-box { width: 92vw; padding: 28px 20px; }
 }
 
 /* ── Atmosphere FX (cursor spotlight + film grain + vignette) ───────────── */
@@ -1684,7 +1275,6 @@ body.modal-open {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .shake { animation: none; }
   .fx-grain { animation: none; }
   .card-inner { transition: box-shadow 0.4s ease; }
 }
@@ -1701,16 +1291,6 @@ body.modal-open {
   border-bottom: 1px solid var(--border);
 }
 
-.solar-stage {
-  position: absolute;
-  inset: 0;
-  cursor: grab;
-  touch-action: pan-y;
-  outline: none;
-}
-.solar-stage.grabbing { cursor: grabbing; }
-.solar-stage canvas { display: block; width: 100%; height: 100%; }
-
 /* Fallback shown only when WebGL can't run (canvas never gets added on top). */
 .solar-fallback {
   position: absolute;
@@ -1725,8 +1305,6 @@ body.modal-open {
   font-size: 12px;
   letter-spacing: 0.12em;
 }
-.solar-stage canvas ~ .solar-fallback,
-.solar-stage:has(canvas) .solar-fallback { display: none; }
 
 .solar-hud {
   position: absolute;
@@ -1899,9 +1477,6 @@ body.modal-open {
   .coverflow .card { width: 80vw; }
   .cf-arrow { width: 42px; height: 42px; font-size: 24px; }
 }
-
-/* ── Music sub-sections (My Music / AI Music) ────────────────────────────── */
-.music-sub { margin-bottom: 14px; }
 .sub-head {
   display: flex;
   align-items: baseline;
@@ -1940,161 +1515,9 @@ body.modal-open {
   opacity: 0.85;
   transform: translateY(-1px);
 }
-.ai-note {
-  margin: 6px 20px 0;
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--orange);
-}
-
-/* ── Download format chips (in the modal) ────────────────────────────────── */
-.dl-formats {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.dl-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 14px;
-  color: var(--dim);
-  margin-right: 2px;
-}
-.dl-chip {
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--off-white);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 7px 13px;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-.dl-chip:hover {
-  background: var(--orange);
-  color: var(--black);
-  border-color: var(--orange);
-}
-.dl-chip.working {
-  opacity: 0.6;
-  pointer-events: none;
-}
 
 /* ── Rex's Products ──────────────────────────────────────────────────────── */
 .products { padding-bottom: 40px; }
-.products-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 18px;
-  padding: 14px 18px 0;
-}
-.product-card {
-  display: flex;
-  flex-direction: column;
-  background: #0c0c0e;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s, box-shadow 0.3s;
-}
-.product-card:hover {
-  transform: translateY(-6px);
-  border-color: rgba(255, 85, 0, 0.5);
-  box-shadow: 0 26px 56px -28px rgba(0, 0, 0, 0.9);
-}
-.product-thumb {
-  height: 150px;
-  background: #111;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-.product-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-.product-thumb.placeholder {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 64px;
-  color: var(--orange);
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255,120,40,0.4), transparent 55%),
-    linear-gradient(135deg, #160800 0%, #2a0f00 60%, #ff5500 240%);
-  text-shadow: 0 0 30px rgba(255, 85, 0, 0.6);
-}
-.product-body { display: flex; flex-direction: column; gap: 10px; padding: 18px; flex: 1; }
-.product-name {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 26px;
-  letter-spacing: 0.04em;
-  color: #fff;
-  margin: 0;
-}
-.product-blurb {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 15px;
-  line-height: 1.4;
-  color: var(--off-white);
-  margin: 0;
-  flex: 1;
-}
-.product-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.product-tag {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--dim);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 4px 9px;
-}
-.product-cta {
-  align-self: flex-start;
-  margin-top: 4px;
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--black);
-  background: var(--orange);
-  border-radius: 22px;
-  padding: 9px 18px;
-  text-decoration: none;
-  transition: opacity 0.2s, transform 0.2s;
-}
-.product-cta:hover { transform: translateX(3px); }
-.product-cta.disabled {
-  background: transparent;
-  color: var(--dim);
-  border: 1px solid var(--border);
-  pointer-events: none;
-}
-.product-card.is-app { cursor: pointer; }
-
-/* Compact, 2-up products grid on phones — fit them all on roughly one screen */
-@media (max-width: 640px) {
-  .products-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    padding: 10px 12px 0;
-  }
-  .product-thumb { height: 84px; }
-  .product-body { padding: 10px 11px; gap: 6px; }
-  .product-name { font-size: 18px; }
-  .product-blurb {
-    font-size: 12px;
-    line-height: 1.32;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .product-tags { display: none; }
-  .product-cta { padding: 7px 13px; font-size: 10px; }
-}
 
 /* ── The Rex Trueform World (3D neural map) ──────────────────────────────── */
 .world {
@@ -2359,15 +1782,6 @@ body.modal-open {
 }
 @keyframes appSpin { to { transform: rotate(360deg); } }
 
-/* ── The Order of the Skull — secret manifesto ─────────────────────────────── */
-.nav-skull-btn {
-  background: none; border: 0; padding: 0; margin: 0; line-height: 0;
-  cursor: pointer; display: inline-flex; align-items: center;
-  transition: transform 0.25s ease, filter 0.25s ease;
-}
-.nav-skull-btn:hover { transform: translateY(-1px) scale(1.08); filter: drop-shadow(0 0 10px rgba(255,85,0,0.85)); }
-.nav-skull-btn:focus-visible { outline: 1px solid var(--orange); outline-offset: 3px; }
-
 .skull-modal {
   position: fixed; inset: 0; z-index: 200; display: none;
   align-items: center; justify-content: center; padding: 24px;
@@ -2436,3 +1850,14 @@ body.modal-open {
 .ms-sign { font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #5a3a18; margin-top: 6px; }
 .ms-sign em { font-style: italic; text-transform: none; font-family: 'Cormorant Garamond', serif; font-size: 15px; }
 @media (max-width: 600px) { .manuscript-scroll { padding: 40px 22px 32px; } }
+
+/* ── Mobile ergonomics ─────────────────────────────────────────────────────────
+   iOS Safari auto-zooms any focused input under 16px, and fingertips need ~44px
+   targets (Luke's mobile-first rule). Scoped to touch devices only. */
+@media (pointer: coarse) {
+  .gallery-search { font-size: 16px; }
+  .style-pill { min-height: 44px; padding: 10px 18px; }
+  .galaxy-toggle { min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
+  .modal-close, .modal-fs { width: 44px; height: 44px; }
+  .modal-fs { right: 60px; }   /* keep clear of the bigger close button */
+}

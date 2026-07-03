@@ -186,6 +186,11 @@
   $('surprise') && $('surprise').addEventListener('click', () => { $('vx').value = (Math.random() * 0.62 + 0.02).toFixed(3); $('vy').value = (Math.random() * 0.62 + 0.02).toFixed(3); explore(); });
 
   // ── boot ──────────────────────────────────────────────────────────────────────
+  // 3D-only controls (worlds, cinematic camera, sound) do nothing in 2D → hide them
+  const worldsHead = $('solarBtn') && $('solarBtn').previousElementSibling;   // the "Choose a world" heading
+  if (worldsHead && worldsHead.tagName === 'H3') worldsHead.style.display = 'none';
+  ['solarBtn', 'neutronBtn', 'runSimBtn', 'sound'].forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+  ['cinematic', 'autocam'].forEach(id => { const el = $(id); const lab = el && el.closest('label'); if (lab) lab.style.display = 'none'; });
   resize();
   $('grav') && ($('grav').value = G, $('gravVal').textContent = G.toFixed(2));
   $('speed').value = speed; $('speedVal').textContent = speed.toFixed(1) + '×';

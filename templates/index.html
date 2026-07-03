@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Rex Trueform — The Medici Art Hub</title>
   <!-- #3 Brand: SEO + social share meta -->
-  <meta name="description" content="Rex Trueform — The Medici Art Hub. AI-directed film, music, surreal imagery and interactive 3D worlds by Luke Viviers.">
+  <meta name="description" content="Rex Trueform — The Medici Art Hub. AI-directed film, music, surreal imagery and interactive 3D worlds.">
+  <link rel="canonical" href="https://rextrueform.co.za">
   <meta property="og:title" content="Rex Trueform — The Medici Art Hub">
   <meta property="og:description" content="AI-directed film, music, surreal imagery and interactive 3D worlds.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://keyside-production.up.railway.app">
-  <meta property="og:image" content="https://keyside-production.up.railway.app/static/zuma-bg-poster.jpg">
+  <meta property="og:url" content="https://rextrueform.co.za">
+  <meta property="og:image" content="https://keyside.lukeriding.workers.dev/static/zuma-bg-poster.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Rex Trueform — The Medici Art Hub">
-  <meta name="twitter:image" content="https://keyside-production.up.railway.app/static/zuma-bg-poster.jpg">
+  <meta name="twitter:image" content="https://keyside.lukeriding.workers.dev/static/zuma-bg-poster.jpg">
   <!-- #3 Brand: favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='5' fill='%23000'/><text y='25' x='3' font-size='26' font-family='Arial Black,sans-serif' font-weight='900' fill='%23ff5500'>R</text></svg>">
   <!-- #4 Perf: warm connections before first paint -->
@@ -55,7 +56,6 @@
         <span class="nav-label">Rex Trueform's Medici Art Hub</span>
       </div>
       <div class="nav-right">
-<div id="navRight"></div>
       </div>
     </div>
     <div class="hero hero-orbit" id="hero">
@@ -93,14 +93,7 @@
   <!-- #1 Search + smart style filters -->
   <div class="gallery-search-row" id="gallerySearchRow">
     <input type="search" class="gallery-search" id="gallerySearch" placeholder="search works…" autocomplete="off" spellcheck="false">
-    <div class="style-pills" id="stylePills">
-      <button class="style-pill active" data-style="">All</button>
-      <button class="style-pill" data-style="historical">Historical</button>
-      <button class="style-pill" data-style="abstract">Abstract</button>
-      <button class="style-pill" data-style="surrealism">Surrealism</button>
-      <button class="style-pill" data-style="atmospheric">Atmospheric</button>
-      <button class="style-pill" data-style="psychedelic">Psychedelic</button>
-    </div>
+    <div class="style-pills" id="stylePills"></div><!-- pills generated from the gallery's real styles (main.js renderStylePills) -->
   </div>
 
   <!-- The Rex Trueform World — 3D interactive neural map -->
@@ -176,7 +169,6 @@
           <h2 class="modal-title" id="modalTitle"></h2>
           <span class="modal-style-tag" id="modalStyleTag"></span>
         </div>
-        <div class="dl-formats" id="dlFormats" style="display:none"></div>
       </div>
     </div>
   </div>
@@ -193,55 +185,6 @@
     <div class="app-modal-frame-wrap">
       <div class="app-modal-loader" id="appModalLoader"><span></span></div>
       <iframe class="app-modal-frame" id="appModalFrame" title="" allow="fullscreen; autoplay; clipboard-write; encrypted-media"></iframe>
-    </div>
-  </div>
-
-  <!-- Auth modal -->
-  <div class="auth-modal" id="authModal" aria-hidden="true">
-    <div class="auth-modal-bg" id="authModalBg"></div>
-    <div class="auth-box">
-      <button class="auth-close" id="authClose">&#x2715;</button>
-      <div class="auth-brand">
-        <video class="auth-logo" autoplay muted loop playsinline>
-          <source src="https://raw.githubusercontent.com/Napoleon0007/Art-Hub/main/Rex%20trueform%20logo.MP4" type="video/mp4">
-        </video>
-        <span class="auth-brand-name">Rex <span class="orange">Trueform</span></span>
-      </div>
-      <div class="auth-tabs">
-        <button class="auth-tab active" data-tab="login">Login</button>
-        <button class="auth-tab" data-tab="signup">Sign Up</button>
-      </div>
-      <form class="auth-form" id="authForm">
-        <div class="auth-field">
-          <label>Email</label>
-          <input type="email" id="authEmail" autocomplete="email" required placeholder="your@email.com">
-        </div>
-        <div class="auth-field">
-          <label>Password</label>
-          <input type="password" id="authPassword" autocomplete="current-password" required placeholder="••••••">
-        </div>
-        <p class="auth-error" id="authError"></p>
-        <button type="submit" class="auth-submit" id="authSubmit">Login</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Upload modal -->
-  <div class="auth-modal" id="uploadModal" aria-hidden="true">
-    <div class="auth-modal-bg" id="uploadModalBg"></div>
-    <div class="auth-box">
-      <button class="auth-close" id="uploadClose">&#x2715;</button>
-      <h3 class="auth-heading">Upload</h3>
-      <div class="upload-drop" id="uploadDrop">
-        <p>Drop a video, image or audio file here or <label class="upload-pick" for="uploadFile">choose file</label></p>
-        <input type="file" id="uploadFile" accept="video/*,image/*,audio/*,.mp4,.webm,.mov,.m4v,.jpg,.jpeg,.png,.webp,.gif,.avif,.mp3,.wav,.m4a,.ogg,.flac" style="display:none">
-        <p class="upload-name" id="uploadName"></p>
-      </div>
-      <p class="auth-error" id="uploadError"></p>
-      <button class="auth-submit" id="uploadSubmit" disabled>Upload</button>
-      <div class="upload-progress" id="uploadProgress" style="display:none">
-        <div class="upload-bar" id="uploadBar"></div>
-      </div>
     </div>
   </div>
 
@@ -307,13 +250,11 @@
 
   <script>
     window.LOOP_BASE = {{ loop_base|tojson }};
-    window.GOOGLE_TILES_KEY = {{ google_tiles_key|tojson }};
   </script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script src="{{ url_for('static', filename='effects.js') }}"></script>
   <script src="{{ url_for('static', filename='herotext.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='world.js') }}"></script>
-  <script type="module" src="{{ url_for('static', filename='earth-dive.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='globe.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='gallery-galaxy.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='mobius.js') }}"></script>

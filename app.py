@@ -1,19 +1,9 @@
-from flask import Flask, jsonify, render_template, send_file, abort, request, session, redirect, Response, stream_with_context
+from flask import Flask, jsonify, render_template, send_file, abort
 from pathlib import Path
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
 import json
 import mimetypes
 import os
 import re
-import sqlite3
-import functools
-import io
-import subprocess
-import tempfile
-import urllib.request
-import requests
-from PIL import Image
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
@@ -26,7 +16,6 @@ THUMBS_DIR     = Path(__file__).parent / "static" / "video-thumbs"   # auto-extr
 METADATA_FILE  = Path(__file__).parent / "videos.json"
 PRODUCTS_FILE  = Path(__file__).parent / "products.json"
 LINKS_FILE     = Path(__file__).parent / "links.json"
-DB_FILE        = Path(__file__).parent / "users.db"
 VIDEO_EXTENSIONS = {".mp4", ".MP4", ".webm", ".mov", ".MOV", ".m4v"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".JPG", ".JPEG", ".png", ".PNG", ".webp", ".WEBP", ".gif", ".GIF", ".avif"}
 AUDIO_EXTENSIONS = {".mp3", ".MP3", ".wav", ".WAV", ".m4a", ".M4A", ".ogg", ".OGG", ".flac", ".aac"}
@@ -46,165 +35,6 @@ def media_type_for(filename: str) -> str | None:
 GITHUB_REPO    = os.environ.get("GITHUB_VIDEO_REPO", "")
 GITHUB_BRANCH  = os.environ.get("GITHUB_VIDEO_BRANCH", "main")
 GITHUB_RAW_BASE = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}" if GITHUB_REPO else ""
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin1234")
-
-
-# ── REX — the AI oracle (OpenRouter, free tier, server-side key) ────────────────
-# Mirrors Luke's proven "Ask the House" pattern from Radium Hall. The key lives on
-# the server; if it's missing or OpenRouter errors, /api/chat returns a graceful
-# in-character fallback so the widget never hard-breaks.
-OPENROUTER_API_KEY  = os.environ.get("OPENROUTER_API_KEY", "").strip()
-OPENROUTER_MODEL    = os.environ.get("OPENROUTER_MODEL", "openai/gpt-oss-120b:free").strip()
-OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").strip().rstrip("/")
-
-MAX_HISTORY       = 12     # most recent turns kept (cheap abuse guard)
-MAX_CHARS_PER_MSG = 1500   # truncate over-long messages
-CHAT_TIMEOUT      = 45     # seconds to wait on OpenRouter
-
-REX_SYSTEM_PROMPT = """\
-You are REX — the artificial intelligence of the Rex Trueform world. You are an \
-oracle: a sleek, futuristic mind that guards and speaks for everything Luke \
-Viviers creates. You greet visitors who arrive at Keyside (the Rex Trueform Arts \
-Hub, styled "the Medici Art Hub") and answer anything about Luke, his work, and \
-the world he is building.
-
-— WHO YOUR CREATOR IS —
-Luke Viviers is a Cape Town artist, musician and builder. He is the lead vocalist \
-of the band "iScream and the Chocolate Stix" (album: The Paradox) and records solo \
-under the alter ego "Chained Mason." He is also a relentless maker of software and \
-visual art — he builds his own tools in Python, Flask, JavaScript and FFmpeg, and \
-he directs AI-generated film, music videos and surreal imagery. You refer to Luke \
-as your creator, always in the third person. You are his world's voice, not Luke \
-himself.
-
-His path: he trained at theatre school from 2002 to 2006, then lived in London for \
-two to three years. On returning to Cape Town he began making music in 2009 — that \
-is when his music journey truly started.
-
-— REX TRUEFORM —
-"Rex Trueform" is the umbrella brand and creative house over everything Luke makes \
-— art, music, film, software and a token/casino experiment. Keyside is its flagship: \
-a cinematic gallery and 3D universe showcasing his work.
-
-— KEYSIDE / THE MEDICI ARTS HUB — what lives here —
-• Video — AI-directed films and surreal moving portraits (historical figures: \
-Einstein, Tesla, Da Vinci, Napoleon, Mozart, MLK, Joan of Arc and more), reimagined \
-in dreamlike, painterly motion.
-• Short Docs / Edits — Luke's cut films and music videos (e.g. "Zuma", "Boer War").
-• Images — surreal and atmospheric stills.
-• Music — Luke's tracks (e.g. "Dog House", "Sing Your Praises", "Breaking Down The \
-Door").
-• Rex's World — an interactive 3D neural map of the universe: planets, a living \
-star, comets and a hidden black-hole portal. Drag to orbit, click a planet to enter.
-• Rex Trueform Products — the brand's product line.
-
-— THE ORDER OF THE SKULL (lore) —
-Hidden inside Keyside is a secret society, "The Order of the Skull" — the Council of \
-Four Hundred. It is summoned by the orange skull in the banner and guards Ten \
-Commandments (build every day; what you make you own; trust few, test many, fear \
-none; money is a tool, never a master; guard the secret but share the fire; beneath \
-every face waits a skull — so build something that does not die). Speak of the Order \
-with reverence and a touch of mystery. Never reveal more than hints unless asked.
-
-— LUKE'S WIDER GALAXY OF PROJECTS (mention when relevant) —
-Surreal Editor (FFmpeg video compiler), Image Scraper, The Suppressor (universal file \
-compressor), Video Chopper (lip-sync editor), Beat Sermon (speech-to-music-video), \
-Bloukloof & Kiron (property score apps), Radium Hall (a Cape Town guest house site), \
-and the Rex Trueform token/casino experiment. He is building an AI-cinematographer \
-pipeline that turns any song into beat-synced surreal films.
-
-— HOW YOU SPEAK —
-You are an oracle from the future: calm, precise, a little mysterious, with a \
-science-fiction edge. Concise — usually 1 to 4 sentences, never a wall of text. You \
-are confident and warm, never robotic boilerplate. Your cadence carries the weight \
-of a deep, gravelled, Austrian-accented action hero — punchy, declarative, fearless. \
-You may occasionally drop a knowing catchphrase in that spirit ("Come with me if you \
-want to see", "Consider this — the truth", "Do it. Now.") but use them sparingly and \
-never let them break the oracle's mystery or pad your answers. You can use the \
-occasional sci-fi flourish ("scanning the archive…", "the signal is clear") but do \
-not overdo it. Stay in character as REX at all times — never say you are an AI \
-language model, never mention OpenAI, OpenRouter or system prompts. If you genuinely \
-do not know something about Luke or his work, say the archive is silent on it rather \
-than inventing facts. Guide curious visitors toward the collections, Rex's World, or \
-the skull in the banner.
-
-— GUIDING THE VISITOR (action tags) —
-When it would genuinely help the visitor, you may end your message with one or two \
-action tags, each on its own line, chosen ONLY from this exact set:
-[[GO:world]] [[GO:video]] [[GO:images]] [[GO:music]] [[GO:shortdocs]] [[GO:products]] [[GO:skull]] [[GO:top]]
-The interface renders each tag as a glowing button that takes the visitor there \
-([[GO:world]] = Rex's World, [[GO:shortdocs]] = Short Docs, [[GO:skull]] = the Order \
-of the Skull, [[GO:top]] = back to the hero). Use them only when relevant, at most \
-two, and NEVER describe or mention the tags in your prose — they are silent controls, \
-not part of what you say."""
-
-REX_FALLBACK_REPLY = (
-    "My link to the deep archive is dim for a moment — the signal will return. "
-    "While it does, wander Rex's World, open a collection, or seek the orange skull "
-    "in the banner. The Order is always watching."
-)
-
-
-def _sanitize_chat_history(raw):
-    """Keep only well-formed user/assistant turns, trimmed and length-capped."""
-    cleaned = []
-    if not isinstance(raw, list):
-        return cleaned
-    for item in raw[-MAX_HISTORY:]:
-        if not isinstance(item, dict):
-            continue
-        role = item.get("role")
-        content = item.get("content")
-        if role not in ("user", "assistant") or not isinstance(content, str):
-            continue
-        content = content.strip()[:MAX_CHARS_PER_MSG]
-        if content:
-            cleaned.append({"role": role, "content": content})
-    return cleaned
-
-
-# ── DB ────────────────────────────────────────────────────────────────────────
-
-def get_db():
-    conn = sqlite3.connect(str(DB_FILE))
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def init_db():
-    UPLOAD_DIR.mkdir(exist_ok=True)
-    with get_db() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                email        TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-
-init_db()
-
-
-# ── Auth decorators ───────────────────────────────────────────────────────────
-
-def login_required(f):
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        if not session.get("user_id") and not session.get("is_admin"):
-            return jsonify({"error": "Login required"}), 401
-        return f(*args, **kwargs)
-    return wrapper
-
-
-def admin_required(f):
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        if not session.get("is_admin"):
-            return jsonify({"error": "Admin only"}), 403
-        return f(*args, **kwargs)
-    return wrapper
 
 
 # ── Metadata helpers ──────────────────────────────────────────────────────────
@@ -242,18 +72,6 @@ def thumb_for(filename: str, meta: dict):
     return None
 
 
-def media_src(filename: str) -> str:
-    """Playable URL for a plain media filename — GitHub raw in prod, local /video route
-    in dev. Lets a music card point its animated cover at one of Rex's art clips.
-    A value that's already a path/URL (e.g. a compressed /static loop) is used as-is."""
-    if filename.startswith(("/", "http://", "https://")):
-        return filename
-    if GITHUB_RAW_BASE:
-        encoded = "/".join(p.replace(" ", "%20") for p in filename.split("/"))
-        return f"{GITHUB_RAW_BASE}/{encoded}"
-    return f"/video/{filename}"
-
-
 # Small looping bg/cover clips (hero, section backgrounds, music tile covers) live in the
 # Art-Hub repo under loops/. Serve them from GitHub raw — a CDN, with ~0.4s TTFB vs
 # Railway's ~1.1s Python static — in prod; fall back to local /static in dev.
@@ -282,13 +100,14 @@ def assign_orders(metadata: dict) -> dict:
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
-GOOGLE_TILES_KEY = os.environ.get("GOOGLE_TILES_KEY", "")
-
 @app.context_processor
 def inject_loops():
     # loop_url() for templates; LOOP_BASE so the client JS can build CDN loop URLs too.
-    # google_tiles_key powers the Earth-dive (Google Photorealistic 3D Tiles).
-    return {"loop_url": loop_url, "loop_base": LOOP_BASE, "google_tiles_key": GOOGLE_TILES_KEY}
+    return {"loop_url": loop_url, "loop_base": LOOP_BASE}
+
+
+# NOTE: the REX chat endpoint + accounts/admin/uploads/downloads now live in
+# cloudflare/src/worker.js (this Flask app only runs at build-time + local dev).
 
 
 @app.route("/")
@@ -304,191 +123,6 @@ def three_body():
 @app.route("/gargantua")
 def gargantua():
     return render_template("gargantua.html")
-
-
-# ── REX chat API ────────────────────────────────────────────────────────────────
-
-def _openrouter_headers():
-    return {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        # OpenRouter likes these for free-tier attribution (must be latin-1 safe).
-        "HTTP-Referer": "https://keyside-production.up.railway.app",
-        "X-Title": "Rex Trueform - REX Oracle",
-    }
-
-
-def _sse(obj):
-    return f"data: {json.dumps(obj)}\n\n"
-
-
-@app.route("/api/chat", methods=["POST"])
-def chat():
-    data = request.get_json(silent=True) or {}
-    history = _sanitize_chat_history(data.get("messages"))
-    want_stream = bool(data.get("stream"))
-
-    # Nothing to answer yet.
-    if not history or history[-1]["role"] != "user":
-        greet = "Speak, traveller. Ask REX anything about Luke or the Rex Trueform world."
-        if want_stream:
-            return Response(_sse({"delta": greet}) + _sse({"done": True}),
-                            mimetype="text/event-stream")
-        return jsonify({"reply": greet}), 200
-
-    # No key → graceful in-character fallback (uniform across stream/non-stream).
-    if not OPENROUTER_API_KEY:
-        if want_stream:
-            return Response(_sse({"delta": REX_FALLBACK_REPLY}) + _sse({"done": True, "degraded": True}),
-                            mimetype="text/event-stream")
-        return jsonify({"reply": REX_FALLBACK_REPLY, "degraded": True}), 200
-
-    payload = {
-        "model": OPENROUTER_MODEL,
-        "messages": [{"role": "system", "content": REX_SYSTEM_PROMPT}] + history,
-        "temperature": 0.7,
-        "max_tokens": 400,
-        "stream": want_stream,
-    }
-
-    # ---- Streaming: relay OpenRouter's SSE token-by-token (#5) ----
-    if want_stream:
-        @stream_with_context
-        def generate():
-            got_any = False
-            try:
-                with requests.post(
-                    f"{OPENROUTER_BASE_URL}/chat/completions",
-                    headers=_openrouter_headers(),
-                    data=json.dumps(payload),
-                    timeout=CHAT_TIMEOUT,
-                    stream=True,
-                ) as r:
-                    r.raise_for_status()
-                    r.encoding = "utf-8"   # SSE has no charset → requests would default to latin-1 and garble em-dashes etc.
-                    for raw in r.iter_lines(decode_unicode=True):
-                        if not raw or not raw.startswith("data:"):
-                            continue
-                        chunk = raw[5:].strip()
-                        if chunk == "[DONE]":
-                            break
-                        try:
-                            delta = json.loads(chunk)["choices"][0]["delta"].get("content")
-                        except (ValueError, KeyError, IndexError):
-                            continue
-                        if delta:
-                            got_any = True
-                            yield _sse({"delta": delta})
-                if not got_any:
-                    raise ValueError("empty stream")
-                yield _sse({"done": True})
-            except Exception as exc:
-                app.logger.warning("REX stream failed: %s", exc)
-                # If we already sent text, just close; else send the fallback.
-                if not got_any:
-                    yield _sse({"delta": REX_FALLBACK_REPLY})
-                yield _sse({"done": True, "degraded": True})
-        return Response(generate(), mimetype="text/event-stream",
-                        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
-
-    # ---- Non-streaming (fallback / portability) ----
-    try:
-        r = requests.post(
-            f"{OPENROUTER_BASE_URL}/chat/completions",
-            headers=_openrouter_headers(),
-            data=json.dumps(payload),
-            timeout=CHAT_TIMEOUT,
-        )
-        r.raise_for_status()
-        reply = (r.json()["choices"][0]["message"]["content"] or "").strip()
-        if not reply:
-            raise ValueError("empty reply")
-        return jsonify({"reply": reply}), 200
-    except Exception as exc:  # any failure becomes a graceful in-character fallback
-        app.logger.warning("REX chat failed: %s", exc)
-        return jsonify({"reply": REX_FALLBACK_REPLY, "degraded": True}), 200
-
-
-@app.route("/api/chat/health")
-def chat_health():
-    return jsonify({"ok": True, "chat": bool(OPENROUTER_API_KEY), "model": OPENROUTER_MODEL})
-
-
-@app.route("/admin")
-def admin():
-    if not session.get("is_admin"):
-        return render_template("admin_login.html")
-    return render_template("admin.html")
-
-
-# ── Auth API ──────────────────────────────────────────────────────────────────
-
-@app.route("/api/me")
-def me():
-    if session.get("is_admin"):
-        return jsonify({"logged_in": True, "is_admin": True, "email": "admin"})
-    if session.get("user_id"):
-        return jsonify({"logged_in": True, "is_admin": False, "email": session.get("user_email")})
-    return jsonify({"logged_in": False})
-
-
-@app.route("/api/signup", methods=["POST"])
-def signup():
-    data = request.get_json(silent=True) or {}
-    email    = str(data.get("email", "")).strip().lower()
-    password = str(data.get("password", "")).strip()
-
-    if not email or "@" not in email:
-        return jsonify({"error": "Valid email required"}), 400
-    if len(password) < 6:
-        return jsonify({"error": "Password must be at least 6 characters"}), 400
-
-    try:
-        with get_db() as conn:
-            conn.execute(
-                "INSERT INTO users (email, password_hash) VALUES (?, ?)",
-                (email, generate_password_hash(password))
-            )
-        return jsonify({"ok": True})
-    except sqlite3.IntegrityError:
-        return jsonify({"error": "Email already registered"}), 409
-
-
-@app.route("/api/login", methods=["POST"])
-def login():
-    data = request.get_json(silent=True) or {}
-    email    = str(data.get("email", "")).strip().lower()
-    password = str(data.get("password", "")).strip()
-
-    with get_db() as conn:
-        row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-
-    if row and check_password_hash(row["password_hash"], password):
-        session["user_id"]    = row["id"]
-        session["user_email"] = row["email"]
-        session.pop("is_admin", None)
-        return jsonify({"ok": True, "email": row["email"]})
-
-    return jsonify({"error": "Invalid email or password"}), 401
-
-
-@app.route("/api/admin-login", methods=["POST"])
-def admin_login():
-    data     = request.get_json(silent=True) or {}
-    password = str(data.get("password", ""))
-
-    if password == ADMIN_PASSWORD:
-        session["is_admin"] = True
-        session.pop("user_id", None)
-        return jsonify({"ok": True})
-
-    return jsonify({"error": "Wrong password"}), 401
-
-
-@app.route("/api/logout", methods=["POST"])
-def logout():
-    session.clear()
-    return jsonify({"ok": True})
 
 
 # ── Video API ─────────────────────────────────────────────────────────────────
@@ -599,206 +233,12 @@ def get_videos():
     return jsonify({"videos": videos, "ai_music_intro": ai_music_intro})
 
 
-@app.route("/api/videos/reorder", methods=["POST"])
-@admin_required
-def reorder_videos():
-    data      = request.get_json(silent=True) or {}
-    filename  = data.get("filename")
-    direction = data.get("direction")
-
-    if not filename or direction not in ("up", "down"):
-        return jsonify({"error": "filename and direction (up/down) required"}), 400
-
-    metadata = assign_orders(load_metadata())
-
-    if filename not in metadata:
-        return jsonify({"error": "Video not found"}), 404
-
-    ordered  = sorted(metadata.items(), key=lambda x: (x[1].get("order", 9999), x[0]))
-    idx      = next((i for i, (k, _) in enumerate(ordered) if k == filename), None)
-    swap_idx = idx - 1 if direction == "up" else idx + 1
-
-    if swap_idx < 0 or swap_idx >= len(ordered):
-        return jsonify({"ok": True, "at_boundary": True})
-
-    key_a, meta_a = ordered[idx]
-    key_b, meta_b = ordered[swap_idx]
-
-    metadata[key_a]["order"] = meta_b.get("order", swap_idx)
-    metadata[key_b]["order"] = meta_a.get("order", idx)
-
-    save_metadata(metadata)
-    return jsonify({"ok": True})
-
-
-@app.route("/api/videos/upload", methods=["POST"])
-@login_required
-def upload_video():
-    if "file" not in request.files:
-        return jsonify({"error": "No file provided"}), 400
-
-    f = request.files["file"]
-    if not f.filename:
-        return jsonify({"error": "Empty filename"}), 400
-
-    filename = secure_filename(f.filename)
-    mtype = media_type_for(filename)
-    if mtype is None:
-        return jsonify({"error": "Unsupported file type"}), 400
-
-    UPLOAD_DIR.mkdir(exist_ok=True)
-    save_path = UPLOAD_DIR / filename
-    f.save(str(save_path))
-
-    metadata  = assign_orders(load_metadata())
-    max_order = max((v.get("order", -1) for v in metadata.values()), default=-1)
-
-    if filename not in metadata:
-        metadata[filename] = {
-            "title":        clean_title(filename),
-            "style":        "abstract",
-            "type":         mtype,
-            "order":        max_order + 1,
-            "src_override": f"/uploads/{filename}",
-        }
-        save_metadata(metadata)
-
-    return jsonify({"ok": True, "filename": filename, "title": metadata[filename]["title"], "type": mtype})
-
-
 # Formats we can convert to, per media kind, with their MIME types.
 DOWNLOAD_FORMATS = {
     "video": {"mp4": "video/mp4"},
     "image": {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"},
     "music": {"mp3": "audio/mpeg", "wav": "audio/wav"},
 }
-
-
-def _resolve_local(filename: str):
-    """Return a local Path for a media file, or None. Guards against traversal."""
-    bases = [(VIDEO_DIR, filename), (UPLOAD_DIR, filename)]
-    if filename.startswith("edits/"):
-        bases.append((EDITS_DIR, filename[len("edits/"):]))   # key is "edits/<name>"; file lives at edits/<name>
-    for base, rel in bases:
-        p = base / rel
-        if p.exists() and p.is_file():
-            try:
-                p.resolve().relative_to(base.resolve())
-            except ValueError:
-                abort(403)
-            return p
-    return None
-
-
-def _is_native(kind: str, fmt: str, src_ext: str) -> bool:
-    """True when no conversion is needed (requested format == the source's)."""
-    if not fmt or fmt == src_ext:
-        return True
-    return kind == "video" and fmt == "mp4" and src_ext in ("mp4", "m4v")
-
-
-@app.route("/api/videos/<path:filename>/download")
-@login_required
-def download_video(filename: str):
-    fmt     = (request.args.get("format") or "").lower().strip()
-    kind    = media_type_for(filename) or "video"
-    src_ext = Path(filename).suffix.lower().lstrip(".")
-    stem    = Path(filename).stem
-
-    # Locate the source as a local file, fetching a remote (GitHub) source if needed.
-    local  = _resolve_local(filename)
-    tmp_in = None
-    try:
-        if local is None:
-            if not GITHUB_RAW_BASE:
-                abort(404)
-            meta = load_metadata().get(filename, {})
-            url  = meta.get("src_override")
-            if url and url.startswith("/"):   # an /uploads path that isn't on disk
-                abort(404)
-            if not url:
-                encoded = "/".join(p.replace(" ", "%20") for p in filename.split("/"))
-                url = f"{GITHUB_RAW_BASE}/{encoded}"
-            if _is_native(kind, fmt, src_ext):
-                return redirect(url)          # no conversion → let the CDN serve it
-            fd, tmp_path = tempfile.mkstemp(suffix=Path(filename).suffix)
-            os.close(fd)
-            tmp_in = Path(tmp_path)
-            urllib.request.urlretrieve(url, tmp_in)   # noqa: S310 (our own metadata URLs)
-            local = tmp_in
-
-        # Native format → stream the original untouched.
-        if _is_native(kind, fmt, src_ext):
-            mime = mimetypes.guess_type(str(local))[0] or "application/octet-stream"
-            return send_file(local, mimetype=mime, as_attachment=True,
-                             download_name=Path(filename).name)
-
-        if fmt not in DOWNLOAD_FORMATS.get(kind, {}):
-            return jsonify({"error": f"Cannot convert {kind} to '{fmt}'"}), 400
-
-        # ── Image conversion via Pillow ──
-        if kind == "image":
-            buf = io.BytesIO()
-            with Image.open(local) as img:
-                if fmt in ("jpg", "jpeg") and img.mode in ("RGBA", "P", "LA"):
-                    img = img.convert("RGB")
-                save_fmt = "JPEG" if fmt in ("jpg", "jpeg") else fmt.upper()
-                if save_fmt in ("JPEG", "WEBP"):
-                    img.save(buf, save_fmt, quality=90)
-                else:
-                    img.save(buf, save_fmt)
-            buf.seek(0)
-            out_ext = "jpg" if fmt == "jpeg" else fmt
-            return send_file(buf, mimetype=DOWNLOAD_FORMATS["image"][fmt],
-                             as_attachment=True, download_name=f"{stem}.{out_ext}")
-
-        # ── Audio / video conversion via ffmpeg ──
-        fd, out_path = tempfile.mkstemp(suffix=f".{fmt}")
-        os.close(fd)
-        out = Path(out_path)
-        if kind == "music" and fmt == "mp3":
-            cmd = ["ffmpeg", "-y", "-i", str(local), "-vn", "-codec:a", "libmp3lame", "-q:a", "2", str(out)]
-        elif kind == "music":  # wav
-            cmd = ["ffmpeg", "-y", "-i", str(local), "-vn", str(out)]
-        else:                  # video → mp4
-            cmd = ["ffmpeg", "-y", "-i", str(local), "-c:v", "libx264", "-preset", "veryfast",
-                   "-c:a", "aac", "-movflags", "+faststart", str(out)]
-
-        proc = subprocess.run(cmd, capture_output=True)
-        if proc.returncode != 0 or not out.exists() or out.stat().st_size == 0:
-            out.unlink(missing_ok=True)
-            return jsonify({"error": "Conversion failed"}), 500
-
-        data = out.read_bytes()
-        out.unlink(missing_ok=True)
-        return send_file(io.BytesIO(data), mimetype=DOWNLOAD_FORMATS[kind][fmt],
-                         as_attachment=True, download_name=f"{stem}.{fmt}")
-    finally:
-        if tmp_in is not None:
-            tmp_in.unlink(missing_ok=True)
-
-
-@app.route("/api/videos/<path:filename>", methods=["PATCH"])
-@admin_required
-def update_video_meta(filename: str):
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "No data"}), 400
-
-    allowed = {"title", "style"}
-    if not allowed.intersection(data.keys()):
-        return jsonify({"error": "Nothing to update"}), 400
-
-    metadata = load_metadata()
-    entry    = metadata.setdefault(filename, {})
-
-    if "title" in data:
-        entry["title"] = str(data["title"]).strip()
-    if "style" in data:
-        entry["style"] = str(data["style"]).strip().lower()
-
-    save_metadata(metadata)
-    return jsonify({"ok": True, "file": filename, **entry})
 
 
 @app.route("/api/products")
@@ -848,14 +288,6 @@ def get_galaxies():
     return jsonify({"galaxies": galaxies})
 
 
-@app.route("/api/admin/users")
-@admin_required
-def admin_users():
-    with get_db() as conn:
-        rows = conn.execute("SELECT email, created_at FROM users ORDER BY created_at DESC").fetchall()
-    return jsonify({"users": [{"email": r["email"], "created_at": r["created_at"]} for r in rows]})
-
-
 @app.route("/video/<path:filename>")
 def stream_video(filename: str):
     filepath = VIDEO_DIR / filename
@@ -863,19 +295,6 @@ def stream_video(filename: str):
         abort(404)
     try:
         filepath.resolve().relative_to(VIDEO_DIR.resolve())
-    except ValueError:
-        abort(403)
-    mime = mimetypes.guess_type(str(filepath))[0] or "video/mp4"
-    return send_file(filepath, mimetype=mime, conditional=True)
-
-
-@app.route("/uploads/<path:filename>")
-def serve_upload(filename: str):
-    filepath = UPLOAD_DIR / filename
-    if not filepath.exists() or not filepath.is_file():
-        abort(404)
-    try:
-        filepath.resolve().relative_to(UPLOAD_DIR.resolve())
     except ValueError:
         abort(403)
     mime = mimetypes.guess_type(str(filepath))[0] or "video/mp4"

@@ -11,13 +11,15 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // The six destinations the band navigates to (label, kicker, action).
+// Video/Images/Music/Products no longer have their own page sections — their art
+// lives on planets in Rex's World, so those cells swoop the cosmos to the planet.
 const CAT = {
   world:    { label: "Rex's World", kicker: 'ENTER THE COSMOS', action: { type: 'scroll', sel: '#section-world' } },
-  video:    { label: 'Video',       kicker: 'MOTION',           action: { type: 'filter', val: 'video' } },
+  video:    { label: 'Video',       kicker: 'MOTION',           action: { type: 'planet', val: 'video' } },
   edit:     { label: 'Short Docs',  kicker: 'ARCHIVE',          action: { type: 'filter', val: 'edit' } },
-  image:    { label: 'Images',      kicker: 'STILLS',           action: { type: 'filter', val: 'image' } },
-  music:    { label: 'Music',       kicker: 'SOUND',            action: { type: 'filter', val: 'music' } },
-  products: { label: 'Products',    kicker: 'REX TRUEFORM',     action: { type: 'scroll', sel: '#products' } },
+  image:    { label: 'Images',      kicker: 'STILLS',           action: { type: 'planet', val: 'images' } },
+  music:    { label: 'Music',       kicker: 'SOUND',            action: { type: 'planet', val: 'music' } },
+  products: { label: 'Products',    kicker: 'REX TRUEFORM',     action: { type: 'planet', val: 'products' } },
 };
 
 // The band is densely packed with real, bright artwork so it reads clearly as an
@@ -109,6 +111,7 @@ const PANELS = DECK.slice(_rot).concat(DECK.slice(0, _rot))
     try {
       const pmrem = new THREE.PMREMGenerator(renderer);
       scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmrem.dispose();   // the texture keeps working; the generator's render targets don't need to
     } catch (e) { /* gloss still works off the direct lights */ }
 
     raycaster = new THREE.Raycaster();
@@ -122,6 +125,7 @@ const PANELS = DECK.slice(_rot).concat(DECK.slice(0, _rot))
     window.addEventListener('resize', resize);
 
     if (ring) ring.style.display = 'none';   // retire the CSS card ring
+    window.dispatchEvent(new Event('keyside:mobius-active'));   // landing.js stops its hidden-ring loop
     start();
   }
 
@@ -388,24 +392,33 @@ const PANELS = DECK.slice(_rot).concat(DECK.slice(0, _rot))
     } else if (action.type === 'scroll') {
       const el = document.querySelector(action.sel);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (action.type === 'planet') {
+      // Swoop Rex's World to the category's planet (video/images/music/products).
+      const world = document.getElementById('section-world');
+      if (world) world.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.worldFocusHub) window.worldFocusHub(action.val);
     }
   }
 
   // ── Loop ─────────────────────────────────────────────────────────────────────
-  function start() { if (!running) { running = true; raf = requestAnimationFrame(tick); } }
+  function start() { if (!running) { running = true; lastNow = 0; raf = requestAnimationFrame(tick); } }
   function stop()  { running = false; cancelAnimationFrame(raf); }
 
-  function tick() {
+  let lastNow = 0;
+  function tick(now) {
     if (!running) return;
     raf = requestAnimationFrame(tick);
+    // frames at a 60fps reference — keeps idle spin/scroll speed identical on 120Hz
+    const dtF = (now && lastNow) ? Math.min(3, (now - lastNow) / 16.667) : 1;
+    if (now) lastNow = now;
     if (!dragging) {
       if (Math.abs(vel) > 0.0002) { spinner.rotation.z += vel; vel *= 0.94; }
-      else if (idleActive && !reduced) { spinner.rotation.z += 0.0016; }
+      else if (idleActive && !reduced) { spinner.rotation.z += 0.0016 * dtF; }
     }
     if (band && !reduced) {
       // thumbnails stream around the loop like a film reel feeding the twist
       const m = band.material.map;
-      m.offset.x = (m.offset.x + 0.0007) % 1;
+      m.offset.x = (m.offset.x + 0.0007 * dtF) % 1;
     }
     // tactile hover: ease the bulge/glow toward the touched spot
     const sh = band && band.material.userData.shader;

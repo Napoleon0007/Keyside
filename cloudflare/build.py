@@ -17,10 +17,8 @@ ROOT = Path(__file__).resolve().parent.parent  # Keyside repo root
 OUT = Path(__file__).resolve().parent / "public"
 
 # Prod-equivalent environment — must be set BEFORE importing app.
-# GOOGLE_TILES_KEY is public by design (baked into the page, referrer-locked).
 os.environ["GITHUB_VIDEO_REPO"] = "Napoleon0007/Art-Hub"
 os.environ.setdefault("GITHUB_VIDEO_BRANCH", "main")
-os.environ.setdefault("GOOGLE_TILES_KEY", "AIzaSyA95VlzkBjey2Ng1h7Bfl--RmVa8GtTOl0")
 os.environ.setdefault("SECRET_KEY", "build-snapshot-only")
 
 sys.path.insert(0, str(ROOT))

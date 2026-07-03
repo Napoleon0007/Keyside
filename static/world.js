@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 
 const stage = document.getElementById('worldStage');
-if (stage) boot(stage).catch(() => revealFallback());
+if (stage) boot(stage).catch((e) => { console.error('[world] boot failed:', e); revealFallback(); });
 
 function revealFallback() {
   const fb = document.getElementById('worldFallback');
@@ -29,7 +29,8 @@ async function boot(stage) {
   }
   // Phones: render at 1× — a 2× framebuffer for this big, texture-heavy scene blows the
   // GPU memory budget and crashes the tab when you interact/zoom. Desktop stays crisp.
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth <= 768 ? 1 : 2));
+  // min(w,h) so landscape phones (932px wide) still count as phones and get 1×.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, Math.min(window.innerWidth, window.innerHeight) <= 768 ? 1 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearAlpha(0);
   stage.appendChild(renderer.domElement);
@@ -777,7 +778,9 @@ async function boot(stage) {
   }
 
   const el = renderer.domElement;
-  el.style.touchAction = 'none';
+  // pan-y: vertical swipes scroll the page (this section is a full viewport tall on
+  // phones — 'none' made it a scroll trap); horizontal drags orbit, pinch still zooms.
+  el.style.touchAction = 'pan-y';
 
   el.addEventListener('pointerdown', e => {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -840,15 +843,6 @@ async function boot(stage) {
       dragBody = null; inputMode = 'idle';
       if (b && !moved) {
         focusOn(b, { frameRadius: 170 });                  // a tap (no drag) → fly to the planet
-        // Earth (network): first tap flies to it, a second tap dives into Google 3D Earth.
-        if (b.key === 'network' && window.openEarthDive) {
-          if (window._earthArmed) { window._earthArmed = false; window.openEarthDive(); }
-          else {
-            window._earthArmed = true;
-            clearTimeout(window._earthArmT);
-            window._earthArmT = setTimeout(() => { window._earthArmed = false; }, 4000);
-          }
-        } else { window._earthArmed = false; }
       }
     } else if (dragging && pointers.size === 0) {
       dragging = false; inputMode = 'idle';
@@ -860,14 +854,16 @@ async function boot(stage) {
   el.addEventListener('pointercancel', endPointer);
 
   el.addEventListener('wheel', e => {
-    e.preventDefault();
-    if (tour.active) stopTour();
-    if (focus) cancelFocus();
     // macOS trackpad pinch arrives as a ctrlKey wheel — treat it as a stronger zoom,
     // so pinch-to-zoom and two-finger scroll both work natively.
     const factor = e.ctrlKey ? 7 : 0.5;
+    const next = clamp(tCamZ + e.deltaY * factor, 180, 1750);   // zoom out far enough to see the whole outer shell
+    if (next === tCamZ) return;   // at the zoom limit: let the wheel scroll the page instead of eating it
+    e.preventDefault();
+    if (tour.active) stopTour();
+    if (focus) cancelFocus();
     userZoomed = true;
-    tCamZ = clamp(tCamZ + e.deltaY * factor, 180, 1750);   // zoom out far enough to see the whole outer shell
+    tCamZ = next;
   }, { passive: false });
 
   function pointerSpread() {
@@ -1088,12 +1084,13 @@ async function boot(stage) {
   }
 
   function isClickable(node) {
-    return node.kind === 'app' || node.kind === 'modal' || (node.kind === 'link' && !!node.url);
+    return (node.kind === 'app' && !!(node.payload && node.payload.url))
+      || node.kind === 'modal' || (node.kind === 'link' && !!node.url);
   }
 
   // One click → straight to it, reusing main.js's navigation.
   function openTarget(node) {
-    if (node.kind === 'app'   && window.openAppModal) window.openAppModal(node.payload);
+    if (node.kind === 'app' && node.payload && node.payload.url && window.openAppModal) window.openAppModal(node.payload);
     else if (node.kind === 'modal' && window.openModal) window.openModal(node.payload);
     else if (node.kind === 'link' && node.url) window.open(node.url, '_blank', 'noopener');
   }
@@ -1128,6 +1125,7 @@ async function boot(stage) {
     }
 
     if (node.kind === 'link' && !node.url) { hcGo.textContent = 'coming soon'; hcGo.classList.add('soon'); }
+    else if (node.kind === 'app' && !(node.payload && node.payload.url)) { hcGo.textContent = 'coming soon'; hcGo.classList.add('soon'); }
     else if (node.kind === 'portal')       { hcGo.textContent = 'coming soon'; hcGo.classList.add('soon'); }
     else if (isClickable(node))            { hcGo.textContent = 'click to open →'; hcGo.classList.remove('soon'); }
     else                                   { hcGo.textContent = ''; hcGo.classList.remove('soon'); }
@@ -1182,15 +1180,19 @@ async function boot(stage) {
   }
 
   // ── Render loop (paused off-screen) ──────────────────────────────────────────
-  let raf = null, visible = false, t = 0;
+  let raf = null, visible = false, t = 0, lastNow = 0;
   const io = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting;
-    if (visible && !raf) raf = requestAnimationFrame(loop);
+    if (visible && !raf) { lastNow = 0; raf = requestAnimationFrame(loop); }
   }, { threshold: 0.02 });
   io.observe(section || stage);
 
-  function loop() {
-    t += 0.016;
+  function loop(now) {
+    // Real frame time (clamped) so motion doesn't run 2× on 120Hz ProMotion phones.
+    const dt  = (now && lastNow) ? Math.min(0.05, (now - lastNow) / 1000) : 0.016;
+    const dtF = dt / 0.016;                      // "frames at 60fps" for per-frame constants
+    if (now) lastNow = now;
+    t += dt;
 
     if (focus) {                                   // cinematic fly-to (Phase 2)
       let k = focus.dur > 0 ? (t - focus.t0) / focus.dur : 1;
@@ -1219,12 +1221,12 @@ async function boot(stage) {
     if (!dragging && inputMode === 'idle' && !tour.active) {
       rotateBy(velYaw, velPitch);
       velYaw *= 0.92; velPitch *= 0.92;
-      if (autoRot && Math.abs(velYaw) < 0.04 && Math.abs(velPitch) < 0.04) rotateBy(0.16, 0);
+      if (autoRot && Math.abs(velYaw) < 0.04 && Math.abs(velPitch) < 0.04) rotateBy(0.16 * dtF, 0);
     }
-    for (const o of orbiters) o.group.rotation.y += o.speed;
-    for (const p of planetMeshes) p.mesh.rotation.y += p.spin;
+    for (const o of orbiters) o.group.rotation.y += o.speed * dtF;
+    for (const p of planetMeshes) p.mesh.rotation.y += p.spin * dtF;
     stepPhysics();
-    galaxies.update(0.016);
+    galaxies.update(dt);
     meteors.update(t);
     flybys.update(t, reduced);
     pulsar.update(t, reduced);
@@ -1247,8 +1249,8 @@ async function boot(stage) {
     core.glow.scale.setScalar(core.radius * 4.0 * pulse);
     core.mesh.material.emissiveIntensity = 1.3 + Math.sin(t * 1.6) * 0.25;
     rexStar.update(t, reduced);                     // animate the central star (corona/flares/ring)
-    stars.rotation.y += 0.0002;
-    portalDisc.rotation.z += reduced ? 0 : 0.0035;                 // accretion swirl
+    stars.rotation.y += 0.0002 * dtF;
+    portalDisc.rotation.z += reduced ? 0 : 0.0035 * dtF;           // accretion swirl
     portalHalo.material.opacity = 0.4 + Math.sin(t * 1.1) * 0.12;  // breathing halo
 
     updateEdges();
@@ -1403,26 +1405,6 @@ function makeFlareTexture() {
   g.fillStyle = grad;
   g.save(); g.translate(32, 0); g.scale(0.4, 1); g.translate(-32, 0);
   g.fillRect(0, 0, 64, 128); g.restore();
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-// A thin bright ring (the lensing photon ring).
-function makeRingTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
-  grad.addColorStop(0.00, 'rgba(0,0,0,0)');
-  grad.addColorStop(0.42, 'rgba(120,160,255,0)');
-  grad.addColorStop(0.47, 'rgba(190,210,255,0.85)');
-  grad.addColorStop(0.50, 'rgba(255,255,255,0.95)');
-  grad.addColorStop(0.53, 'rgba(190,210,255,0.7)');
-  grad.addColorStop(0.60, 'rgba(120,160,255,0)');
-  grad.addColorStop(1.00, 'rgba(0,0,0,0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 256, 256);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;

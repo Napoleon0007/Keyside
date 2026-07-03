@@ -62,7 +62,10 @@
       "Bash(cat Procfile)",
       "Bash(ls railway.json nixpacks.toml Dockerfile)",
       "Bash(cat requirements.txt)",
-      "Bash(osascript -e 'tell application \"Safari\" to activate')"
+      "Bash(osascript -e 'tell application \"Safari\" to activate')",
+      "Bash(ps -p 58266 -o comm=)",
+      "Bash(ps -p 64565 -o comm=)",
+      "Bash(ps -p 58266 -o args=)"
     ]
   }
 }

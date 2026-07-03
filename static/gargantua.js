@@ -179,7 +179,8 @@ function boot(canvas, renderer) {
   function frame(ms) {
     if (!running) return;
     const t = ms / 1000;
-    const dt = prevT ? Math.min(0.05, t - prevT) : 0.016;
+    const rawDt = prevT ? t - prevT : 0.016;       // unclamped — the watchdog needs to see real stalls
+    const dt = Math.min(0.05, rawDt);
     prevT = t;
     uniforms.uTime.value = t;
 
@@ -193,7 +194,7 @@ function boot(canvas, renderer) {
     renderer.render(scene, cam);
 
     // watchdog: sample frame time, step down resolution (then fall back) if it tanks
-    frameTimes.push(dt);
+    frameTimes.push(rawDt);
     if (frameTimes.length >= 90) {
       const sorted = frameTimes.slice().sort((a, b) => a - b);
       const median = sorted[sorted.length >> 1];

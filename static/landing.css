@@ -253,41 +253,6 @@
   background:
     radial-gradient(120% 90% at 50% 42%, rgba(10,4,6,0) 0%, rgba(8,3,2,0.18) 60%, rgba(0,0,0,0.45) 100%);
 }
-
-/* Zuma video — a recessed holographic projection, set back, dark around it.
-   screen blend drops the blacks out (projection feel); masked edges fade to dark. */
-.hero-bg-loop {
-  position: absolute;
-  left: 50%; top: 47%;
-  width: min(98vw, 1400px);
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  transform: translate(-50%, -50%) perspective(1500px) rotateX(7deg) scale(.99);
-  opacity: .82;
-  mix-blend-mode: screen;
-  filter: saturate(1.2) brightness(1.06);
-  -webkit-mask-image: radial-gradient(ellipse 92% 90% at 50% 50%, #000 72%, transparent 100%);
-  mask-image: radial-gradient(ellipse 92% 90% at 50% 50%, #000 72%, transparent 100%);
-  z-index: 0;
-  pointer-events: none;
-}
-/* scanline + sheen overlay sitting on the same projected plane */
-.hero-holo {
-  position: absolute;
-  left: 50%; top: 47%;
-  width: min(98vw, 1400px);
-  aspect-ratio: 16 / 9;
-  transform: translate(-50%, -50%) perspective(1500px) rotateX(7deg) scale(.99);
-  z-index: 2;
-  pointer-events: none;
-  mix-blend-mode: screen;
-  background:
-    repeating-linear-gradient(0deg, rgba(120,200,255,.10) 0px, rgba(120,200,255,.10) 1px, transparent 2px, transparent 4px),
-    radial-gradient(ellipse at center, rgba(80,190,255,.06), transparent 72%);
-  -webkit-mask-image: radial-gradient(ellipse 92% 90% at 50% 50%, #000 72%, transparent 100%);
-  mask-image: radial-gradient(ellipse 92% 90% at 50% 50%, #000 72%, transparent 100%);
-  animation: holoFlicker 6.5s ease-in-out infinite;
-}
 @keyframes holoFlicker {
   0%, 100% { opacity: .85; }
   47% { opacity: .7; }
@@ -340,8 +305,10 @@
   width: clamp(340px, 50vh, 600px);
   height: clamp(340px, 50vh, 600px);
   z-index: 2;                 /* behind the title (z6) + orbit disc, above the scrim */
-  pointer-events: auto;
-  touch-action: none;
+  /* The Möbius stage (z4) covers this canvas, so its pointer handlers can never fire —
+     but pointer-events:auto + touch-action:none still made it an 86vw scroll trap on
+     phones. Let every gesture pass through. */
+  pointer-events: none;
   cursor: grab;
   opacity: 0.95;
   filter: drop-shadow(0 0 54px rgba(45, 150, 255, 0.5));
@@ -363,20 +330,6 @@
   justify-content: center;
   perspective: 1600px;
   perspective-origin: 50% 50%;
-}
-
-/* Rex Trueform logo medallion the panels revolve around */
-.orbit-logo {
-  position: absolute;
-  left: 50%; top: 50%;
-  width: clamp(120px, 18vmin, 190px);
-  height: clamp(120px, 18vmin, 190px);
-  transform: translate(-50%, -50%);
-  object-fit: cover;
-  border-radius: 50%;
-  z-index: 1;                       /* behind the ring; visible front cards pass over it */
-  pointer-events: none;
-  box-shadow: 0 0 0 1px rgba(255,85,0,.3), 0 0 70px rgba(255,85,0,.5);
 }
 
 /* ---- Möbius band (WebGL) — replaces the CSS card ring in the hero ---- */
@@ -445,6 +398,9 @@
   pointer-events: none;
   text-shadow: 0 4px 26px rgba(0,0,0,.8);
 }
+
+/* …but the Explore CTA inside it must stay clickable */
+.hero-orbit .hero-cta { pointer-events: auto; }
 
 .hero-scroll-cue {
   position: absolute;

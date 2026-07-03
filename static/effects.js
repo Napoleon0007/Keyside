@@ -37,7 +37,6 @@
   // ── Hero parallax ─────────────────────────────────────────────────────────
   if (reduced) return;
 
-  const heroVideo   = document.querySelector('.hero-bg-video');
   const heroContent = document.querySelector('.hero-content');
   const hero        = document.querySelector('.hero');
   if (!hero) return;
@@ -69,21 +68,8 @@
     cmx += (tmx - cmx) * 0.06;
     cmy += (tmy - cmy) * 0.06;
 
-    const t    = performance.now();
     const max  = hero.offsetHeight || 1;
     const prog = Math.min(scrollY / max, 1); // 0..1 through the hero
-
-    // Continuous "levitation" — slow, offset sine drift on each axis.
-    const floatX = Math.sin(t / 3400) * 9;
-    const floatY = Math.cos(t / 2700) * 7;
-
-    // Background: drifts WITH the cursor + breathes + parallax-scrolls down.
-    const bgX = cmx * 26 + floatX;
-    const bgY = cmy * 26 + floatY + scrollY * 0.35;
-    if (heroVideo) {
-      heroVideo.style.transform =
-        `translate3d(${bgX.toFixed(2)}px, ${bgY.toFixed(2)}px, 0) scale(1.16)`;
-    }
 
     // Foreground title: drifts AGAINST the cursor → parallax depth, fades on scroll.
     if (heroContent) {
